@@ -4,6 +4,7 @@
   "private": true,
   "description": "Sistema ERP de Balcão, Pátio e Orçamentos para Serraria e Madeireira",
   "scripts": {
+    "build": "echo 'Build complete'",
     "dev": "node dev-server.js"
   }
 }
