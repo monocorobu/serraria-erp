@@ -698,26 +698,39 @@ const GerenteModule = {
               : '<span class="badge-role-tag badge-role-func">Funcionário (Operacional)</span>'}
           </td>
           <td class="align-center">
-            ${u.ativo 
-              ? '<span class="status-badge status-aprovado">Ativo</span>' 
-              : '<span class="status-badge status-cancelado">Bloqueado</span>'}
+            <span class="badge-tag ${u.ativo ? 'badge-aprovado' : 'badge-cancelado'}">
+              ${u.ativo ? '● Ativo' : '● Bloqueado'}
+            </span>
           </td>
-          <td class="align-center">
-            <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
-              <button class="btn btn-sm btn-secondary" title="Alterar Senha de Acesso" onclick="GerenteModule.abrirModalAlterarSenha('${u.id}')">
-                Senha
+          <td class="align-center" style="white-space: nowrap;">
+            <div style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: nowrap; white-space: nowrap;">
+              <button class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; font-weight: 600;" title="Alterar Senha de Acesso" onclick="GerenteModule.abrirModalAlterarSenha('${u.id}')">
+                <svg viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span>Senha</span>
               </button>
               ${!ehVoce ? `
-                <button class="btn btn-sm btn-secondary" title="${isAdmin ? 'Rebaixar para Funcionário' : 'Promover para Admin'}" onclick="GerenteModule.alternarPerfilUsuario('${u.id}')">
-                  ${isAdmin ? 'Tornar Func.' : 'Tornar Admin'}
+                <button class="btn btn-sm btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 0 8px;" title="${isAdmin ? 'Rebaixar para perfil Funcionário' : 'Promover para perfil Administrador'}" onclick="GerenteModule.alternarPerfilUsuario('${u.id}')">
+                  <svg viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2;"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+                  <span>${isAdmin ? 'Rebaixar' : 'Promover'}</span>
                 </button>
-                <button class="btn btn-sm btn-secondary" title="${u.ativo ? 'Bloquear Acesso' : 'Desbloquear'}" onclick="GerenteModule.alternarStatusUsuario('${u.id}')">
-                  ${u.ativo ? 'Bloquear' : 'Ativar'}
+                <button class="btn btn-sm ${u.ativo ? 'btn-secondary' : 'btn-success'}" style="display: inline-flex; align-items: center; gap: 4px; padding: 0 8px;" title="${u.ativo ? 'Bloquear acesso do usuário' : 'Desbloquear acesso do usuário'}" onclick="GerenteModule.alternarStatusUsuario('${u.id}')">
+                  ${u.ativo ? `
+                    <svg viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2;"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    <span>Bloquear</span>
+                  ` : `
+                    <svg viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2;"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>Ativar</span>
+                  `}
                 </button>
-                <button class="btn btn-sm btn-danger" style="background-color: #EF4444; color: #FFFFFF;" title="Apagar Conta Permanentemente" onclick="GerenteModule.excluirContaUsuario('${u.id}')">
-                  Apagar
+                <button class="btn btn-sm btn-danger" style="display: inline-flex; align-items: center; gap: 4px; padding: 0 8px;" title="Excluir permanentemente esta conta" onclick="GerenteModule.excluirContaUsuario('${u.id}')">
+                  <svg viewBox="0 0 24 24" style="width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2;"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  <span>Apagar</span>
                 </button>
-              ` : ''}
+              ` : `
+                <span class="badge-tag" style="background-color: var(--bg-surface-subtle); color: var(--text-muted); font-size: 11px; padding: 3px 8px; border: 1px dashed var(--border-medium);">
+                  Sua sessão ativa
+                </span>
+              `}
             </div>
           </td>
         </tr>
