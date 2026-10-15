@@ -144,10 +144,6 @@ const App = {
         this.switchTab('balcao');
         BalcaoModule.iniciarNovoOrcamento();
         this.showToast('Novo orçamento iniciado [F2]', 'info');
-      } else if (e.key === 'F4') {
-        e.preventDefault();
-        this.switchTab('balcao');
-        BalcaoModule.abrirModalCalculadoraTelhado();
       } else if (e.key === 'F8') {
         e.preventDefault();
         this.switchTab('balcao');
