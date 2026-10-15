@@ -298,6 +298,9 @@
               <!-- Select original mantido oculto para compatibilidade total com o motor -->
               <select id="fast-produto-select" class="form-select" style="display: none;"></select>
 
+              <!-- Indicador de Estoque em Tempo Real no Balcão -->
+              <div id="fast-produto-estoque-badge" style="display: none; margin-top: 5px; font-size: 11px; line-height: 1.3;"></div>
+
               <!-- Dropdown Flutuante de Busca Inteligente -->
               <div id="fast-produto-dropdown" class="product-combobox-dropdown" style="display: none;">
                 <div class="combobox-header">
@@ -2342,6 +2345,61 @@
       <div style="display: flex; gap: 8px;">
         <button type="button" class="btn btn-secondary" onclick="EstoqueModule.fecharModalEditarProduto()">Cancelar</button>
         <button type="button" class="btn btn-primary" id="btn-salvar-produto-modal" onclick="EstoqueModule.salvarEdicaoProduto()">Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: CONFERÊNCIA E AJUSTE DE ESTOQUE NO BALCÃO -->
+<div class="modal-overlay" id="modal-alerta-estoque-balcao">
+  <div class="modal-container modal-lg" style="max-width: 840px;">
+    <div class="modal-header" style="background: linear-gradient(135deg, #FEF2F2 0%, #FFFBEB 100%); border-bottom: 1px solid #FCA5A5;">
+      <div>
+        <div class="modal-title" style="color: #991B1B; font-size: 14.5px;">
+          <svg viewBox="0 0 24 24" style="stroke: #DC2626; fill: none; width: 20px; height: 20px; stroke-width: 2.2;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Conferência de Estoque Físico — Itens com Falta ou Divergência</span>
+        </div>
+        <div style="font-size: 11.5px; color: #7F1D1D; margin-top: 3px;">
+          O sistema identificou itens no pedido com <strong>estoque zerado</strong> ou <strong>saldo insuficiente</strong> registrado no banco de dados.
+        </div>
+      </div>
+      <button class="modal-close" onclick="BalcaoModule.fecharModalAlertaEstoque()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 16px;">
+      <div style="background-color: #FFFBEB; border: 1px solid #FCD34D; border-radius: var(--radius-md); padding: 11px 14px; margin-bottom: 14px; font-size: 12px; color: #92400E; display: flex; gap: 10px; align-items: flex-start;">
+        <span style="font-size: 20px; line-height: 1;">💡</span>
+        <div>
+          <strong>Rotina da Madeireira / Serraria:</strong> É comum haver mercadorias físicas no balcão ou pátio (pregos, parafusos, madeiras) que ainda não foram lançadas no sistema.
+          Se você <strong>conferiu que o produto está na prateleira</strong>, digite a quantidade real no campo abaixo e clique em <strong>Atualizar</strong> para alimentar o estoque imediatamente, ou clique em liberar venda se a mercadoria já foi conferida.
+        </div>
+      </div>
+
+      <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+        <table class="dense-table" style="width: 100%;">
+          <thead>
+            <tr>
+              <th style="width: 28%;">Produto / Material</th>
+              <th class="align-center" style="width: 15%;">Qtd Pedida</th>
+              <th class="align-center" style="width: 15%;">Estoque Sistema</th>
+              <th class="align-center" style="width: 18%;">Situação</th>
+              <th style="width: 24%;">Acertar Estoque Real (Se tiver no balcão)</th>
+            </tr>
+          </thead>
+          <tbody id="lista-alertas-estoque-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; background: #F8FAFC;">
+      <button type="button" class="btn btn-secondary" onclick="BalcaoModule.fecharModalAlertaEstoque()">
+        <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; vertical-align: middle; margin-right: 4px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        <span>Voltar e Corrigir Pedido</span>
+      </button>
+
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn btn-success" id="btn-confirmar-venda-mesmo-sem-estoque" onclick="BalcaoModule.confirmarVendaComDivergenciaEstoque()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2.2;"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Mercadoria Conferida no Balcão (Liberar Venda)</span>
+        </button>
       </div>
     </div>
   </div>

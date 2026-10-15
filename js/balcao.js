@@ -19,6 +19,10 @@ const BalcaoModule = {
     eventsInitialized: false
   },
 
+  // Controle de verificação e liberação de estoque físico no balcão
+  _origemAcaoEstoque: null,
+  _liberacaoEstoqueAutorizada: false,
+
   init() {
     this.iniciarNovoOrcamento();
     this.renderBairrosSelect();
@@ -100,6 +104,9 @@ const BalcaoModule = {
 
     const obsVenda = document.getElementById('balcao-observacoes');
     if (obsVenda) obsVenda.value = '';
+
+    this._origemAcaoEstoque = null;
+    this._liberacaoEstoqueAutorizada = false;
 
     this.atualizarTotais();
     
@@ -266,7 +273,14 @@ const BalcaoModule = {
     ['fast-qtd-input', 'fast-comprimento-input', 'fast-preco-input'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
-        el.addEventListener('input', () => this.calcularSubtotalRapido());
+        el.addEventListener('input', () => {
+          this.calcularSubtotalRapido();
+          const selectProd = document.getElementById('fast-produto-select');
+          if (selectProd && selectProd.value) {
+            const qtdVal = parseFloat(document.getElementById('fast-qtd-input')?.value) || 1;
+            this.atualizarIndicadorEstoqueRapido(selectProd.value, qtdVal);
+          }
+        });
         el.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
@@ -484,6 +498,14 @@ const BalcaoModule = {
       return;
     }
 
+    // Verificação de divergência ou falta de estoque físico no sistema
+    const pendenciasEstoque = this.verificarEstoqueItens();
+    if (pendenciasEstoque.length > 0 && !this._liberacaoEstoqueAutorizada) {
+      this.abrirModalAlertaEstoque('FINALIZAR_BALCAO');
+      return;
+    }
+    this._liberacaoEstoqueAutorizada = false;
+
     // Ativa checkbox de retirada imediata e zera o frete
     const chkRetirada = document.getElementById('balcao-retirada-imediata');
     if (chkRetirada) chkRetirada.checked = true;
@@ -540,6 +562,207 @@ const BalcaoModule = {
 
     // Prepara tela do balcão para o próximo atendimento
     this.iniciarNovoOrcamento();
+  },
+
+  // =========================================================================
+  // SISTEMA DE VERIFICAÇÃO E CONFERÊNCIA INTELIGENTE DE ESTOQUE
+  // =========================================================================
+  atualizarIndicadorEstoqueRapido(produtoId, qtd = 1) {
+    const badge = document.getElementById('fast-produto-estoque-badge');
+    if (!badge) return;
+
+    if (!produtoId) {
+      badge.innerHTML = '';
+      badge.style.display = 'none';
+      return;
+    }
+
+    const produto = DB.getProdutos().find(p => p.id === produtoId);
+    if (!produto) {
+      badge.innerHTML = '';
+      badge.style.display = 'none';
+      return;
+    }
+
+    const estoque = parseFloat(produto.estoque_atual) || 0;
+    const unid = produto.unidade_medida || produto.tipo_calculo || 'un';
+    const qtdNum = parseFloat(qtd) || 0;
+
+    badge.style.display = 'block';
+
+    if (estoque <= 0) {
+      badge.innerHTML = `
+        <span class="badge-tag" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FCA5A5; padding: 2px 8px; border-radius: 4px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+          <span>⚠️</span> <span>ESTOQUE DIGITAL ZERADO (0 ${unid})</span> — <em>Conferir fisicamente no balcão</em>
+        </span>
+      `;
+    } else if (qtdNum > estoque) {
+      badge.innerHTML = `
+        <span class="badge-tag" style="background: #FFFBEB; color: #D97706; border: 1px solid #FCD34D; padding: 2px 8px; border-radius: 4px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+          <span>⚠️</span> <span>Estoque insuficiente no sistema:</span> Disponível <strong>${estoque} ${unid}</strong> (pedido: ${qtdNum})
+        </span>
+      `;
+    } else {
+      badge.innerHTML = `
+        <span class="badge-tag" style="background: #ECFDF5; color: #047857; border: 1px solid #10B981; padding: 2px 8px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+          <span>✓</span> <span>Estoque disponível no sistema:</span> <strong>${estoque} ${unid}</strong>
+        </span>
+      `;
+    }
+  },
+
+  verificarEstoqueItens() {
+    const produtos = DB.getProdutos();
+    const pendencias = [];
+
+    for (const item of (this.currentOrder.itens || [])) {
+      const prod = produtos.find(p => p.id === item.produto_id);
+      if (!prod) continue;
+
+      const estoque = parseFloat(prod.estoque_atual) || 0;
+      const qtdPedida = parseFloat(item.quantidade) || 0;
+
+      if (estoque <= 0) {
+        pendencias.push({
+          item,
+          produto: prod,
+          tipo: 'ZERADO',
+          estoque,
+          qtdPedida,
+          unidade: prod.unidade_medida || prod.tipo_calculo || 'un',
+          motivo: 'Estoque ZERADO no sistema (0 un)'
+        });
+      } else if (qtdPedida > estoque) {
+        pendencias.push({
+          item,
+          produto: prod,
+          tipo: 'INSUFICIENTE',
+          estoque,
+          qtdPedida,
+          unidade: prod.unidade_medida || prod.tipo_calculo || 'un',
+          motivo: `Quantidade pedida (${qtdPedida}) é maior que estoque (${estoque})`
+        });
+      }
+    }
+
+    return pendencias;
+  },
+
+  abrirModalAlertaEstoque(origemAcao = 'FINALIZAR_BALCAO') {
+    this._origemAcaoEstoque = origemAcao;
+    const modal = document.getElementById('modal-alerta-estoque-balcao');
+    const tbody = document.getElementById('lista-alertas-estoque-tbody');
+    if (!modal || !tbody) return;
+
+    const pendencias = this.verificarEstoqueItens();
+    if (!pendencias.length) {
+      App.showToast('Todos os itens possuem estoque suficiente.', 'success');
+      return;
+    }
+
+    tbody.innerHTML = pendencias.map(p => {
+      const isZerado = p.tipo === 'ZERADO';
+      return `
+        <tr id="linha-alerta-est-${p.produto.id}">
+          <td>
+            <div class="font-mono" style="font-weight: 700; color: var(--primary-green); font-size: 11px;">${p.produto.codigo}</div>
+            <strong style="font-size: 12.5px;">${p.produto.nome}</strong>
+          </td>
+          <td class="align-center font-mono" style="font-weight: 700; font-size: 13px;">
+            ${p.qtdPedida} <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">${p.unidade}</span>
+          </td>
+          <td class="align-center font-mono" style="font-weight: 700; font-size: 13px; color: ${isZerado ? '#DC2626' : '#D97706'};">
+            ${p.estoque} <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">${p.unidade}</span>
+          </td>
+          <td class="align-center">
+            ${isZerado 
+              ? '<span class="badge-tag" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 10.5px; font-weight: 700;">● ZERADO NO SISTEMA</span>' 
+              : '<span class="badge-tag" style="background: #FEF3C7; color: #D97706; border: 1px solid #FCD34D; font-size: 10.5px; font-weight: 700;">● SALDO INSUFICIENTE</span>'}
+          </td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="number" min="0" step="1" id="input-ajuste-est-${p.produto.id}" class="form-input font-mono" style="width: 85px; height: 28px; padding: 2px 6px; font-size: 12px;" placeholder="${Math.max(p.qtdPedida, p.estoque + 10)}" title="Digite a quantidade real que você encontrou na prateleira">
+              <button type="button" class="btn btn-sm btn-primary" onclick="BalcaoModule.salvarEstoqueRapidoPeloModal('${p.produto.id}')" style="padding: 2px 10px; font-size: 11px; white-space: nowrap; height: 28px;">
+                ✓ Salvar Estoque
+              </button>
+            </div>
+            <div id="msg-ajuste-est-${p.produto.id}" style="font-size: 10px; margin-top: 2px; display: none;"></div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    modal.classList.add('active');
+  },
+
+  fecharModalAlertaEstoque() {
+    const modal = document.getElementById('modal-alerta-estoque-balcao');
+    if (modal) modal.classList.remove('active');
+    this._origemAcaoEstoque = null;
+  },
+
+  salvarEstoqueRapidoPeloModal(prodId) {
+    const input = document.getElementById(`input-ajuste-est-${prodId}`);
+    const msg = document.getElementById(`msg-ajuste-est-${prodId}`);
+    if (!input) return;
+
+    const novoValor = parseFloat(input.value);
+    if (isNaN(novoValor) || novoValor < 0) {
+      App.showToast('Informe uma quantidade válida para o estoque.', 'warning');
+      input.focus();
+      return;
+    }
+
+    const prod = DB.ajustarEstoque(prodId, novoValor, true);
+    if (!prod) return;
+
+    // Atualiza todos os módulos para sincronização total
+    if (window.EstoqueModule) {
+      EstoqueModule.renderCardsKPI();
+      EstoqueModule.renderTabelaEstoque();
+    }
+    if (window.PrecosModule) PrecosModule.renderTabelaPrecos();
+    this.renderProdutosSelect();
+    this.renderTabelaItens();
+
+    App.showToast(`Estoque de "${prod.nome}" atualizado para ${prod.estoque_atual} ${prod.unidade_medida || 'un'} com sucesso!`, 'success');
+
+    if (msg) {
+      msg.textContent = `✓ Estoque atualizado para ${prod.estoque_atual} ${prod.unidade_medida || 'un'}`;
+      msg.style.color = '#059669';
+      msg.style.display = 'block';
+    }
+
+    // Revalida as pendências restantes
+    const restantes = this.verificarEstoqueItens();
+    if (restantes.length === 0) {
+      setTimeout(() => {
+        this.fecharModalAlertaEstoque();
+        App.showToast('Todos os itens foram regularizados no estoque! Prosseguindo...', 'info');
+        if (this._origemAcaoEstoque === 'FINALIZAR_BALCAO') {
+          this.finalizarVendaBalcaoImediata();
+        } else if (this._origemAcaoEstoque === 'APROVAR_VENDA') {
+          this.salvarPedidoCompleto('APROVADO');
+        }
+      }, 500);
+    } else {
+      // Re-renderiza o modal com os que ainda faltam
+      this.abrirModalAlertaEstoque(this._origemAcaoEstoque);
+    }
+  },
+
+  confirmarVendaComDivergenciaEstoque() {
+    this._liberacaoEstoqueAutorizada = true;
+    const origem = this._origemAcaoEstoque;
+    this.fecharModalAlertaEstoque();
+
+    App.showToast('Venda liberada após conferência física de mercadoria no balcão.', 'info');
+
+    if (origem === 'FINALIZAR_BALCAO') {
+      this.finalizarVendaBalcaoImediata();
+    } else if (origem === 'APROVAR_VENDA') {
+      this.salvarPedidoCompleto('APROVADO');
+    }
   },
 
   renderBairrosSelect() {
@@ -1022,6 +1245,12 @@ const BalcaoModule = {
 
     if (inputPreco) inputPreco.value = '0.00';
     if (subtotalEl) subtotalEl.textContent = 'R$ 0,00';
+
+    const estBadge = document.getElementById('fast-produto-estoque-badge');
+    if (estBadge) {
+      estBadge.innerHTML = '';
+      estBadge.style.display = 'none';
+    }
   },
 
   setupProdutoComboboxEvents() {
@@ -1189,6 +1418,7 @@ const BalcaoModule = {
     }
 
     this.atualizarPrecoRapido();
+    this.atualizarIndicadorEstoqueRapido(prodId, parseFloat(inputQtd?.value) || 1);
   },
 
   atualizarPrecoRapido() {
@@ -1282,6 +1512,14 @@ const BalcaoModule = {
       return;
     }
 
+    // Alerta preventivo se o item estiver zerado ou com saldo baixo no estoque
+    const estoqueAtual = parseFloat(produto.estoque_atual) || 0;
+    if (estoqueAtual <= 0) {
+      App.showToast(`⚠️ Atenção: "${produto.nome}" está zerado no estoque digital do sistema. Verifique a prateleira.`, 'warning');
+    } else if (qtd > estoqueAtual) {
+      App.showToast(`⚠️ Atenção: Quantidade solicitada (${qtd}) é maior que o saldo em estoque (${estoqueAtual} ${produto.unidade_medida || 'un'}).`, 'warning');
+    }
+
     const itemObj = {
       id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
       produto_id: produto.id,
@@ -1327,6 +1565,19 @@ const BalcaoModule = {
 
     tbody.innerHTML = this.currentOrder.itens.map((item, index) => {
       const isAparelhada = item.aparelhar;
+      const produto = DB.getProdutos().find(p => p.id === item.produto_id);
+      const estoqueAtual = produto ? (parseFloat(produto.estoque_atual) || 0) : null;
+      let estoqueTag = '';
+      if (estoqueAtual !== null) {
+        if (estoqueAtual <= 0) {
+          estoqueTag = `<div style="margin-top: 3px;"><span class="badge-tag" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 10px; font-weight: 700;">⚠️ Estoque Zerado (0 un) — Conferir balcão</span></div>`;
+        } else if (item.quantidade > estoqueAtual) {
+          estoqueTag = `<div style="margin-top: 3px;"><span class="badge-tag" style="background: #FEF3C7; color: #D97706; border: 1px solid #FCD34D; font-size: 10px; font-weight: 700;">⚠️ Qtd (${item.quantidade}) > Estoque (${estoqueAtual} un)</span></div>`;
+        } else {
+          estoqueTag = `<div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">Estoque no sistema: ${estoqueAtual} ${produto.unidade_medida || 'un'}</div>`;
+        }
+      }
+
       return `
         <tr class="${isAparelhada ? 'row-aparelhada' : ''}" data-item-id="${item.id}">
           <td class="align-center font-mono" style="color: var(--text-muted); font-size: 11px;">${index + 1}</td>
@@ -1334,6 +1585,7 @@ const BalcaoModule = {
           <td>
             <strong>${item.descricao}</strong>
             ${isAparelhada ? '<span style="font-size: 10px; color: var(--action-green); font-weight: 700; margin-left: 6px;">[PLAINA 4 FACES]</span>' : ''}
+            ${estoqueTag}
           </td>
           <td class="align-center">
             <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;">
@@ -1821,6 +2073,16 @@ const BalcaoModule = {
     // Auto-cadastro invisível
     const clienteGarantido = DB.garantirCliente(clienteData);
     this.currentOrder.cliente = clienteGarantido;
+
+    // Se estiver aprovando venda para envio ao pátio, verifica estoque
+    if (statusFinal === 'APROVADO') {
+      const pendenciasEstoque = this.verificarEstoqueItens();
+      if (pendenciasEstoque.length > 0 && !this._liberacaoEstoqueAutorizada) {
+        this.abrirModalAlertaEstoque('APROVAR_VENDA');
+        return;
+      }
+      this._liberacaoEstoqueAutorizada = false;
+    }
 
     // Atualiza status e etapa do pátio
     this.currentOrder.status = statusFinal;
