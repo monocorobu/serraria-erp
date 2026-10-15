@@ -1,0 +1,12 @@
+{
+  "name": "serraria-erp",
+  "version": "1.0.0",
+  "description": "Sistema ERP de Balcão, Pátio e Orçamentos para Serraria e Madeireira",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["erp", "madeireira", "serraria", "balcao", "orcamentos"],
+  "author": "Antigravity",
+  "license": "MIT"
+}

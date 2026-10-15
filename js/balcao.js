@@ -1,0 +1,1713 @@
+/**
+ * SERRARIA & MADEIREIRA ERP - MÓDULO 1: BALCÃO / NOVO ORÇAMENTO
+ * Alta velocidade estilo planilha, ergonomia de teclado, cálculo em tempo real.
+ */
+
+const BalcaoModule = {
+  currentOrder: null,
+  activeClientId: null,
+  activeCarpenterId: null,
+
+  // Estado reativo do combobox inteligente de produtos
+  comboboxProdutos: {
+    cached: [],
+    filtrados: [],
+    activeIndex: -1,
+    isOpen: false,
+    selectedId: null,
+    ultimoTermo: '',
+    eventsInitialized: false
+  },
+
+  init() {
+    this.iniciarNovoOrcamento();
+    this.renderBairrosSelect();
+    this.renderCarpinteirosSelect();
+    this.renderVendedoresSelect();
+    this.renderProdutosSelect();
+    this.setupEventListeners();
+  },
+
+  iniciarNovoOrcamento() {
+    this.currentOrder = {
+      id: 'PED-' + DB.getNextNumeroPedido(),
+      numero: DB.getNextNumeroPedido(),
+      data_criacao: new Date().toISOString(),
+      validade_dias: 7,
+      status: 'ORCAMENTO',
+      etapa_patio: 'NAO_ENVIADO',
+      cliente: {
+        id: '',
+        nome: '',
+        documento: '',
+        telefone: '',
+        email: '',
+        endereco_obra: '',
+        bairro: '',
+        cidade: 'Caçapava',
+        observacoes: ''
+      },
+      carpinteiro_id: '',
+      carpinteiro_nome: '',
+      itens: [],
+      resumo_fisico: {
+        total_pecas: 0,
+        volume_total_m3: 0,
+        peso_total_kg: 0,
+        veiculo_sugerido: 'Picape Leve / Utilitário (Strada / Fiorino / S10)'
+      },
+      resumo_financeiro: {
+        subtotal_itens_puros: 0,
+        taxa_aparelhamento: 0,
+        valor_frete: 0,
+        bairro_frete: '',
+        desconto_tipo: 'VALOR',
+        desconto_valor: 0,
+        desconto_percentual: 0,
+        desconto_autorizado: false,
+        valor_total: 0,
+        forma_pagamento: 'Pix',
+        valor_sinal: 0,
+        saldo_a_receber: 0
+      },
+      checklist_patio: [],
+      observacoes_venda: ''
+    };
+
+    this.activeClientId = null;
+    this.limparSelecaoProdutoRapido(false);
+    this.renderFormularioCliente();
+    this.ocultarAlertaCliente();
+    this.renderTabelaItens();
+    this.atualizarTotais();
+    
+    // Foca na busca de cliente
+    const inputBusca = document.getElementById('balcao-busca-cliente');
+    if (inputBusca) inputBusca.focus();
+  },
+
+  carregarPedidoParaEdicao(pedidoId) {
+    const pedidos = DB.getPedidos();
+    const pedido = pedidos.find(p => p.id === pedidoId);
+    if (!pedido) {
+      App.showToast('Pedido não encontrado.', 'error');
+      return;
+    }
+
+    // Clona o pedido para não mutar diretamente sem salvar
+    this.currentOrder = JSON.parse(JSON.stringify(pedido));
+    this.activeClientId = (pedido.cliente && pedido.cliente.id) || null;
+    this.renderFormularioCliente();
+    
+    if (this.activeClientId) {
+      this.verificarAlertaCliente(this.activeClientId);
+    } else {
+      this.ocultarAlertaCliente();
+    }
+
+    // Atualiza selects
+    const selectVend = document.getElementById('balcao-vendedor-select');
+    if (selectVend && pedido.vendedor) selectVend.value = pedido.vendedor.id || '';
+
+    const selectCarp = document.getElementById('balcao-carpinteiro-select');
+    if (selectCarp && pedido.carpinteiro_id) selectCarp.value = pedido.carpinteiro_id;
+
+    const selectBairro = document.getElementById('balcao-bairro-frete');
+    if (selectBairro && pedido.resumo_financeiro.bairro_frete) {
+      selectBairro.value = pedido.resumo_financeiro.bairro_frete;
+    }
+
+    const selectFormaPgto = document.getElementById('balcao-forma-pagamento');
+    if (selectFormaPgto && pedido.resumo_financeiro.forma_pagamento) {
+      selectFormaPgto.value = pedido.resumo_financeiro.forma_pagamento;
+    }
+
+    const inputFrete = document.getElementById('balcao-frete-valor');
+    if (inputFrete) inputFrete.value = pedido.resumo_financeiro.valor_frete || 0;
+
+    const inputDesconto = document.getElementById('balcao-desconto-valor');
+    if (inputDesconto) inputDesconto.value = pedido.resumo_financeiro.desconto_valor || 0;
+
+    const inputSinal = document.getElementById('balcao-sinal-valor');
+    if (inputSinal) inputSinal.value = pedido.resumo_financeiro.valor_sinal || 0;
+
+    const inputObs = document.getElementById('balcao-observacoes');
+    if (inputObs) inputObs.value = pedido.observacoes_venda || '';
+
+    this.renderTabelaItens();
+    this.atualizarTotais();
+    App.switchTab('balcao');
+    App.showToast(`Orçamento #${pedido.numero} carregado no balcão.`, 'info');
+  },
+
+  setupEventListeners() {
+    // Busca inteligente com autocomplete
+    const buscaCliente = document.getElementById('balcao-busca-cliente');
+    const dropdownCliente = document.getElementById('balcao-autocomplete-cliente');
+
+    if (buscaCliente && dropdownCliente) {
+      buscaCliente.addEventListener('input', (e) => {
+        const termo = e.target.value.trim().toLowerCase();
+        if (termo.length < 2) {
+          dropdownCliente.innerHTML = '';
+          dropdownCliente.style.display = 'none';
+          return;
+        }
+
+        const clientes = DB.getClientes();
+        const filtrados = clientes.filter(c => 
+          c.nome.toLowerCase().includes(termo) ||
+          (c.telefone && c.telefone.includes(termo)) ||
+          (c.documento && c.documento.includes(termo)) ||
+          (c.bairro && c.bairro.toLowerCase().includes(termo))
+        );
+
+        if (filtrados.length === 0) {
+          dropdownCliente.innerHTML = `
+            <div class="autocomplete-item" style="color: var(--text-muted); cursor: default;">
+              <span>Nenhum cliente cadastrado. Pode preencher os dados abaixo para auto-cadastro ao salvar!</span>
+            </div>
+          `;
+          dropdownCliente.style.display = 'block';
+          return;
+        }
+
+        dropdownCliente.innerHTML = filtrados.map(c => `
+          <div class="autocomplete-item" data-id="${c.id}">
+            <div>
+              <div class="autocomplete-item-name">${c.nome}</div>
+              <div class="autocomplete-item-sub">${c.telefone || 'Sem fone'} | ${c.bairro || 'Sem bairro'} | Doc: ${c.documento || 'N/A'}</div>
+            </div>
+            ${c.saldo_devedor > 0 ? `<span class="badge-tag badge-cancelado">Deve R$ ${c.saldo_devedor.toFixed(2)}</span>` : ''}
+          </div>
+        `).join('');
+        dropdownCliente.style.display = 'block';
+      });
+
+      dropdownCliente.addEventListener('click', (e) => {
+        const item = e.target.closest('.autocomplete-item');
+        if (item && item.dataset.id) {
+          const clienteId = item.dataset.id;
+          const cliente = DB.getClientes().find(c => c.id === clienteId);
+          if (cliente) {
+            this.selecionarCliente(cliente);
+          }
+          dropdownCliente.style.display = 'none';
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!buscaCliente.contains(e.target) && !dropdownCliente.contains(e.target)) {
+          dropdownCliente.style.display = 'none';
+        }
+      });
+    }
+
+    // Máscara inteligente para CPF/CNPJ e Telefone no Balcão
+    const inputDocBalcao = document.getElementById('balcao-cliente-documento');
+    const badgeDocBalcao = document.getElementById('balcao-doc-tipo-badge');
+    if (inputDocBalcao && window.DocMascara) {
+      DocMascara.aplicar(inputDocBalcao, badgeDocBalcao);
+    }
+    const inputTelBalcao = document.getElementById('balcao-cliente-telefone');
+    if (inputTelBalcao && window.DocMascara) {
+      DocMascara.aplicarTelefone(inputTelBalcao);
+    }
+
+    // Inicializa listeners do Combobox Inteligente de Produtos
+    this.setupProdutoComboboxEvents();
+
+    // Mudança de Produto na Barra Rápida
+    const selectProd = document.getElementById('fast-produto-select');
+    if (selectProd) {
+      selectProd.addEventListener('change', () => {
+        this.atualizarCamposProdutoRapido();
+      });
+    }
+
+    // Mudança de Acabamento na Barra Rápida
+    const selectAcabamento = document.getElementById('fast-acabamento-select');
+    if (selectAcabamento) {
+      selectAcabamento.addEventListener('change', () => {
+        this.atualizarPrecoRapido();
+      });
+    }
+
+    // Mudança de Qtd / Comprimento / Preço na Barra Rápida
+    ['fast-qtd-input', 'fast-comprimento-input', 'fast-preco-input'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => this.calcularSubtotalRapido());
+        el.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            this.adicionarItemRapido();
+          }
+        });
+      }
+    });
+
+    // Pílulas de comprimento rápido
+    document.querySelectorAll('.pill-length').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const comp = pill.dataset.val;
+        const inputComp = document.getElementById('fast-comprimento-input');
+        if (inputComp) {
+          inputComp.value = comp;
+          this.calcularSubtotalRapido();
+        }
+        document.querySelectorAll('.pill-length').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+      });
+    });
+
+    // Botão Adicionar Item
+    const btnAddItem = document.getElementById('fast-add-btn');
+    if (btnAddItem) {
+      btnAddItem.addEventListener('click', () => this.adicionarItemRapido());
+    }
+
+    // Botões de Kits Rápidos
+    const btnKitCaixaria = document.getElementById('btn-kit-caixaria');
+    if (btnKitCaixaria) {
+      btnKitCaixaria.addEventListener('click', () => this.inserirKitCaixaria());
+    }
+
+    const btnKitTelhado = document.getElementById('btn-kit-telhado');
+    if (btnKitTelhado) {
+      btnKitTelhado.addEventListener('click', () => this.inserirKitTelhado());
+    }
+
+    const btnCalcTelhado = document.getElementById('btn-calc-telhado-modal');
+    if (btnCalcTelhado) {
+      btnCalcTelhado.addEventListener('click', () => this.abrirModalCalculadoraTelhado());
+    }
+
+    // Mudança de Bairro de Frete
+    const selectBairro = document.getElementById('balcao-bairro-frete');
+    if (selectBairro) {
+      selectBairro.addEventListener('change', (e) => {
+        const bairroNome = e.target.value;
+        const bairros = DB.getBairros();
+        const bairroObj = bairros.find(b => b.nome === bairroNome);
+        const inputFrete = document.getElementById('balcao-frete-valor');
+        if (bairroObj && inputFrete) {
+          inputFrete.value = bairroObj.valor_frete.toFixed(2);
+        }
+        this.atualizarTotais();
+      });
+    }
+
+    // Alteração de Frete, Desconto e Sinal
+    ['balcao-frete-valor', 'balcao-desconto-valor', 'balcao-sinal-valor'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => this.atualizarTotais());
+      }
+    });
+
+    // Tipo de Desconto (% ou R$)
+    const selectTipoDesconto = document.getElementById('balcao-desconto-tipo');
+    if (selectTipoDesconto) {
+      selectTipoDesconto.addEventListener('change', () => this.atualizarTotais());
+    }
+
+    // Vendedor Select
+    const selectVend = document.getElementById('balcao-vendedor-select');
+    if (selectVend) {
+      selectVend.addEventListener('change', (e) => {
+        const funcId = e.target.value;
+        const func = DB.getFuncionarios().find(f => f.id === funcId);
+        this.currentOrder.vendedor = func ? {
+          id: func.id,
+          nome: func.nome,
+          comissao_pct: func.comissao_pct || 0
+        } : null;
+      });
+    }
+
+    // Carpinteiro Select
+    const selectCarp = document.getElementById('balcao-carpinteiro-select');
+    if (selectCarp) {
+      selectCarp.addEventListener('change', (e) => {
+        this.currentOrder.carpinteiro_id = e.target.value;
+        const carp = DB.getCarpinteiros().find(c => c.id === e.target.value);
+        this.currentOrder.carpinteiro_nome = carp ? carp.nome : '';
+      });
+    }
+
+    // Botões de Ação Final
+    const btnSalvarOrcamento = document.getElementById('btn-salvar-orcamento');
+    if (btnSalvarOrcamento) {
+      btnSalvarOrcamento.addEventListener('click', () => this.salvarPedidoCompleto('ORCAMENTO'));
+    }
+
+    const btnAprovarVenda = document.getElementById('btn-aprovar-venda');
+    if (btnAprovarVenda) {
+      btnAprovarVenda.addEventListener('click', () => this.salvarPedidoCompleto('APROVADO'));
+    }
+
+    const btnImprimirCliente = document.getElementById('btn-imprimir-cliente-balcao');
+    if (btnImprimirCliente) {
+      btnImprimirCliente.addEventListener('click', () => {
+        PrintModule.abrirModalImpressao(this.currentOrder, 'CLIENTE');
+      });
+    }
+
+    const btnImprimirPatio = document.getElementById('btn-imprimir-patio-balcao');
+    if (btnImprimirPatio) {
+      btnImprimirPatio.addEventListener('click', () => {
+        PrintModule.abrirModalImpressao(this.currentOrder, 'PATIO');
+      });
+    }
+
+    const btnWhatsapp = document.getElementById('btn-whatsapp-balcao');
+    if (btnWhatsapp) {
+      btnWhatsapp.addEventListener('click', () => this.enviarResumoWhatsapp());
+    }
+
+    const btnNovoOrcamento = document.getElementById('btn-novo-orcamento');
+    if (btnNovoOrcamento) {
+      btnNovoOrcamento.addEventListener('click', () => {
+        if (confirm('Deseja iniciar um novo orçamento? Dados não salvos serão descartados.')) {
+          this.iniciarNovoOrcamento();
+        }
+      });
+    }
+  },
+
+  renderBairrosSelect() {
+    const selectBairro = document.getElementById('balcao-bairro-frete');
+    if (!selectBairro) return;
+
+    const bairros = DB.getBairros();
+    selectBairro.innerHTML = `
+      <option value="">Selecione o Bairro / Destino</option>
+      ${bairros.map(b => `<option value="${b.nome}">${b.nome} (+ R$ ${b.valor_frete.toFixed(2)})</option>`).join('')}
+      <option value="OUTRO">Outro Bairro / Frete Manual</option>
+    `;
+  },
+
+  renderCarpinteirosSelect() {
+    const selectCarp = document.getElementById('balcao-carpinteiro-select');
+    if (!selectCarp) return;
+
+    const carpinteiros = DB.getCarpinteiros();
+    selectCarp.innerHTML = `
+      <option value="">Nenhum (Venda Direta de Balcão)</option>
+      ${carpinteiros.map(c => `<option value="${c.id}">${c.nome} (${c.comissao_padrao_pct}% comissão)</option>`).join('')}
+    `;
+  },
+
+  renderVendedoresSelect() {
+    const selectVend = document.getElementById('balcao-vendedor-select');
+    if (!selectVend) return;
+
+    const funcionarios = DB.getFuncionarios().filter(f => f.ativo);
+    selectVend.innerHTML = `
+      <option value="">Selecione o Vendedor / Atendente...</option>
+      ${funcionarios.map(f => `<option value="${f.id}">${f.nome} (${f.cargo})</option>`).join('')}
+    `;
+
+    // Se estiver logado como funcionário, trava no vendedor correspondente
+    if (window.AuthModule && !AuthModule.isAdmin()) {
+      const usuario = AuthModule.getUsuarioAtual();
+      if (usuario && usuario.funcionario_id) {
+        selectVend.value = usuario.funcionario_id;
+        selectVend.disabled = true;
+        const func = funcionarios.find(f => f.id === usuario.funcionario_id);
+        if (func) {
+          this.currentOrder.vendedor = {
+            id: func.id,
+            nome: func.nome,
+            comissao_pct: func.comissao_pct || 0
+          };
+        }
+        return;
+      }
+    } else {
+      selectVend.disabled = false;
+    }
+
+    // Seleciona o primeiro vendedor por padrão se houver
+    if (funcionarios.length > 0 && !selectVend.value) {
+      selectVend.value = funcionarios[0].id;
+      this.currentOrder.vendedor = {
+        id: funcionarios[0].id,
+        nome: funcionarios[0].nome,
+        comissao_pct: funcionarios[0].comissao_pct || 0
+      };
+    }
+  },
+
+  // Helper para normalização de texto sem acentos e minúsculo
+  normalizarTexto(str) {
+    return (str || '')
+      .toString()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  },
+
+  // Helper para escapar HTML com segurança
+  escaparHtml(str) {
+    return (str || '')
+      .toString()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  },
+
+  // Destaca as palavras da busca com marcação visual de alta legibilidade
+  destacarCorrespondencia(texto, tokens) {
+    if (!texto) return '';
+    if (!tokens || !tokens.length) return this.escaparHtml(texto);
+
+    const mapAcentos = {
+      'a': '[aáàãâä]',
+      'e': '[eéèêë]',
+      'i': '[iíìîï]',
+      'o': '[oóòõôö]',
+      'u': '[uúùûü]',
+      'c': '[cç]'
+    };
+
+    const padroes = tokens.map(token => {
+      const esc = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      let pat = '';
+      for (const ch of esc.toLowerCase()) {
+        pat += mapAcentos[ch] || ch;
+      }
+      return pat;
+    }).filter(Boolean);
+
+    if (!padroes.length) return this.escaparHtml(texto);
+
+    try {
+      const regex = new RegExp('(' + padroes.join('|') + ')', 'gi');
+      const seguro = this.escaparHtml(texto);
+      return seguro.replace(regex, '<mark class="combobox-highlight">$1</mark>');
+    } catch (e) {
+      return this.escaparHtml(texto);
+    }
+  },
+
+  renderProdutosSelect() {
+    const selectProd = document.getElementById('fast-produto-select');
+    const inputSearch = document.getElementById('fast-produto-search');
+    const statusCount = document.getElementById('fast-produto-status-count');
+
+    const produtos = DB.getProdutos().filter(p => p.ativo);
+    
+    // Atualiza o cache indexado inteligente do combobox
+    this.comboboxProdutos.cached = produtos.map(p => {
+      const codeNorm = this.normalizarTexto(p.codigo);
+      const nameNorm = this.normalizarTexto(p.nome);
+      const catNorm = this.normalizarTexto(p.categoria || '');
+      const espNorm = this.normalizarTexto(p.especie || '');
+      const dimNorm = (p.espessura_cm && p.largura_cm) ? `${p.espessura_cm}x${p.largura_cm} ${p.espessura_cm} x ${p.largura_cm}` : '';
+      
+      return {
+        ...p,
+        _codeNorm: codeNorm,
+        _nameNorm: nameNorm,
+        _catNorm: catNorm,
+        _espNorm: espNorm,
+        _searchCombined: `${codeNorm} ${nameNorm} ${catNorm} ${espNorm} ${dimNorm} ${p.tipo_calculo || ''} ${p.unidade_medida || ''}`.replace(/,/g, '.')
+      };
+    });
+
+    const totalItens = this.comboboxProdutos.cached.length;
+
+    if (inputSearch && !this.comboboxProdutos.selectedId) {
+      inputSearch.placeholder = `Selecione ou digite para filtrar (${totalItens} itens disponíveis)...`;
+    }
+
+    if (statusCount) {
+      statusCount.textContent = `${totalItens} produtos disponíveis`;
+    }
+
+    // Mantém o select original populado para compatibilidade total
+    if (selectProd) {
+      const categorias = {};
+      produtos.forEach(p => {
+        const cat = p.categoria || 'Geral';
+        if (!categorias[cat]) categorias[cat] = [];
+        categorias[cat].push(p);
+      });
+
+      let html = `<option value="">Selecione o Produto ou Digite o Código (${totalItens} itens disponíveis)...</option>`;
+      for (const [cat, prods] of Object.entries(categorias)) {
+        html += `<optgroup label="[${cat.toUpperCase()}] (${prods.length} itens)">`;
+        prods.forEach(p => {
+          html += `
+            <option value="${p.id}" data-tipo="${p.tipo_calculo}" data-preco="${p.preco_unitario}">
+              [${p.codigo}] ${p.nome} - R$ ${p.preco_unitario.toFixed(2)}/${p.unidade_medida || p.tipo_calculo}
+            </option>
+          `;
+        });
+        html += '</optgroup>';
+      }
+      selectProd.innerHTML = html;
+    }
+  },
+
+  filtrarProdutos(termo) {
+    const cached = this.comboboxProdutos.cached || [];
+    const raw = (termo || '').trim();
+    if (!raw) {
+      return {
+        itens: cached.slice(0, 40),
+        total: cached.length,
+        tokens: [],
+        isBusca: false
+      };
+    }
+
+    const normTermo = this.normalizarTexto(raw).replace(/,/g, '.');
+    const tokens = normTermo.split(/\s+/).filter(Boolean);
+
+    const pontuados = [];
+
+    for (const p of cached) {
+      let matchAll = true;
+      for (const token of tokens) {
+        if (!p._searchCombined.includes(token)) {
+          matchAll = false;
+          break;
+        }
+      }
+      if (!matchAll) continue;
+
+      let score = 0;
+
+      // Prioridade máxima para código exato ou prefixo
+      if (p._codeNorm === normTermo) score += 10000;
+      else if (p._codeNorm.startsWith(normTermo)) score += 5000;
+      else if (p._codeNorm.includes(normTermo)) score += 3000;
+
+      // Nome do produto
+      if (p._nameNorm.startsWith(normTermo)) score += 2000;
+      else if (p._nameNorm.includes(normTermo)) score += 1200;
+      else {
+        for (const token of tokens) {
+          if (p._nameNorm.includes(token)) score += 250;
+        }
+      }
+
+      // Categoria ou Espécie
+      if (p._catNorm.includes(normTermo)) score += 300;
+      if (p._espNorm.includes(normTermo)) score += 300;
+
+      // Itens em estoque têm preferência
+      if (p.estoque_atual > 0) score += 50;
+
+      pontuados.push({ produto: p, score });
+    }
+
+    pontuados.sort((a, b) => b.score - a.score);
+
+    return {
+      itens: pontuados.slice(0, 50).map(x => x.produto),
+      total: pontuados.length,
+      tokens: tokens,
+      isBusca: true
+    };
+  },
+
+  renderDropdownProdutos(termo) {
+    const resultsContainer = document.getElementById('fast-produto-results');
+    const statusCount = document.getElementById('fast-produto-status-count');
+    const footerInfo = document.getElementById('fast-produto-footer');
+    if (!resultsContainer) return;
+
+    const { itens, total, tokens, isBusca } = this.filtrarProdutos(termo);
+    this.comboboxProdutos.filtrados = itens;
+    this.comboboxProdutos.ultimoTermo = termo;
+
+    if (this.comboboxProdutos.activeIndex >= itens.length) {
+      this.comboboxProdutos.activeIndex = itens.length ? 0 : -1;
+    }
+
+    if (statusCount) {
+      if (!isBusca) {
+        statusCount.textContent = `${total} itens disponíveis (digite para filtrar)`;
+      } else if (total === 0) {
+        statusCount.textContent = `Nenhum resultado para "${termo}"`;
+      } else if (total === 1) {
+        statusCount.textContent = `1 produto correspondente`;
+      } else {
+        statusCount.textContent = `${total} produtos encontrados`;
+      }
+    }
+
+    if (footerInfo) {
+      if (total > itens.length) {
+        footerInfo.style.display = 'block';
+        footerInfo.textContent = `Mostrando os primeiros ${itens.length} de ${total} resultados. Digite mais detalhes para refinar.`;
+      } else {
+        footerInfo.style.display = 'none';
+      }
+    }
+
+    if (itens.length === 0) {
+      resultsContainer.innerHTML = `
+        <div class="combobox-empty-state">
+          <svg class="combobox-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <line x1="8" y1="11" x2="14" y2="11"></line>
+          </svg>
+          <div class="combobox-empty-title">Nenhum produto encontrado para "${this.escaparHtml(termo)}"</div>
+          <div class="combobox-empty-hint">Tente buscar por código (ex: 1-001, MAD-010), categoria (Madeiras, Ferragens), espécie (Peroba, Pinus) ou dimensões (ex: 6x12).</div>
+        </div>
+      `;
+      return;
+    }
+
+    let html = '';
+    let lastCat = null;
+
+    itens.forEach((p, index) => {
+      const isActive = index === this.comboboxProdutos.activeIndex;
+      const isSelected = p.id === this.comboboxProdutos.selectedId;
+
+      if (!isBusca && p.categoria && p.categoria !== lastCat) {
+        lastCat = p.categoria;
+        html += `<div class="combobox-category-header">${this.escaparHtml(p.categoria)}</div>`;
+      }
+
+      const highlightedName = this.destacarCorrespondencia(p.nome, tokens);
+      const highlightedCode = this.destacarCorrespondencia(p.codigo, tokens);
+      const dimStr = (p.espessura_cm && p.largura_cm) ? `${p.espessura_cm}x${p.largura_cm} cm` : '';
+
+      let stockBadge = '';
+      if (p.estoque_atual > 10) {
+        stockBadge = `<span class="combobox-tag-stock in-stock" title="Estoque disponível">● ${p.estoque_atual} ${p.unidade_medida || 'UN'}</span>`;
+      } else if (p.estoque_atual > 0) {
+        stockBadge = `<span class="combobox-tag-stock low-stock" title="Estoque baixo">● ${p.estoque_atual} ${p.unidade_medida || 'UN'}</span>`;
+      } else {
+        stockBadge = `<span class="combobox-tag-stock out-of-stock" title="Sem estoque físico">○ Sem estoque</span>`;
+      }
+
+      html += `
+        <div class="combobox-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''}" 
+             data-index="${index}" 
+             data-id="${p.id}">
+          <div class="combobox-item-top">
+            <div class="combobox-item-main">
+              <span class="combobox-item-code">${highlightedCode}</span>
+              <span class="combobox-item-name">${highlightedName}</span>
+            </div>
+            <div class="combobox-item-price">R$ ${p.preco_unitario.toFixed(2)}/${p.unidade_medida || p.tipo_calculo}</div>
+          </div>
+          <div class="combobox-item-bottom">
+            <span class="combobox-tag-cat">${this.escaparHtml(p.categoria || 'Geral')}</span>
+            ${p.especie ? `<span class="combobox-tag-dim">${this.escaparHtml(p.especie)}</span>` : ''}
+            ${dimStr ? `<span class="combobox-tag-dim">${dimStr}</span>` : ''}
+            ${stockBadge}
+          </div>
+        </div>
+      `;
+    });
+
+    resultsContainer.innerHTML = html;
+    this.garantirItemVisivel();
+  },
+
+  atualizarItemAtivoVisual() {
+    const resultsContainer = document.getElementById('fast-produto-results');
+    if (!resultsContainer) return;
+
+    resultsContainer.querySelectorAll('.combobox-item').forEach(el => {
+      const idx = parseInt(el.dataset.index, 10);
+      if (idx === this.comboboxProdutos.activeIndex) {
+        el.classList.add('active');
+      } else {
+        el.classList.remove('active');
+      }
+    });
+
+    this.garantirItemVisivel();
+  },
+
+  garantirItemVisivel() {
+    const resultsContainer = document.getElementById('fast-produto-results');
+    if (!resultsContainer) return;
+
+    const activeEl = resultsContainer.querySelector('.combobox-item.active');
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: 'nearest' });
+    }
+  },
+
+  abrirComboboxProdutos() {
+    const dropdown = document.getElementById('fast-produto-dropdown');
+    const toggleBtn = document.getElementById('fast-produto-toggle');
+    const searchInput = document.getElementById('fast-produto-search');
+    if (!dropdown) return;
+
+    this.comboboxProdutos.isOpen = true;
+    dropdown.style.display = 'flex';
+    if (toggleBtn) toggleBtn.classList.add('open');
+
+    let buscaTermo = '';
+    if (this.comboboxProdutos.selectedId) {
+      if (searchInput) searchInput.select();
+      buscaTermo = '';
+    } else if (searchInput) {
+      buscaTermo = searchInput.value.trim();
+    }
+    
+    this.renderDropdownProdutos(buscaTermo);
+  },
+
+  fecharComboboxProdutos() {
+    const dropdown = document.getElementById('fast-produto-dropdown');
+    const toggleBtn = document.getElementById('fast-produto-toggle');
+    if (!dropdown) return;
+
+    this.comboboxProdutos.isOpen = false;
+    dropdown.style.display = 'none';
+    if (toggleBtn) toggleBtn.classList.remove('open');
+    this.comboboxProdutos.activeIndex = -1;
+
+    const searchInput = document.getElementById('fast-produto-search');
+    if (searchInput) {
+      if (this.comboboxProdutos.selectedId) {
+        const p = (this.comboboxProdutos.cached || []).find(item => item.id === this.comboboxProdutos.selectedId);
+        if (p) {
+          searchInput.value = `[${p.codigo}] ${p.nome}`;
+        }
+      }
+    }
+  },
+
+  selecionarProdutoRapido(produtoId) {
+    const produto = (this.comboboxProdutos.cached || []).find(p => p.id === produtoId) || DB.getProdutos().find(p => p.id === produtoId);
+    if (!produto) return;
+
+    this.comboboxProdutos.selectedId = produto.id;
+
+    const searchInput = document.getElementById('fast-produto-search');
+    const selectProd = document.getElementById('fast-produto-select');
+    const clearBtn = document.getElementById('fast-produto-clear');
+
+    if (searchInput) {
+      searchInput.value = `[${produto.codigo}] ${produto.nome}`;
+      searchInput.classList.add('has-value');
+    }
+
+    if (clearBtn) {
+      clearBtn.style.display = 'flex';
+    }
+
+    if (selectProd) {
+      selectProd.value = produto.id;
+      this.atualizarCamposProdutoRapido();
+    }
+
+    this.fecharComboboxProdutos();
+
+    // Foca inteligentemente no próximo campo para linha de montagem de alta velocidade
+    setTimeout(() => {
+      if (produto.tipo_calculo === 'ML') {
+        const compInput = document.getElementById('fast-comprimento-input');
+        if (compInput) {
+          compInput.focus();
+          compInput.select();
+        }
+      } else {
+        const qtdInput = document.getElementById('fast-qtd-input');
+        if (qtdInput) {
+          qtdInput.focus();
+          qtdInput.select();
+        }
+      }
+    }, 40);
+  },
+
+  limparSelecaoProdutoRapido(manterFoco = false) {
+    this.comboboxProdutos.selectedId = null;
+    this.comboboxProdutos.activeIndex = -1;
+
+    const searchInput = document.getElementById('fast-produto-search');
+    const selectProd = document.getElementById('fast-produto-select');
+    const clearBtn = document.getElementById('fast-produto-clear');
+    const inputPreco = document.getElementById('fast-preco-input');
+    const subtotalEl = document.getElementById('fast-subtotal-preview');
+
+    if (searchInput) {
+      searchInput.value = '';
+      searchInput.classList.remove('has-value');
+      if (manterFoco) searchInput.focus();
+    }
+
+    if (clearBtn) {
+      clearBtn.style.display = 'none';
+    }
+
+    if (selectProd) {
+      selectProd.value = '';
+    }
+
+    if (inputPreco) inputPreco.value = '0.00';
+    if (subtotalEl) subtotalEl.textContent = 'R$ 0,00';
+  },
+
+  setupProdutoComboboxEvents() {
+    if (this.comboboxProdutos.eventsInitialized) return;
+    this.comboboxProdutos.eventsInitialized = true;
+
+    const searchInput = document.getElementById('fast-produto-search');
+    const clearBtn = document.getElementById('fast-produto-clear');
+    const toggleBtn = document.getElementById('fast-produto-toggle');
+    const resultsContainer = document.getElementById('fast-produto-results');
+    const selectProd = document.getElementById('fast-produto-select');
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', (e) => {
+      const termo = e.target.value.trim();
+      if (clearBtn) {
+        clearBtn.style.display = termo ? 'flex' : 'none';
+      }
+      if (!this.comboboxProdutos.isOpen) {
+        this.abrirComboboxProdutos();
+      }
+      if (this.comboboxProdutos.selectedId) {
+        this.comboboxProdutos.selectedId = null;
+        if (selectProd) selectProd.value = '';
+      }
+      this.comboboxProdutos.activeIndex = 0;
+      this.renderDropdownProdutos(termo);
+    });
+
+    searchInput.addEventListener('focus', () => {
+      this.abrirComboboxProdutos();
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (!this.comboboxProdutos.isOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        this.abrirComboboxProdutos();
+        return;
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const len = this.comboboxProdutos.filtrados.length;
+        if (len > 0) {
+          this.comboboxProdutos.activeIndex = (this.comboboxProdutos.activeIndex + 1) % len;
+          this.atualizarItemAtivoVisual();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const len = this.comboboxProdutos.filtrados.length;
+        if (len > 0) {
+          this.comboboxProdutos.activeIndex = (this.comboboxProdutos.activeIndex - 1 + len) % len;
+          this.atualizarItemAtivoVisual();
+        }
+      } else if (e.key === 'Enter') {
+        if (this.comboboxProdutos.isOpen) {
+          e.preventDefault();
+          const idx = this.comboboxProdutos.activeIndex >= 0 ? this.comboboxProdutos.activeIndex : 0;
+          const item = this.comboboxProdutos.filtrados[idx];
+          if (item) {
+            this.selecionarProdutoRapido(item.id);
+          }
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        this.fecharComboboxProdutos();
+      } else if (e.key === 'Tab') {
+        if (this.comboboxProdutos.isOpen && this.comboboxProdutos.activeIndex >= 0) {
+          const item = this.comboboxProdutos.filtrados[this.comboboxProdutos.activeIndex];
+          if (item) {
+            this.selecionarProdutoRapido(item.id);
+          }
+        }
+        this.fecharComboboxProdutos();
+      }
+    });
+
+    if (resultsContainer) {
+      resultsContainer.addEventListener('mousedown', (e) => {
+        const item = e.target.closest('.combobox-item');
+        if (item && item.dataset.id) {
+          e.preventDefault();
+          this.selecionarProdutoRapido(item.dataset.id);
+        }
+      });
+
+      resultsContainer.addEventListener('mouseover', (e) => {
+        const item = e.target.closest('.combobox-item');
+        if (item && item.dataset.index !== undefined) {
+          const idx = parseInt(item.dataset.index, 10);
+          if (this.comboboxProdutos.activeIndex !== idx) {
+            this.comboboxProdutos.activeIndex = idx;
+            this.atualizarItemAtivoVisual();
+          }
+        }
+      });
+    }
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (this.comboboxProdutos.isOpen) {
+          this.fecharComboboxProdutos();
+        } else {
+          searchInput.focus();
+        }
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.limparSelecaoProdutoRapido(true);
+        this.abrirComboboxProdutos();
+      });
+    }
+
+    document.addEventListener('mousedown', (e) => {
+      const container = document.getElementById('fast-product-combobox-container');
+      if (container && !container.contains(e.target)) {
+        this.fecharComboboxProdutos();
+      }
+    });
+  },
+
+  atualizarCamposProdutoRapido() {
+    const selectProd = document.getElementById('fast-produto-select');
+    const prodId = selectProd.value;
+    if (!prodId) return;
+
+    const produto = DB.getProdutos().find(p => p.id === prodId);
+    if (!produto) return;
+
+    const inputPreco = document.getElementById('fast-preco-input');
+    const inputComp = document.getElementById('fast-comprimento-input');
+    const inputQtd = document.getElementById('fast-qtd-input');
+    const labelQtd = document.getElementById('fast-qtd-label');
+    const labelComp = document.getElementById('fast-comp-label');
+
+    if (inputPreco) inputPreco.value = produto.preco_unitario.toFixed(2);
+    if (inputQtd && !inputQtd.value) inputQtd.value = '1';
+
+    // Ajusta campos de acordo com tipo_calculo
+    if (produto.tipo_calculo === 'ML') {
+      if (inputComp) {
+        inputComp.disabled = false;
+        inputComp.value = produto.comprimentos_comuns ? produto.comprimentos_comuns[1] || '3.0' : '3.0';
+      }
+      if (labelQtd) labelQtd.textContent = 'Qtd Peças:';
+      if (labelComp) labelComp.textContent = 'Compr. (m):';
+    } else if (produto.tipo_calculo === 'M2') {
+      if (inputComp) {
+        inputComp.disabled = true;
+        inputComp.value = '1.0';
+      }
+      if (labelQtd) labelQtd.textContent = 'Área (M²):';
+      if (labelComp) labelComp.textContent = 'Fator (m):';
+    } else {
+      if (inputComp) {
+        inputComp.disabled = true;
+        inputComp.value = produto.comprimento_padrao_m || '0';
+      }
+      if (labelQtd) labelQtd.textContent = 'Qtd (UN/KG):';
+      if (labelComp) labelComp.textContent = 'Compr. (m):';
+    }
+
+    this.atualizarPrecoRapido();
+  },
+
+  atualizarPrecoRapido() {
+    const selectProd = document.getElementById('fast-produto-select');
+    const prodId = selectProd.value;
+    if (!prodId) return;
+
+    const produto = DB.getProdutos().find(p => p.id === prodId);
+    if (!produto) return;
+
+    const acabamento = document.getElementById('fast-acabamento-select').value;
+    const inputPreco = document.getElementById('fast-preco-input');
+
+    let preco = produto.preco_unitario;
+    if (acabamento === 'APARELHADA') {
+      preco += (produto.taxa_plaina_padrao || CalcEngine.DEFAULT_TAXA_PLAINA_ML);
+    }
+
+    if (inputPreco) inputPreco.value = preco.toFixed(2);
+    this.calcularSubtotalRapido();
+  },
+
+  calcularSubtotalRapido() {
+    const selectProd = document.getElementById('fast-produto-select');
+    const prodId = selectProd.value;
+    const produto = DB.getProdutos().find(p => p.id === prodId);
+
+    const qtd = parseFloat(document.getElementById('fast-qtd-input').value) || 0;
+    const comp = parseFloat(document.getElementById('fast-comprimento-input').value) || 0;
+    const preco = parseFloat(document.getElementById('fast-preco-input').value) || 0;
+    const subtotalEl = document.getElementById('fast-subtotal-preview');
+
+    let total = 0;
+    const tipo = produto ? produto.tipo_calculo : 'ML';
+
+    if (tipo === 'ML') {
+      total = qtd * comp * preco;
+    } else {
+      total = qtd * preco;
+    }
+
+    if (subtotalEl) {
+      subtotalEl.textContent = CalcEngine.formatBRL(total);
+    }
+  },
+
+  adicionarItemRapido() {
+    const selectProd = document.getElementById('fast-produto-select');
+    const prodId = selectProd.value;
+    if (!prodId) {
+      App.showToast('Selecione um produto para adicionar.', 'warning');
+      const searchInput = document.getElementById('fast-produto-search');
+      if (searchInput) searchInput.focus();
+      else selectProd.focus();
+      return;
+    }
+
+    const produto = DB.getProdutos().find(p => p.id === prodId);
+    if (!produto) return;
+
+    const acabamento = document.getElementById('fast-acabamento-select').value;
+    const querAparelhar = acabamento === 'APARELHADA';
+    const qtd = parseFloat(document.getElementById('fast-qtd-input').value) || 0;
+    const comp = parseFloat(document.getElementById('fast-comprimento-input').value) || 0;
+    const precoUnitBase = produto.preco_unitario;
+
+    if (qtd <= 0) {
+      App.showToast('Informe uma quantidade válida.', 'warning');
+      document.getElementById('fast-qtd-input').focus();
+      return;
+    }
+
+    if (produto.tipo_calculo === 'ML' && comp <= 0) {
+      App.showToast('Informe o comprimento da madeira.', 'warning');
+      document.getElementById('fast-comprimento-input').focus();
+      return;
+    }
+
+    const itemObj = {
+      id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      produto_id: produto.id,
+      codigo: produto.codigo,
+      descricao: produto.nome,
+      acabamento: querAparelhar ? 'APARELHADA' : 'BRUTA',
+      aparelhar: querAparelhar,
+      tipo_calculo: produto.tipo_calculo,
+      quantidade: qtd,
+      comprimento_m: produto.tipo_calculo === 'ML' ? comp : (produto.comprimento_padrao_m || 0),
+      valor_unitario: precoUnitBase
+    };
+
+    // Calcula propriedades físicas e matemáticas
+    const calc = CalcEngine.calcularItem(itemObj, produto);
+    Object.assign(itemObj, calc);
+
+    this.currentOrder.itens.push(itemObj);
+    this.renderTabelaItens();
+    this.atualizarTotais();
+
+    // Limpa barra para o próximo item e mantém foco no campo de busca para agilidade máxima
+    this.limparSelecaoProdutoRapido(true);
+    document.getElementById('fast-qtd-input').value = '1';
+    document.getElementById('fast-subtotal-preview').textContent = 'R$ 0,00';
+    App.showToast(`+ ${itemObj.descricao} adicionado ao orçamento.`);
+  },
+
+  renderTabelaItens() {
+    const tbody = document.getElementById('balcao-itens-tbody');
+    const emptyState = document.getElementById('balcao-tabela-empty');
+    if (!tbody) return;
+
+    if (!this.currentOrder.itens.length) {
+      tbody.innerHTML = '';
+      if (emptyState) emptyState.style.display = 'block';
+      return;
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+
+    tbody.innerHTML = this.currentOrder.itens.map((item, index) => {
+      const isAparelhada = item.aparelhar;
+      return `
+        <tr class="${isAparelhada ? 'row-aparelhada' : ''}" data-item-id="${item.id}">
+          <td class="align-center font-mono" style="color: var(--text-muted); font-size: 11px;">${index + 1}</td>
+          <td class="font-mono" style="font-weight: 600; color: var(--primary-green);">${item.codigo}</td>
+          <td>
+            <strong>${item.descricao}</strong>
+            ${isAparelhada ? '<span style="font-size: 10px; color: var(--action-green); font-weight: 700; margin-left: 6px;">[PLAINA 4 FACES]</span>' : ''}
+          </td>
+          <td class="align-center">
+            <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;">
+              <input type="checkbox" class="item-plaina-toggle" ${isAparelhada ? 'checked' : ''} onchange="BalcaoModule.togglePlainaItem('${item.id}', this.checked)">
+              <span class="badge-tag ${isAparelhada ? 'badge-aparelhada' : 'badge-bruta'}">${isAparelhada ? 'Aparelhada' : 'Bruta'}</span>
+            </label>
+          </td>
+          <td class="align-center font-mono">${item.tipo_calculo}</td>
+          <td style="width: 80px;">
+            <input type="number" step="1" min="1" class="table-input" value="${item.quantidade}" onchange="BalcaoModule.atualizarItemInline('${item.id}', 'quantidade', this.value)">
+          </td>
+          <td style="width: 80px;">
+            ${item.tipo_calculo === 'ML' ? `
+              <input type="number" step="0.5" min="0.5" class="table-input" value="${item.comprimento_m}" onchange="BalcaoModule.atualizarItemInline('${item.id}', 'comprimento_m', this.value)">
+            ` : `<span class="font-mono" style="color: var(--text-muted); display: block; text-align: right;">-</span>`}
+          </td>
+          <td class="align-right font-mono" style="font-weight: 600;">
+            ${CalcEngine.formatNumero(item.metragem_total, item.tipo_calculo === 'ML' ? 1 : 0)} ${item.tipo_calculo === 'ML' ? 'ML' : item.tipo_calculo === 'M2' ? 'm²' : 'un'}
+          </td>
+          <td class="align-right font-mono" style="width: 95px;">
+            <input type="number" step="0.50" min="0" class="table-input" value="${item.valor_unitario.toFixed(2)}" onchange="BalcaoModule.atualizarItemInline('${item.id}', 'valor_unitario', this.value)">
+          </td>
+          <td class="align-right font-mono" style="font-weight: 700; color: var(--primary-green);">
+            ${CalcEngine.formatBRL(item.subtotal)}
+          </td>
+          <td class="align-center" style="width: 40px;">
+            <button class="btn btn-sm btn-danger" style="padding: 0 4px;" title="Remover item" onclick="BalcaoModule.removerItem('${item.id}')">
+              &times;
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  },
+
+  removerItem(itemId) {
+    this.currentOrder.itens = this.currentOrder.itens.filter(i => i.id !== itemId);
+    this.renderTabelaItens();
+    this.atualizarTotais();
+    App.showToast('Item removido do orçamento.');
+  },
+
+  togglePlainaItem(itemId, isPlaina) {
+    const item = this.currentOrder.itens.find(i => i.id === itemId);
+    if (!item) return;
+
+    item.aparelhar = isPlaina;
+    item.acabamento = isPlaina ? 'APARELHADA' : 'BRUTA';
+
+    const produto = DB.getProdutos().find(p => p.id === item.produto_id);
+    const calc = CalcEngine.calcularItem(item, produto);
+    Object.assign(item, calc);
+
+    this.renderTabelaItens();
+    this.atualizarTotais();
+  },
+
+  atualizarItemInline(itemId, campo, valor) {
+    const item = this.currentOrder.itens.find(i => i.id === itemId);
+    if (!item) return;
+
+    item[campo] = parseFloat(valor) || 0;
+    const produto = DB.getProdutos().find(p => p.id === item.produto_id);
+    const calc = CalcEngine.calcularItem(item, produto);
+    Object.assign(item, calc);
+
+    this.renderTabelaItens();
+    this.atualizarTotais();
+  },
+
+  atualizarTotais() {
+    const inputFrete = document.getElementById('balcao-frete-valor');
+    const frete = inputFrete ? parseFloat(inputFrete.value) || 0 : 0;
+
+    const selectTipoDesc = document.getElementById('balcao-desconto-tipo');
+    const tipoDesc = selectTipoDesc ? selectTipoDesc.value : 'VALOR';
+
+    const inputDesc = document.getElementById('balcao-desconto-valor');
+    const desc = inputDesc ? parseFloat(inputDesc.value) || 0 : 0;
+
+    const inputSinal = document.getElementById('balcao-sinal-valor');
+    const sinal = inputSinal ? parseFloat(inputSinal.value) || 0 : 0;
+
+    const selectBairro = document.getElementById('balcao-bairro-frete');
+    const bairroFrete = selectBairro ? selectBairro.value : '';
+
+    const totais = CalcEngine.calcularTotaisOrcamento(
+      this.currentOrder.itens,
+      frete,
+      desc,
+      tipoDesc,
+      sinal
+    );
+
+    // Salva nos objetos do pedido
+    this.currentOrder.resumo_fisico = {
+      total_pecas: totais.total_pecas,
+      volume_total_m3: totais.volume_total_m3,
+      peso_total_kg: totais.peso_total_kg,
+      veiculo_sugerido: totais.veiculo_sugerido
+    };
+
+    this.currentOrder.resumo_financeiro = {
+      subtotal_itens_puros: totais.subtotal_itens_puros,
+      taxa_aparelhamento: totais.taxa_aparelhamento,
+      subtotal_com_plaina: totais.subtotal_com_plaina,
+      valor_frete: totais.valor_frete,
+      bairro_frete: bairroFrete,
+      desconto_tipo: tipoDesc,
+      desconto_valor: totais.desconto_valor,
+      desconto_percentual: totais.desconto_percentual,
+      desconto_autorizado: this.currentOrder.resumo_financeiro.desconto_autorizado || !totais.requer_autorizacao,
+      valor_total: totais.valor_total,
+      forma_pagamento: document.getElementById('balcao-forma-pagamento')?.value || 'Pix',
+      valor_sinal: totais.valor_sinal,
+      saldo_a_receber: totais.saldo_a_receber
+    };
+
+    // Renderiza nos elementos de tela
+    const elSubtotalPuro = document.getElementById('balcao-subtotal-itens');
+    if (elSubtotalPuro) elSubtotalPuro.textContent = CalcEngine.formatBRL(totais.subtotal_itens_puros);
+
+    const elPlaina = document.getElementById('balcao-taxa-plaina-total');
+    if (elPlaina) elPlaina.textContent = CalcEngine.formatBRL(totais.taxa_aparelhamento);
+
+    const elTotal = document.getElementById('balcao-valor-total');
+    if (elTotal) elTotal.textContent = CalcEngine.formatBRL(totais.valor_total);
+
+    const elSaldo = document.getElementById('balcao-saldo-receber');
+    if (elSaldo) elSaldo.textContent = CalcEngine.formatBRL(totais.saldo_a_receber);
+
+    const elPecas = document.getElementById('balcao-total-pecas');
+    if (elPecas) elPecas.textContent = totais.total_pecas;
+
+    const elVolume = document.getElementById('balcao-total-volume');
+    if (elVolume) elVolume.textContent = CalcEngine.formatM3(totais.volume_total_m3);
+
+    const elPeso = document.getElementById('balcao-total-peso');
+    if (elPeso) elPeso.textContent = CalcEngine.formatKg(totais.peso_total_kg);
+
+    const elVeiculo = document.getElementById('balcao-veiculo-sugerido');
+    if (elVeiculo) {
+      elVeiculo.textContent = totais.veiculo_sugerido;
+      elVeiculo.className = 'font-mono ' + totais.veiculo_classe;
+    }
+
+    // Trava de segurança de desconto > 5%
+    const travaBox = document.getElementById('balcao-trava-desconto-box');
+    if (travaBox) {
+      if (totais.requer_autorizacao && !this.currentOrder.resumo_financeiro.desconto_autorizado) {
+        travaBox.style.display = 'block';
+      } else {
+        travaBox.style.display = 'none';
+      }
+    }
+  },
+
+  autorizarDescontoGerente() {
+    const inputSenha = document.getElementById('balcao-senha-gerente');
+    if (!inputSenha) return;
+
+    const senhaCorreta = CalcEngine.getSenhaGerente();
+    if (inputSenha.value === senhaCorreta) {
+      this.currentOrder.resumo_financeiro.desconto_autorizado = true;
+      document.getElementById('balcao-trava-desconto-box').style.display = 'none';
+
+      // Registra no log de auditoria da gerência
+      DB.registrarAuditoriaDesconto({
+        pedido_numero: this.currentOrder.numero,
+        cliente_nome: this.currentOrder.cliente?.nome || 'Cliente Balcão',
+        vendedor_nome: this.currentOrder.vendedor?.nome || 'Balcão',
+        valor_pedido: this.currentOrder.resumo_financeiro?.valor_total || 0,
+        desconto_pct: this.currentOrder.resumo_financeiro?.desconto_percentual || 0,
+        desconto_valor: this.currentOrder.resumo_financeiro?.desconto_valor || 0,
+        motivo: 'Autorizado via senha do gerente no balcão'
+      });
+
+      App.showToast('Desconto autorizado pelo gerente com sucesso!', 'success');
+      this.atualizarTotais();
+    } else {
+      App.showToast('Senha de gerente incorreta!', 'error');
+      inputSenha.focus();
+    }
+  },
+
+  selecionarCliente(cliente) {
+    this.activeClientId = cliente.id;
+    this.currentOrder.cliente = {
+      id: cliente.id,
+      nome: cliente.nome,
+      documento: cliente.documento || '',
+      telefone: cliente.telefone || '',
+      email: cliente.email || '',
+      endereco_obra: cliente.endereco_obra || '',
+      bairro: cliente.bairro || '',
+      cidade: cliente.cidade || 'Caçapava',
+      observacoes: cliente.observacoes || ''
+    };
+
+    this.renderFormularioCliente();
+    this.verificarAlertaCliente(cliente.id);
+
+    // Se o cliente já tem bairro cadastrado, pré-seleciona no frete
+    if (cliente.bairro) {
+      const selectBairro = document.getElementById('balcao-bairro-frete');
+      if (selectBairro) {
+        selectBairro.value = cliente.bairro;
+        const bairros = DB.getBairros();
+        const b = bairros.find(x => x.nome === cliente.bairro);
+        if (b) {
+          document.getElementById('balcao-frete-valor').value = b.valor_frete.toFixed(2);
+          this.atualizarTotais();
+        }
+      }
+    }
+
+    App.showToast(`Cliente selecionado: ${cliente.nome}`);
+  },
+
+  renderFormularioCliente() {
+    const cli = this.currentOrder.cliente;
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val || '';
+    };
+
+    setVal('balcao-busca-cliente', cli.nome);
+    setVal('balcao-cliente-nome', cli.nome);
+    setVal('balcao-cliente-telefone', cli.telefone);
+    setVal('balcao-cliente-documento', cli.documento);
+    setVal('balcao-cliente-endereco', cli.endereco_obra);
+    setVal('balcao-cliente-bairro', cli.bairro);
+    setVal('balcao-cliente-cidade', cli.cidade || 'Caçapava');
+
+    const inputDoc = document.getElementById('balcao-cliente-documento');
+    if (inputDoc) inputDoc.dispatchEvent(new Event('input'));
+    const inputTel = document.getElementById('balcao-cliente-telefone');
+    if (inputTel) inputTel.dispatchEvent(new Event('input'));
+  },
+
+  verificarAlertaCliente(clienteId) {
+    const cliente = DB.getClientes().find(c => c.id === clienteId);
+    const alertBanner = document.getElementById('balcao-alerta-cliente');
+    const alertMsg = document.getElementById('balcao-alerta-cliente-msg');
+
+    if (!cliente || !alertBanner || !alertMsg) return;
+
+    if (cliente.saldo_devedor > 0) {
+      alertMsg.innerHTML = `<strong>Atenção:</strong> Cliente possui saldo devedor em aberto de <strong>R$ ${cliente.saldo_devedor.toFixed(2)}</strong> ${cliente.pedido_pendente_ref ? `(ref. Pedido ${cliente.pedido_pendente_ref})` : ''}.`;
+      alertBanner.style.display = 'flex';
+      alertBanner.className = 'client-alert-banner alert-warning';
+    } else if (cliente.saldo_devedor < 0) {
+      alertMsg.innerHTML = `<strong>Crédito em haver:</strong> Cliente possui crédito a favor de <strong>R$ ${Math.abs(cliente.saldo_devedor).toFixed(2)}</strong> na madeireira.`;
+      alertBanner.style.display = 'flex';
+      alertBanner.className = 'client-alert-banner alert-info';
+    } else {
+      this.ocultarAlertaCliente();
+    }
+  },
+
+  ocultarAlertaCliente() {
+    const alertBanner = document.getElementById('balcao-alerta-cliente');
+    if (alertBanner) alertBanner.style.display = 'none';
+  },
+
+  // Kits Rápidos
+  inserirKitCaixaria() {
+    const produtos = DB.getProdutos();
+    const pTabua20 = produtos.find(p => p.codigo === 'MAD-010');
+    const pTabua30 = produtos.find(p => p.codigo === 'MAD-011');
+    const pSarrafo = produtos.find(p => p.codigo === 'MAD-008');
+    const pPrego = produtos.find(p => p.codigo === 'FER-001');
+
+    const kitItens = [
+      { prod: pTabua20, qtd: 20, comp: 3.0 },
+      { prod: pTabua30, qtd: 15, comp: 3.0 },
+      { prod: pSarrafo, qtd: 25, comp: 3.0 },
+      { prod: pPrego, qtd: 5, comp: 0 }
+    ];
+
+    kitItens.forEach(k => {
+      if (k.prod) {
+        const itemObj = {
+          id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          produto_id: k.prod.id,
+          codigo: k.prod.codigo,
+          descricao: k.prod.nome,
+          acabamento: 'BRUTA',
+          aparelhar: false,
+          tipo_calculo: k.prod.tipo_calculo,
+          quantidade: k.qtd,
+          comprimento_m: k.comp,
+          valor_unitario: k.prod.preco_unitario
+        };
+        const calc = CalcEngine.calcularItem(itemObj, k.prod);
+        Object.assign(itemObj, calc);
+        this.currentOrder.itens.push(itemObj);
+      }
+    });
+
+    this.renderTabelaItens();
+    this.atualizarTotais();
+    App.showToast('Kit Caixaria de Obra inserido com sucesso!');
+  },
+
+  inserirKitTelhado() {
+    const produtos = DB.getProdutos();
+    const pViga = produtos.find(p => p.codigo === 'MAD-001');
+    const pCaibro = produtos.find(p => p.codigo === 'MAD-005');
+    const pRipa = produtos.find(p => p.codigo === 'MAD-007');
+    const pPrego = produtos.find(p => p.codigo === 'FER-002');
+    const pTelha = produtos.find(p => p.codigo === 'TEL-001');
+
+    const kitItens = [
+      { prod: pViga, qtd: 8, comp: 4.5 },
+      { prod: pCaibro, qtd: 24, comp: 4.0 },
+      { prod: pRipa, qtd: 45, comp: 3.0 },
+      { prod: pTelha, qtd: 850, comp: 0 },
+      { prod: pPrego, qtd: 6, comp: 0 }
+    ];
+
+    kitItens.forEach(k => {
+      if (k.prod) {
+        const itemObj = {
+          id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          produto_id: k.prod.id,
+          codigo: k.prod.codigo,
+          descricao: k.prod.nome,
+          acabamento: 'BRUTA',
+          aparelhar: false,
+          tipo_calculo: k.prod.tipo_calculo,
+          quantidade: k.qtd,
+          comprimento_m: k.comp,
+          valor_unitario: k.prod.preco_unitario
+        };
+        const calc = CalcEngine.calcularItem(itemObj, k.prod);
+        Object.assign(itemObj, calc);
+        this.currentOrder.itens.push(itemObj);
+      }
+    });
+
+    this.renderTabelaItens();
+    this.atualizarTotais();
+    App.showToast('Kit Madeiramento de Telhado inserido!');
+  },
+
+  abrirModalCalculadoraTelhado() {
+    const modal = document.getElementById('modal-calculadora-telhado');
+    if (modal) {
+      modal.classList.add('active');
+      this.recalcularModalTelhado();
+    }
+  },
+
+  fecharModalCalculadoraTelhado() {
+    const modal = document.getElementById('modal-calculadora-telhado');
+    if (modal) modal.classList.remove('active');
+  },
+
+  recalcularModalTelhado() {
+    const area = parseFloat(document.getElementById('calc-area-input')?.value) || 80;
+    const especie = document.getElementById('calc-especie-select')?.value || 'Garapeira';
+    const resultado = CalcEngine.calcularKitTelhado(area, especie);
+
+    const container = document.getElementById('calc-itens-resultado');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div style="margin-bottom: 8px; font-size: 11.5px; color: var(--text-secondary);">
+        Estimativa calculada para <strong>${area} m²</strong> de telhado colonial em <strong>${especie}</strong>:
+      </div>
+      <table class="dense-table">
+        <thead>
+          <tr>
+            <th>Item Sugerido</th>
+            <th class="align-center">Qtd</th>
+            <th class="align-center">Compr. (m)</th>
+            <th>Tipo</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${resultado.itens_sugeridos.map(i => `
+            <tr>
+              <td><strong>${i.nome}</strong></td>
+              <td class="align-center font-mono">${i.quantidade}</td>
+              <td class="align-center font-mono">${i.comprimento_m || '-'}</td>
+              <td class="font-mono">${i.tipo_calculo}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  },
+
+  aplicarCalculoTelhadoNoBalcao() {
+    const area = parseFloat(document.getElementById('calc-area-input')?.value) || 80;
+    const especie = document.getElementById('calc-especie-select')?.value || 'Garapeira';
+    const resultado = CalcEngine.calcularKitTelhado(area, especie);
+    const produtos = DB.getProdutos();
+
+    resultado.itens_sugeridos.forEach(sug => {
+      const prod = produtos.find(p => p.codigo === sug.codigo);
+      if (prod) {
+        const itemObj = {
+          id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          produto_id: prod.id,
+          codigo: prod.codigo,
+          descricao: prod.nome,
+          acabamento: 'BRUTA',
+          aparelhar: false,
+          tipo_calculo: prod.tipo_calculo,
+          quantidade: sug.quantidade,
+          comprimento_m: sug.comprimento_m,
+          valor_unitario: prod.preco_unitario
+        };
+        const calc = CalcEngine.calcularItem(itemObj, prod);
+        Object.assign(itemObj, calc);
+        this.currentOrder.itens.push(itemObj);
+      }
+    });
+
+    this.fecharModalCalculadoraTelhado();
+    this.renderTabelaItens();
+    this.atualizarTotais();
+    App.showToast(`Itens da Calculadora (${area} m²) adicionados ao orçamento!`);
+  },
+
+  salvarPedidoCompleto(statusFinal = 'ORCAMENTO') {
+    if (!this.currentOrder.itens.length) {
+      App.showToast('Adicione pelo menos 1 item para salvar o orçamento.', 'warning');
+      return;
+    }
+
+    // Pega dados do cliente digitados no cabeçalho
+    const getVal = id => document.getElementById(id)?.value?.trim() || '';
+    const nomeCliente = getVal('balcao-cliente-nome') || getVal('balcao-busca-cliente') || 'Cliente Balcão';
+
+    const clienteData = {
+      id: this.activeClientId || '',
+      nome: nomeCliente,
+      telefone: getVal('balcao-cliente-telefone'),
+      documento: getVal('balcao-cliente-documento'),
+      endereco_obra: getVal('balcao-cliente-endereco'),
+      bairro: getVal('balcao-cliente-bairro'),
+      cidade: getVal('balcao-cliente-cidade') || 'Caçapava'
+    };
+
+    // Auto-cadastro invisível
+    const clienteGarantido = DB.garantirCliente(clienteData);
+    this.currentOrder.cliente = clienteGarantido;
+
+    // Atualiza status e etapa do pátio
+    this.currentOrder.status = statusFinal;
+    if (statusFinal === 'APROVADO') {
+      const temPlaina = this.currentOrder.itens.some(i => i.aparelhar);
+      this.currentOrder.etapa_patio = temPlaina ? 'CORTE_PLAINA' : 'SEPARACAO';
+      
+      // Gera checklist do pátio
+      this.currentOrder.checklist_patio = this.currentOrder.itens.map(item => ({
+        item_id: item.id,
+        descricao: `${item.descricao} (${item.quantidade} pcs ${item.comprimento_m ? 'x ' + item.comprimento_m + 'm' : ''}) ${item.aparelhar ? '- APARELHAR' : ''}`,
+        cortado: false,
+        carregado: false,
+        requer_plaina: item.aparelhar
+      }));
+    }
+
+    this.currentOrder.observacoes_venda = getVal('balcao-observacoes');
+
+    // Validação de trava de desconto (teto configurado pelo gerente)
+    const tetoLivre = CalcEngine.getDescontoMaximoLivre();
+    if (this.currentOrder.resumo_financeiro.desconto_percentual > tetoLivre && !this.currentOrder.resumo_financeiro.desconto_autorizado) {
+      App.showToast(`Desconto acima de ${tetoLivre}% requer autorização do gerente!`, 'error');
+      document.getElementById('balcao-senha-gerente')?.focus();
+      return;
+    }
+
+    // Se aprovou venda, credita para o vendedor da equipe
+    if (statusFinal === 'APROVADO' && this.currentOrder.vendedor?.id) {
+      const funcs = DB.getFuncionarios();
+      const func = funcs.find(f => f.id === this.currentOrder.vendedor.id);
+      if (func) {
+        const valTotal = this.currentOrder.resumo_financeiro.valor_total || 0;
+        func.vendas_mes = (parseFloat(func.vendas_mes) || 0) + valTotal;
+        const comPct = parseFloat(func.comissao_pct) || 0;
+        if (comPct > 0) {
+          const comGerada = valTotal * (comPct / 100);
+          func.comissao_acumulada = (parseFloat(func.comissao_acumulada) || 0) + comGerada;
+          func.saldo_comissao = Math.max(0, func.comissao_acumulada - (parseFloat(func.comissao_paga) || 0));
+        }
+        DB.set(STORAGE_KEYS.FUNCIONARIOS, funcs);
+      }
+    }
+
+    // Salva no banco de dados local
+    DB.salvarPedido(this.currentOrder);
+
+    // Se aprovou venda com sinal, gera registro financeiro se cliente tiver conta
+    if (statusFinal === 'APROVADO' && this.currentOrder.resumo_financeiro.saldo_a_receber > 0) {
+      App.showToast(`Venda #${this.currentOrder.numero} aprovada! Enviada para o pátio (${this.currentOrder.etapa_patio}). Saldo a receber: ${CalcEngine.formatBRL(this.currentOrder.resumo_financeiro.saldo_a_receber)}`, 'success');
+    } else {
+      App.showToast(`Orçamento #${this.currentOrder.numero} salvo com sucesso!`, 'success');
+    }
+
+    // Atualiza listas e kanban
+    HistoricoModule.renderTabelaPedidos();
+    PatioModule.renderKanban();
+    PainelModule.atualizarIndicadores();
+    if (window.GerenteModule) GerenteModule.render();
+  },
+
+  enviarResumoWhatsapp() {
+    if (!this.currentOrder.itens.length) {
+      App.showToast('Não há itens no orçamento para enviar.', 'warning');
+      return;
+    }
+
+    const tel = (this.currentOrder.cliente && this.currentOrder.cliente.telefone) ? this.currentOrder.cliente.telefone.replace(/\D/g, '') : '';
+    const nome = this.currentOrder.cliente?.nome || 'Cliente';
+    const num = this.currentOrder.numero;
+    const total = CalcEngine.formatBRL(this.currentOrder.resumo_financeiro.valor_total);
+    const sinal = CalcEngine.formatBRL(this.currentOrder.resumo_financeiro.valor_sinal);
+    const saldo = CalcEngine.formatBRL(this.currentOrder.resumo_financeiro.saldo_a_receber);
+    const frete = CalcEngine.formatBRL(this.currentOrder.resumo_financeiro.valor_frete);
+
+    const config = (typeof DB !== 'undefined' && DB.getConfig) ? DB.getConfig() : {};
+    const nomeEmpresa = (config.nome_madeireira || 'Serraria e Madeireira Bom Jesus').toUpperCase();
+    const endEmpresa = config.endereco_madeireira || 'Av. Adhemar Pinto de Siqueira, 1000 - Vila Galvão, Caçapava - SP';
+    const telEmpresa = config.telefone_madeireira || '(12) 99603-3793';
+    const cnpjEmpresa = config.cnpj_madeireira || '16.482.988/0001-02';
+
+    let texto = `*${nomeEmpresa}*\n`;
+    texto += `📍 ${endEmpresa}\n`;
+    texto += `📞 WhatsApp: ${telEmpresa} | CNPJ: ${cnpjEmpresa}\n`;
+    texto += `*Orçamento Nº #${num}*\n`;
+    texto += `Olá ${nome}, segue o detalhamento do seu orçamento:\n\n`;
+    texto += `*ITENS:*\n`;
+
+    this.currentOrder.itens.forEach((it, idx) => {
+      texto += `${idx + 1}. ${it.quantidade}x ${it.descricao} ${it.comprimento_m ? '(' + it.comprimento_m + 'm)' : ''} [${it.acabamento}] = ${CalcEngine.formatBRL(it.subtotal)}\n`;
+    });
+
+    texto += `\n*RESUMO:*`;
+    texto += `\nFrete (${this.currentOrder.resumo_financeiro.bairro_frete || 'Entrega'}): ${frete}`;
+    texto += `\n*VALOR TOTAL:* ${total}`;
+    if (this.currentOrder.resumo_financeiro.valor_sinal > 0) {
+      texto += `\nSinal / Entrada: ${sinal}`;
+      texto += `\n*Saldo a pagar na entrega:* ${saldo}`;
+    }
+    texto += `\n\nPeso estimado: ${CalcEngine.formatKg(this.currentOrder.resumo_fisico.peso_total_kg)}`;
+    texto += `\nProposta válida por 7 dias corridos.`;
+    texto += `\nQualquer dúvida estamos à disposição!`;
+
+    const url = `https://api.whatsapp.com/send?phone=${tel.length >= 10 ? '55' + tel : ''}&text=${encodeURIComponent(texto)}`;
+    window.open(url, '_blank');
+  }
+};
+
+window.BalcaoModule = BalcaoModule;
+
