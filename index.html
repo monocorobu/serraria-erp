@@ -11,8 +11,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- Folhas de Estilo Modernas -->
-  <link rel="stylesheet" href="/css/style.css">
-  <link rel="stylesheet" href="/css/print.css">
+  <link rel="stylesheet" href="/css/style.css?v=20261015-v6">
+  <link rel="stylesheet" href="/css/print.css?v=20261015-v6">
 </head>
 <body>
 
@@ -821,19 +821,19 @@
               </div>
             </div>
 
-            <!-- TABELA DE ESTOQUE -->
-            <div class="table-container" style="max-height: calc(100vh - 350px); overflow-y: auto;">
-              <table class="data-table">
+            <!-- TABELA DE ESTOQUE (100% LARGURA TOTAL) -->
+            <div class="table-responsive" style="width: 100%; max-height: calc(100vh - 310px); overflow-y: auto; overflow-x: auto;">
+              <table class="dense-table" style="width: 100%; table-layout: auto;">
                 <thead>
                   <tr>
-                    <th style="width: 90px;">Código</th>
-                    <th>Produto / Descrição Completa</th>
-                    <th style="width: 75px;" class="align-center">Unid.</th>
-                    <th style="width: 115px;" class="align-right">Preço Unit.</th>
-                    <th style="width: 155px;" class="align-center">Qtd. em Estoque (Ajuste Rápido)</th>
+                    <th style="width: 85px;">Código</th>
+                    <th style="min-width: 260px;">Produto / Descrição Completa</th>
+                    <th style="width: 70px;" class="align-center">Unid.</th>
+                    <th style="width: 110px;" class="align-right">Preço Unit.</th>
+                    <th style="width: 165px;" class="align-center">Qtd. em Estoque (Ajuste Rápido)</th>
                     <th style="width: 100px;" class="align-center">Est. Mínimo</th>
-                    <th style="width: 115px;" class="align-center">Situação</th>
-                    <th style="width: 130px;" class="align-right">Valor em Estoque</th>
+                    <th style="width: 110px;" class="align-center">Situação</th>
+                    <th style="width: 125px;" class="align-right">Valor em Estoque</th>
                     <th style="width: 85px;" class="align-center">Ações</th>
                   </tr>
                 </thead>
