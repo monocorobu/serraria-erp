@@ -703,9 +703,9 @@ const GerenteModule = {
               : '<span class="status-badge status-cancelado">Bloqueado</span>'}
           </td>
           <td class="align-center">
-            <div style="display: flex; gap: 4px; justify-content: center;">
-              <button class="btn btn-sm btn-secondary" title="Redefinir Senha" onclick="GerenteModule.redefinirSenhaUsuario('${u.id}')">
-                Alterar Senha
+            <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
+              <button class="btn btn-sm btn-secondary" title="Alterar Senha de Acesso" onclick="GerenteModule.abrirModalAlterarSenha('${u.id}')">
+                Senha
               </button>
               ${!ehVoce ? `
                 <button class="btn btn-sm btn-secondary" title="${isAdmin ? 'Rebaixar para Funcionário' : 'Promover para Admin'}" onclick="GerenteModule.alternarPerfilUsuario('${u.id}')">
@@ -713,6 +713,9 @@ const GerenteModule = {
                 </button>
                 <button class="btn btn-sm btn-secondary" title="${u.ativo ? 'Bloquear Acesso' : 'Desbloquear'}" onclick="GerenteModule.alternarStatusUsuario('${u.id}')">
                   ${u.ativo ? 'Bloquear' : 'Ativar'}
+                </button>
+                <button class="btn btn-sm btn-danger" style="background-color: #EF4444; color: #FFFFFF;" title="Apagar Conta Permanentemente" onclick="GerenteModule.excluirContaUsuario('${u.id}')">
+                  Apagar
                 </button>
               ` : ''}
             </div>
@@ -730,10 +733,19 @@ const GerenteModule = {
     if (selectFunc) {
       const funcs = DB.getFuncionarios().filter(f => f.ativo);
       selectFunc.innerHTML = `
-        <option value="">Selecione o Colaborador para Criar Acesso...</option>
+        <option value="">Selecione o Colaborador ou crie um novo...</option>
+        <option value="__novo__">+ Criar Conta para Novo Colaborador...</option>
         ${funcs.map(f => `<option value="${f.id}">${f.nome} (${f.cargo})</option>`).join('')}
       `;
     }
+
+    const blocoNovo = document.getElementById('conta-novo-colab-bloco');
+    if (blocoNovo) blocoNovo.style.display = 'none';
+
+    const inputNomeCustom = document.getElementById('conta-nome-custom');
+    if (inputNomeCustom) inputNomeCustom.value = '';
+    const inputCargoCustom = document.getElementById('conta-cargo-custom');
+    if (inputCargoCustom) inputCargoCustom.value = '';
 
     document.getElementById('conta-username').value = '';
     document.getElementById('conta-senha').value = '';
@@ -747,6 +759,27 @@ const GerenteModule = {
     if (modal) modal.classList.remove('active');
   },
 
+  aoSelecionarFuncionarioConta(valor) {
+    const blocoNovo = document.getElementById('conta-novo-colab-bloco');
+    if (!blocoNovo) return;
+    if (valor === '__novo__') {
+      blocoNovo.style.display = 'block';
+      const inputNome = document.getElementById('conta-nome-custom');
+      if (inputNome) inputNome.focus();
+    } else {
+      blocoNovo.style.display = 'none';
+      if (valor) {
+        const func = DB.getFuncionarios().find(f => f.id === valor);
+        if (func) {
+          const inputUser = document.getElementById('conta-username');
+          if (inputUser && !inputUser.value) {
+            inputUser.value = func.nome.split(' ')[0].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          }
+        }
+      }
+    }
+  },
+
   salvarContaUsuario() {
     const selectFunc = document.getElementById('conta-funcionario-select');
     const funcId = selectFunc.value;
@@ -755,7 +788,7 @@ const GerenteModule = {
     const perfil = document.getElementById('conta-perfil').value;
 
     if (!funcId) {
-      App.showToast('Selecione o funcionário correspondente.', 'error');
+      App.showToast('Selecione um colaborador ou escolha cadastrar um novo.', 'error');
       return;
     }
     if (!username || username.length < 3) {
@@ -767,25 +800,57 @@ const GerenteModule = {
       return;
     }
 
-    const func = DB.getFuncionarios().find(f => f.id === funcId);
-    if (!func) return;
-
     // Verifica se username já existe
     const existente = DB.getUsuarios().find(u => u.username.toLowerCase() === username);
     if (existente) {
-      App.showToast(`O nome de usuário "${username}" já está em uso. Escolha outro.`, 'error');
+      App.showToast(`O nome de usuário "@${username}" já está em uso. Escolha outro.`, 'error');
       return;
+    }
+
+    let nome = '';
+    let cargo = '';
+    let email = '';
+    let fId = funcId;
+
+    if (funcId === '__novo__') {
+      nome = (document.getElementById('conta-nome-custom')?.value || '').trim();
+      cargo = (document.getElementById('conta-cargo-custom')?.value || '').trim() || (perfil === 'ADMIN' ? 'Gerente' : 'Vendedor');
+      if (!nome) {
+        App.showToast('Informe o nome completo do novo colaborador.', 'error');
+        return;
+      }
+      fId = 'func_' + Date.now();
+      const novoFuncionario = {
+        id: fId,
+        nome: nome,
+        cargo: cargo,
+        telefone: '',
+        email: '',
+        pix: '',
+        comissao_pct: perfil === 'ADMIN' ? 0.0 : 2.0,
+        ativo: true
+      };
+      DB.salvarFuncionario(novoFuncionario);
+    } else {
+      const func = DB.getFuncionarios().find(f => f.id === funcId);
+      if (!func) {
+        App.showToast('Funcionário selecionado não foi encontrado.', 'error');
+        return;
+      }
+      nome = func.nome;
+      cargo = func.cargo;
+      email = func.email || '';
     }
 
     const novoUsuario = {
       id: 'usr_' + Date.now(),
       username,
-      nome: func.nome,
-      email: func.email || '',
+      nome,
+      email,
       senha,
       perfil,
-      cargo: func.cargo,
-      funcionario_id: func.id,
+      cargo,
+      funcionario_id: fId,
       ativo: true,
       data_criacao: new Date().toISOString()
     };
@@ -793,24 +858,118 @@ const GerenteModule = {
     DB.salvarUsuario(novoUsuario);
     this.fecharModalConta();
     this.renderTabelaContas();
-    App.showToast(`Conta @${username} (${perfil === 'ADMIN' ? 'Admin' : 'Funcionário'}) criada com sucesso!`, 'success');
+    if (this.renderTabelaFuncionarios) this.renderTabelaFuncionarios();
+    App.showToast(`Conta de usuário @${username} (${perfil === 'ADMIN' ? 'Administrador' : 'Funcionário'}) criada com sucesso!`, 'success');
   },
 
-  redefinirSenhaUsuario(usrId) {
+  abrirModalAlterarSenha(usrId) {
     const u = DB.getUsuarios().find(item => item.id === usrId);
-    if (!u) return;
-
-    const nova = prompt(`Digite a nova senha para o usuário @${u.username} (${u.nome}):`);
-    if (nova === null) return;
-    if (nova.trim().length < 3) {
-      App.showToast('A nova senha deve ter no mínimo 3 caracteres.', 'error');
+    if (!u) {
+      App.showToast('Usuário não encontrado.', 'error');
       return;
     }
 
-    u.senha = nova.trim();
+    const modal = document.getElementById('modal-alterar-senha-usuario');
+    if (!modal) return;
+
+    document.getElementById('alterar-senha-user-id').value = u.id;
+    const displayEl = document.getElementById('alterar-senha-user-display');
+    if (displayEl) {
+      displayEl.textContent = `@${u.username} (${u.nome} - ${u.cargo || u.perfil})`;
+    }
+
+    const inputNova = document.getElementById('alterar-senha-nova');
+    const inputConf = document.getElementById('alterar-senha-confirmacao');
+    const erroEl = document.getElementById('alterar-senha-erro');
+
+    if (inputNova) inputNova.value = '';
+    if (inputConf) inputConf.value = '';
+    if (erroEl) erroEl.style.display = 'none';
+
+    modal.classList.add('active');
+    setTimeout(() => { if (inputNova) inputNova.focus(); }, 50);
+  },
+
+  fecharModalAlterarSenha() {
+    const modal = document.getElementById('modal-alterar-senha-usuario');
+    if (modal) modal.classList.remove('active');
+  },
+
+  salvarNovaSenhaUsuario() {
+    const usrId = document.getElementById('alterar-senha-user-id').value;
+    const u = DB.getUsuarios().find(item => item.id === usrId);
+    if (!u) {
+      App.showToast('Usuário não encontrado.', 'error');
+      return;
+    }
+
+    const inputNova = document.getElementById('alterar-senha-nova');
+    const inputConf = document.getElementById('alterar-senha-confirmacao');
+    const erroEl = document.getElementById('alterar-senha-erro');
+
+    const nova = (inputNova?.value || '').trim();
+    const conf = (inputConf?.value || '').trim();
+
+    if (!nova || nova.length < 3) {
+      if (erroEl) {
+        erroEl.textContent = 'A nova senha deve ter no mínimo 3 caracteres.';
+        erroEl.style.display = 'block';
+      }
+      return;
+    }
+
+    if (nova !== conf) {
+      if (erroEl) {
+        erroEl.textContent = 'As senhas digitadas não coincidem.';
+        erroEl.style.display = 'block';
+      }
+      return;
+    }
+
+    u.senha = nova;
     DB.salvarUsuario(u);
+
+    // Se o usuário alterou a própria senha, atualiza a sessão local
+    const logado = AuthModule.getUsuarioAtual();
+    if (logado && logado.id === u.id) {
+      logado.senha = nova;
+      localStorage.setItem(AuthModule.SESSION_KEY, JSON.stringify(logado));
+    }
+
+    this.fecharModalAlterarSenha();
     this.renderTabelaContas();
-    App.showToast(`Senha do usuário @${u.username} atualizada com sucesso!`, 'success');
+    App.showToast(`Senha da conta @${u.username} (${u.nome}) alterada com sucesso!`, 'success');
+  },
+
+  redefinirSenhaUsuario(usrId) {
+    this.abrirModalAlterarSenha(usrId);
+  },
+
+  excluirContaUsuario(usrId) {
+    const u = DB.getUsuarios().find(item => item.id === usrId);
+    if (!u) {
+      App.showToast('Conta de usuário não encontrada.', 'error');
+      return;
+    }
+
+    const usuarioLogado = AuthModule.getUsuarioAtual();
+    if (usuarioLogado && usuarioLogado.id === u.id) {
+      App.showToast('Você não pode excluir sua própria conta enquanto estiver conectado.', 'error');
+      return;
+    }
+
+    const admins = DB.getUsuarios().filter(item => item.perfil === 'ADMIN');
+    if (u.perfil === 'ADMIN' && admins.length <= 1) {
+      App.showToast('Operação negada: Não é permitido excluir o único administrador do sistema.', 'error');
+      return;
+    }
+
+    const confirmou = confirm(`ATENÇÃO - EXCLUSÃO DE CONTA:\n\nDeseja realmente apagar permanentemente a conta de acesso do usuário:\n@${u.username} (${u.nome} - ${u.cargo || u.perfil})?\n\nEle perderá o acesso imediato ao sistema.`);
+    if (!confirmou) return;
+
+    DB.excluirUsuario(usrId);
+    this.renderTabelaContas();
+    App.showToast(`Conta de usuário @${u.username} apagada com sucesso!`, 'success');
   },
 
   alternarPerfilUsuario(usrId) {

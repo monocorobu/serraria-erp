@@ -110,6 +110,8 @@ const PrecosModule = {
       contadorEl.textContent = `${produtos.length} ${produtos.length === 1 ? 'item' : 'itens'}`;
     }
 
+    const isAdmin = window.AuthModule ? AuthModule.isAdmin() : true;
+
     tbody.innerHTML = produtos.map(p => {
       const estoque = parseFloat(p.estoque_atual !== undefined ? p.estoque_atual : 0);
       const minimo = parseFloat(p.estoque_minimo || 10);
@@ -146,9 +148,15 @@ const PrecosModule = {
           <td class="align-center font-mono">
             ${estoqueBadge}
           </td>
-          <td class="align-right font-mono" style="width: 120px;">
-            <input type="number" step="0.50" min="0" class="table-input" value="${Number(p.preco_unitario || 0).toFixed(2)}" onchange="PrecosModule.salvarPrecoInline('${p.id}', this.value)">
-          </td>
+          ${isAdmin ? `
+            <td class="align-right font-mono" style="width: 120px;">
+              <input type="number" step="0.50" min="0" class="table-input" value="${Number(p.preco_unitario || 0).toFixed(2)}" onchange="PrecosModule.salvarPrecoInline('${p.id}', this.value)" title="Editar preço de venda">
+            </td>
+          ` : `
+            <td class="align-right font-mono" style="font-weight: 700; color: var(--text-primary); font-size: 13px;" title="Preço de tabela fixo (somente gerente pode editar)">
+              ${CalcEngine.formatBRL(p.preco_unitario)}
+            </td>
+          `}
           <td class="align-center">
             <button class="btn btn-sm btn-secondary" title="Editar produto e estoque" onclick="PrecosModule.editarProdutoModal('${p.id}')">
               Editar
@@ -160,6 +168,12 @@ const PrecosModule = {
   },
 
   salvarPrecoInline(prodId, novoPreco) {
+    if (window.AuthModule && !AuthModule.isAdmin()) {
+      App.showToast('Apenas administradores e gerentes podem alterar preços de produtos.', 'error');
+      this.renderTabelaPrecos();
+      return;
+    }
+
     const produtos = DB.getProdutos();
     const prod = produtos.find(p => p.id === prodId);
     if (!prod) return;
@@ -173,6 +187,11 @@ const PrecosModule = {
   },
 
   abrirModalReajuste() {
+    if (window.AuthModule && !AuthModule.isAdmin()) {
+      App.showToast('Apenas administradores e gerentes podem aplicar reajuste de preços.', 'error');
+      return;
+    }
+
     const modal = document.getElementById('modal-reajuste-massa');
     if (!modal) return;
 
@@ -235,6 +254,11 @@ const PrecosModule = {
   },
 
   aplicarReajusteEmMassa() {
+    if (window.AuthModule && !AuthModule.isAdmin()) {
+      App.showToast('Apenas administradores e gerentes podem aplicar reajuste de preços.', 'error');
+      return;
+    }
+
     const inputPct = document.getElementById('reajuste-percentual-input');
     const selectFam = document.getElementById('reajuste-familia-select');
     if (!inputPct || !selectFam) return;

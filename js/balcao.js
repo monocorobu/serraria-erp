@@ -1041,7 +1041,14 @@ const BalcaoModule = {
       preco += (produto.taxa_plaina_padrao || CalcEngine.DEFAULT_TAXA_PLAINA_ML);
     }
 
-    if (inputPreco) inputPreco.value = preco.toFixed(2);
+    const isAdmin = window.AuthModule ? AuthModule.isAdmin() : true;
+    if (inputPreco) {
+      inputPreco.value = preco.toFixed(2);
+      inputPreco.readOnly = !isAdmin;
+      inputPreco.style.backgroundColor = isAdmin ? '' : 'var(--bg-surface-subtle)';
+      inputPreco.style.cursor = isAdmin ? '' : 'not-allowed';
+      inputPreco.title = isAdmin ? '' : 'Preço fixado pela tabela oficial (somente gerentes podem alterar)';
+    }
     this.calcularSubtotalRapido();
   },
 
@@ -1087,7 +1094,15 @@ const BalcaoModule = {
     const querAparelhar = acabamento === 'APARELHADA';
     const qtd = parseFloat(document.getElementById('fast-qtd-input').value) || 0;
     const comp = parseFloat(document.getElementById('fast-comprimento-input').value) || 0;
-    const precoUnitBase = produto.preco_unitario;
+    const isAdmin = window.AuthModule ? AuthModule.isAdmin() : true;
+    let precoUnitBase = produto.preco_unitario;
+    if (isAdmin) {
+      const inputPreco = document.getElementById('fast-preco-input');
+      const valPreco = inputPreco ? parseFloat(inputPreco.value) : NaN;
+      if (!isNaN(valPreco) && valPreco >= 0) {
+        precoUnitBase = querAparelhar ? Math.max(0, valPreco - (produto.taxa_plaina_padrao || CalcEngine.DEFAULT_TAXA_PLAINA_ML)) : valPreco;
+      }
+    }
 
     if (qtd <= 0) {
       App.showToast('Informe uma quantidade válida.', 'warning');
@@ -1142,6 +1157,8 @@ const BalcaoModule = {
 
     if (emptyState) emptyState.style.display = 'none';
 
+    const isAdmin = window.AuthModule ? AuthModule.isAdmin() : true;
+
     tbody.innerHTML = this.currentOrder.itens.map((item, index) => {
       const isAparelhada = item.aparelhar;
       return `
@@ -1170,9 +1187,15 @@ const BalcaoModule = {
           <td class="align-right font-mono" style="font-weight: 600;">
             ${CalcEngine.formatNumero(item.metragem_total, item.tipo_calculo === 'ML' ? 1 : 0)} ${item.tipo_calculo === 'ML' ? 'ML' : item.tipo_calculo === 'M2' ? 'm²' : 'un'}
           </td>
-          <td class="align-right font-mono" style="width: 95px;">
-            <input type="number" step="0.50" min="0" class="table-input" value="${item.valor_unitario.toFixed(2)}" onchange="BalcaoModule.atualizarItemInline('${item.id}', 'valor_unitario', this.value)">
-          </td>
+          ${isAdmin ? `
+            <td class="align-right font-mono" style="width: 95px;">
+              <input type="number" step="0.50" min="0" class="table-input" value="${item.valor_unitario.toFixed(2)}" onchange="BalcaoModule.atualizarItemInline('${item.id}', 'valor_unitario', this.value)" title="Editar valor unitário">
+            </td>
+          ` : `
+            <td class="align-right font-mono" style="font-weight: 600; color: var(--text-primary); font-size: 12.5px;" title="Preço unitário fixo de tabela">
+              ${CalcEngine.formatBRL(item.valor_unitario)}
+            </td>
+          `}
           <td class="align-right font-mono" style="font-weight: 700; color: var(--primary-green);">
             ${CalcEngine.formatBRL(item.subtotal)}
           </td>
@@ -1209,6 +1232,12 @@ const BalcaoModule = {
   },
 
   atualizarItemInline(itemId, campo, valor) {
+    if (campo === 'valor_unitario' && window.AuthModule && !AuthModule.isAdmin()) {
+      App.showToast('Funcionários não têm permissão para alterar o valor unitário dos itens.', 'error');
+      this.renderTabelaItens();
+      return;
+    }
+
     const item = this.currentOrder.itens.find(i => i.id === itemId);
     if (!item) return;
 

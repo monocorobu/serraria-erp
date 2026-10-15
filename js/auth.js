@@ -114,6 +114,8 @@ const AuthModule = {
     const usuario = DB.getUsuarios().find(u => u.username === username);
     if (usuario) {
       this.fazerLogin(usuario.username, usuario.senha);
+    } else {
+      App.showToast(`Conta de usuário @${username} não foi encontrada.`, 'warning');
     }
   },
 
@@ -181,15 +183,16 @@ const AuthModule = {
       navPainel.style.display = isAdmin ? 'flex' : 'none';
     }
 
-    // 2. Trava de Reajuste em Massa (%) e Cadastro na Tabela de Preços
+    // 2. Trava de Reajuste em Massa (%) e Cadastro na Tabela de Preços e Estoque
     const btnReajusteMassa = document.getElementById('btn-abrir-reajuste-massa') || document.getElementById('btn-reajuste-massa-trigger');
     const btnNovoProd = document.getElementById('btn-novo-produto-modal');
-    if (btnReajusteMassa) {
-      btnReajusteMassa.style.display = isAdmin ? 'inline-flex' : 'none';
-    }
-    if (btnNovoProd) {
-      btnNovoProd.style.display = isAdmin ? 'inline-flex' : 'none';
-    }
+    const btnNovoProdEstoque = document.getElementById('btn-novo-produto-estoque');
+    const btnAddBannerEstoque = document.getElementById('btn-adicionar-item-banner');
+
+    if (btnReajusteMassa) btnReajusteMassa.style.display = isAdmin ? 'inline-flex' : 'none';
+    if (btnNovoProd) btnNovoProd.style.display = isAdmin ? 'inline-flex' : 'none';
+    if (btnNovoProdEstoque) btnNovoProdEstoque.style.display = isAdmin ? 'inline-flex' : 'none';
+    if (btnAddBannerEstoque) btnAddBannerEstoque.style.display = isAdmin ? 'inline-flex' : 'none';
 
     // 3. No Balcão: Se for funcionário/vendedor, trava a seleção de vendedor no próprio nome
     const selectVend = document.getElementById('balcao-vendedor-select');
@@ -209,7 +212,19 @@ const AuthModule = {
       }
     }
 
-    // 4. Se o módulo da gerência estiver na tela, atualiza listagem de contas
+    // 4. Atualiza tabelas para alternar inputs de preço editáveis vs texto estático
+    if (window.PrecosModule && PrecosModule.renderTabelaPrecos) {
+      PrecosModule.renderTabelaPrecos();
+    }
+    if (window.EstoqueModule && EstoqueModule.renderTabelaEstoque) {
+      EstoqueModule.renderTabelaEstoque();
+    }
+    if (window.BalcaoModule) {
+      if (BalcaoModule.renderTabelaItens) BalcaoModule.renderTabelaItens();
+      if (BalcaoModule.atualizarPrecoRapido) BalcaoModule.atualizarPrecoRapido();
+    }
+
+    // 5. Se o módulo da gerência estiver na tela, atualiza listagem de contas
     if (window.GerenteModule && GerenteModule.renderTabelaContas) {
       GerenteModule.renderTabelaContas();
     }

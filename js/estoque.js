@@ -203,9 +203,15 @@ const EstoqueModule = {
               ${p.unidade_medida || p.tipo_calculo}
             </span>
           </td>
-          <td class="align-right font-mono" style="width: 115px;">
-            <input type="number" step="0.50" min="0" class="table-input font-mono" style="width: 100px; text-align: right;" value="${preco.toFixed(2)}" onchange="EstoqueModule.salvarPrecoInline('${p.id}', this.value)" title="Editar preço unitário de venda">
-          </td>
+          ${(window.AuthModule && AuthModule.isAdmin()) ? `
+            <td class="align-right font-mono" style="width: 115px;">
+              <input type="number" step="0.50" min="0" class="table-input font-mono" style="width: 100px; text-align: right;" value="${preco.toFixed(2)}" onchange="EstoqueModule.salvarPrecoInline('${p.id}', this.value)" title="Editar preço unitário de venda">
+            </td>
+          ` : `
+            <td class="align-right font-mono" style="font-weight: 700; color: var(--text-primary); font-size: 13px;" title="Preço de tabela fixo (somente gerente pode editar)">
+              ${(typeof CalcEngine !== 'undefined' && CalcEngine.formatBRL) ? CalcEngine.formatBRL(preco) : ('R$ ' + preco.toFixed(2))}
+            </td>
+          `}
           <td class="align-center font-mono">
             <div class="estoque-stepper-control">
               <button type="button" class="btn-stepper" onclick="EstoqueModule.alterarEstoqueRapido('${p.id}', -1)" title="Diminuir 1">-</button>
@@ -233,6 +239,12 @@ const EstoqueModule = {
   },
 
   salvarPrecoInline(prodId, novoPreco) {
+    if (window.AuthModule && !AuthModule.isAdmin()) {
+      App.showToast('Apenas administradores e gerentes podem alterar preços de produtos.', 'error');
+      this.render();
+      return;
+    }
+
     const produtos = DB.getProdutos();
     const prod = produtos.find(p => p.id === prodId);
     if (!prod) return;
@@ -309,6 +321,11 @@ const EstoqueModule = {
   },
 
   abrirModalNovoProduto() {
+    if (window.AuthModule && !AuthModule.isAdmin()) {
+      App.showToast('Apenas administradores e gerentes podem cadastrar novos produtos.', 'error');
+      return;
+    }
+
     const modal = document.getElementById('modal-editar-produto');
     if (!modal) return;
 
@@ -320,7 +337,17 @@ const EstoqueModule = {
     document.getElementById('edit-prod-nome').value = '';
     document.getElementById('edit-prod-categoria').value = 'Madeiras & Esquadrias';
     document.getElementById('edit-prod-especie').value = '';
-    document.getElementById('edit-prod-preco').value = '0.00';
+    
+    const inputPreco = document.getElementById('edit-prod-preco');
+    if (inputPreco) {
+      inputPreco.value = '0.00';
+      inputPreco.readOnly = false;
+      inputPreco.style.backgroundColor = '';
+      inputPreco.style.cursor = '';
+    }
+    const avisoPreco = document.getElementById('edit-prod-preco-aviso');
+    if (avisoPreco) avisoPreco.style.display = 'none';
+
     document.getElementById('edit-prod-tipo').value = 'UN';
     document.getElementById('edit-prod-unidade').value = 'UN';
     document.getElementById('edit-prod-plaina').value = '0.00';
@@ -363,16 +390,39 @@ const EstoqueModule = {
 
     this.popularCategoriasModal(prod.categoria);
 
+    const isAdmin = window.AuthModule ? AuthModule.isAdmin() : true;
+
     // Popula campos
     document.getElementById('edit-prod-id').value = prod.id;
     document.getElementById('edit-prod-codigo').value = prod.codigo || '';
     document.getElementById('edit-prod-nome').value = prod.nome || '';
     document.getElementById('edit-prod-categoria').value = prod.categoria || 'Madeiras & Esquadrias';
     document.getElementById('edit-prod-especie').value = prod.especie || '';
-    document.getElementById('edit-prod-preco').value = parseFloat(prod.preco_unitario !== undefined ? prod.preco_unitario : 0).toFixed(2);
+    
+    const inputPreco = document.getElementById('edit-prod-preco');
+    if (inputPreco) {
+      inputPreco.value = parseFloat(prod.preco_unitario !== undefined ? prod.preco_unitario : 0).toFixed(2);
+      inputPreco.readOnly = !isAdmin;
+      inputPreco.style.backgroundColor = isAdmin ? '' : 'var(--bg-surface-subtle)';
+      inputPreco.style.cursor = isAdmin ? '' : 'not-allowed';
+      inputPreco.title = isAdmin ? '' : 'Preço de tabela bloqueado (somente gerentes podem alterar)';
+    }
+
+    const avisoPreco = document.getElementById('edit-prod-preco-aviso');
+    if (avisoPreco) {
+      avisoPreco.style.display = isAdmin ? 'none' : 'block';
+    }
+
+    const inputPlaina = document.getElementById('edit-prod-plaina');
+    if (inputPlaina) {
+      inputPlaina.value = parseFloat(prod.taxa_plaina_padrao || 0).toFixed(2);
+      inputPlaina.readOnly = !isAdmin;
+      inputPlaina.style.backgroundColor = isAdmin ? '' : 'var(--bg-surface-subtle)';
+      inputPlaina.style.cursor = isAdmin ? '' : 'not-allowed';
+    }
+
     document.getElementById('edit-prod-tipo').value = prod.tipo_calculo || 'UN';
     document.getElementById('edit-prod-unidade').value = prod.unidade_medida || 'UN';
-    document.getElementById('edit-prod-plaina').value = parseFloat(prod.taxa_plaina_padrao || 0).toFixed(2);
     document.getElementById('edit-prod-estoque-atual').value = parseFloat(prod.estoque_atual !== undefined ? prod.estoque_atual : 0);
     document.getElementById('edit-prod-estoque-minimo').value = parseFloat(prod.estoque_minimo !== undefined ? prod.estoque_minimo : 10);
     document.getElementById('edit-prod-espessura').value = prod.espessura_cm || '';
@@ -389,9 +439,9 @@ const EstoqueModule = {
     const btnSalvar = document.getElementById('btn-salvar-produto-modal');
     if (btnSalvar) btnSalvar.textContent = 'Salvar Alterações';
 
-    // Exibe botão de excluir
+    // Exibe botão de excluir apenas para administradores
     const btnExcluir = document.getElementById('btn-excluir-produto');
-    if (btnExcluir) btnExcluir.style.display = 'inline-flex';
+    if (btnExcluir) btnExcluir.style.display = isAdmin ? 'inline-flex' : 'none';
 
     modal.classList.add('active');
     document.getElementById('edit-prod-nome').focus();
@@ -409,10 +459,10 @@ const EstoqueModule = {
     const nome = document.getElementById('edit-prod-nome').value.trim();
     const categoria = document.getElementById('edit-prod-categoria').value;
     const especie = document.getElementById('edit-prod-especie').value.trim();
-    const preco = parseFloat(document.getElementById('edit-prod-preco').value);
+    let preco = parseFloat(document.getElementById('edit-prod-preco').value);
     const tipo = document.getElementById('edit-prod-tipo').value;
     const unidade = document.getElementById('edit-prod-unidade').value.trim();
-    const plaina = parseFloat(document.getElementById('edit-prod-plaina').value) || 0;
+    let plaina = parseFloat(document.getElementById('edit-prod-plaina').value) || 0;
     const estoqueAtualRaw = document.getElementById('edit-prod-estoque-atual').value;
     const estoqueAtual = estoqueAtualRaw === '' ? 0 : parseFloat(estoqueAtualRaw);
     const estoqueMinimoRaw = document.getElementById('edit-prod-estoque-minimo').value;
@@ -420,6 +470,21 @@ const EstoqueModule = {
     const espessura = parseFloat(document.getElementById('edit-prod-espessura').value) || null;
     const largura = parseFloat(document.getElementById('edit-prod-largura').value) || null;
     const ativo = document.getElementById('edit-prod-ativo').value === 'true';
+
+    const isAdmin = window.AuthModule ? AuthModule.isAdmin() : true;
+
+    // Se for funcionário editando produto existente, garante que o preço original não mude
+    if (!isAdmin) {
+      if (ehNovo) {
+        App.showToast('Apenas administradores e gerentes podem cadastrar novos produtos.', 'error');
+        return;
+      }
+      const prodOriginal = DB.getProdutos().find(p => p.id === prodId);
+      if (prodOriginal) {
+        preco = prodOriginal.preco_unitario;
+        plaina = prodOriginal.taxa_plaina_padrao || 0;
+      }
+    }
 
     if (!nome) {
       App.showToast('O nome do produto não pode ficar em branco.', 'error');

@@ -773,7 +773,7 @@
                 <svg viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
                 <span>Recarregar Estoque Padrão</span>
               </button>
-              <button type="button" class="btn btn-sm btn-primary" onclick="EstoqueModule.abrirModalNovoProduto()" style="font-weight: 700;">
+              <button type="button" class="btn btn-sm btn-primary" id="btn-novo-produto-estoque" onclick="EstoqueModule.abrirModalNovoProduto()" style="font-weight: 700;">
                 <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 <span>+ Novo Produto no Estoque</span>
               </button>
@@ -786,7 +786,7 @@
               <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: #16A34A; stroke-width: 2; fill: none; flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
               <span><strong>Como gerenciar e dar entrada no estoque:</strong> Para adicionar/repor unidades de um produto existente, <strong>digite a quantidade diretamente na coluna "Qtd. em Estoque"</strong> ou use os botões <strong>+</strong> e <strong>-</strong>. Para cadastrar um produto novo do zero, clique no botão <strong>+ Novo Produto no Estoque</strong>.</span>
             </div>
-            <button type="button" class="btn btn-sm btn-primary" onclick="EstoqueModule.abrirModalNovoProduto()" style="padding: 4px 12px; font-size: 11.5px;">
+            <button type="button" class="btn btn-sm btn-primary" id="btn-adicionar-item-banner" onclick="EstoqueModule.abrirModalNovoProduto()" style="padding: 4px 12px; font-size: 11.5px;">
               + Adicionar Item
             </button>
           </div>
@@ -1308,11 +1308,11 @@
                   <thead>
                     <tr>
                       <th>Usuário / Login</th>
-                      <th>Colaborador Vinculado</th>
+                      <th>Colaborador / Nome</th>
+                      <th>Função / Cargo</th>
                       <th class="align-center">Nível de Acesso</th>
                       <th class="align-center">Status</th>
-                      <th>Data de Criação</th>
-                      <th class="align-center" style="width: 260px;">Ações de Segurança</th>
+                      <th class="align-center" style="width: 290px;">Ações de Segurança</th>
                     </tr>
                   </thead>
                   <tbody id="tabela-contas-corpo"></tbody>
@@ -2106,15 +2106,30 @@
 
 <!-- MODAL: CADASTRAR / VINCULAR CONTA DE USUÁRIO -->
 <div class="modal-overlay" id="modal-usuario-conta">
-  <div class="modal-container" style="max-width: 480px;">
+  <div class="modal-container" style="max-width: 490px;">
     <div class="modal-header">
       <span class="modal-title">Nova Conta de Usuário & Acesso</span>
       <button class="modal-close" onclick="GerenteModule.fecharModalConta()">&times;</button>
     </div>
     <div class="modal-body">
       <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label">Colaborador / Funcionário Vinculado:</label>
-        <select id="conta-funcionario-select" class="form-select" required></select>
+        <label class="form-label">Colaborador / Titular da Conta:</label>
+        <select id="conta-funcionario-select" class="form-select" onchange="GerenteModule.aoSelecionarFuncionarioConta(this.value)" required></select>
+      </div>
+
+      <!-- CAMPOS EXTRAS SE FOR CADASTRAR NOVO COLABORADOR DIRETAMENTE -->
+      <div id="conta-novo-colab-bloco" style="display: none; margin-bottom: 12px; background: var(--bg-surface-subtle); padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-light);">
+        <div style="font-size: 11px; font-weight: 700; color: var(--brand-primary); margin-bottom: 6px; text-transform: uppercase;">Dados do Novo Colaborador</div>
+        <div class="form-row" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">Nome Completo:</label>
+            <input type="text" id="conta-nome-custom" class="form-input" placeholder="ex: Juliana Ferreira">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cargo / Função:</label>
+            <input type="text" id="conta-cargo-custom" class="form-input" placeholder="ex: Vendedora">
+          </div>
+        </div>
       </div>
 
       <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
@@ -2131,17 +2146,50 @@
       <div class="form-group" style="margin-bottom: 12px;">
         <label class="form-label">Perfil de Acesso (Permissões):</label>
         <select id="conta-perfil" class="form-select">
-          <option value="FUNCIONARIO">Funcionário (Apenas Balcão, Histórico e Pátio)</option>
-          <option value="ADMIN">Administrador (Acesso Total: Gerência, Caixa e Reajustes)</option>
+          <option value="FUNCIONARIO">Funcionário (Apenas Balcão, Histórico e Pátio - Sem alterar preços)</option>
+          <option value="ADMIN">Administrador / Gerente (Acesso Total: Gerência, Caixa e Reajustes)</option>
         </select>
         <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
-          Contas de funcionário ficam bloqueadas de acessar a Central do Gerente, Painel do Dono e alterar preços em lote.
+          Contas de funcionário ficam bloqueadas de alterar preços de produtos, acessar a Central do Gerente e o Painel do Dono.
         </div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="GerenteModule.fecharModalConta()">Cancelar</button>
       <button class="btn btn-primary" id="btn-salvar-conta-usuario">Criar Conta de Acesso</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: ALTERAR SENHA DE USUÁRIO (GERÊNCIA) -->
+<div class="modal-overlay" id="modal-alterar-senha-usuario">
+  <div class="modal-container" style="max-width: 440px;">
+    <div class="modal-header">
+      <span class="modal-title">Alterar Senha de Conta</span>
+      <button class="modal-close" onclick="GerenteModule.fecharModalAlterarSenha()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="alterar-senha-user-id">
+
+      <div style="background-color: var(--bg-surface-subtle); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-light); margin-bottom: 14px;">
+        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Conta Selecionada</div>
+        <div style="font-size: 14px; font-weight: 700; color: var(--brand-primary); margin-top: 2px;" id="alterar-senha-user-display">@usuario (Nome)</div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label">Nova Senha:</label>
+        <input type="password" id="alterar-senha-nova" class="form-input font-mono" placeholder="Digite a nova senha (mínimo 3 caracteres)..." required>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 6px;">
+        <label class="form-label">Confirmar Nova Senha:</label>
+        <input type="password" id="alterar-senha-confirmacao" class="form-input font-mono" placeholder="Repita a nova senha..." required>
+      </div>
+      <div id="alterar-senha-erro" style="font-size: 11.5px; color: #DC2626; margin-top: 4px; display: none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="GerenteModule.fecharModalAlterarSenha()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-confirmar-alterar-senha" onclick="GerenteModule.salvarNovaSenhaUsuario()">Salvar Nova Senha</button>
     </div>
   </div>
 </div>
@@ -2205,6 +2253,7 @@
           <div class="form-group">
             <label class="form-label" style="font-weight: 700; color: var(--text-primary);">Preço Unitário de Venda (R$):</label>
             <input type="number" step="0.01" min="0" id="edit-prod-preco" class="form-input font-mono" style="font-weight: 700; font-size: 14px;" placeholder="0.00" required>
+            <div id="edit-prod-preco-aviso" style="display: none; font-size: 11px; color: #DC2626; margin-top: 4px; font-weight: 600;">🔒 Preço bloqueado: Somente gerentes podem alterar o valor de venda.</div>
           </div>
           <div class="form-group">
             <label class="form-label">Tipo de Cálculo:</label>
