@@ -1446,91 +1446,227 @@
            =================================================================== -->
       <section class="tab-content" id="tab-tutorial">
         <div class="panel">
-          <div class="panel-header">
-            <span class="panel-title">
-              <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-              Guia Prático de Operação para Balcão de Serraria
-            </span>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-sm btn-primary" id="btn-carregar-exemplo-guiado">
-                Carregar Exemplo Guiado
+          <div class="panel-header" style="flex-wrap: wrap; gap: 10px;">
+            <div>
+              <span class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; stroke: var(--brand-primary); fill: none; stroke-width: 2.2;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Manual Operacional & Guia de Treinamento da Madeireira
+              </span>
+              <span style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">
+                Instruções passo a passo para o atendimento no balcão, expedição no pátio e fechamento de caixa do dono
+              </span>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-sm btn-primary" id="btn-carregar-exemplo-guiado" style="font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span>Carregar Exemplo Prático no Balcão</span>
               </button>
-              <button class="btn btn-sm btn-secondary" id="btn-restaurar-dados-demo">
-                Restaurar Dados Demo
+              <button class="btn btn-sm btn-secondary" id="btn-restaurar-dados-demo" style="display: inline-flex; align-items: center; gap: 6px;">
+                <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2;"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                <span>Restaurar Demonstração Original</span>
               </button>
             </div>
           </div>
 
-          <div class="panel-body" style="line-height: 1.6; font-size: 13px;">
+          <div class="panel-body" style="line-height: 1.6; font-size: 13px; padding: 20px;">
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-              
-              <!-- PASSO A PASSO -->
-              <div>
-                <h3 style="font-size: 13.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; border-bottom: 2px solid var(--border-medium); padding-bottom: 5px;">
-                  1. Passo a Passo do Atendimento no Balcão
-                </h3>
+            <!-- BLOCO 1: O PASSO A PASSO ESSENCIAL DO ATENDIMENTO (CARDS 1 A 4) -->
+            <div style="margin-bottom: 24px;">
+              <h3 style="font-size: 14px; font-weight: 800; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <span class="badge-tag" style="background: var(--brand-primary); color: #fff; font-size: 11px; padding: 2px 8px;">PASSO A PASSO</span>
+                Fluxo de Atendimento no Balcão
+              </h3>
+
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px;">
                 
-                <ol style="padding-left: 20px; display: flex; flex-direction: column; gap: 10px;">
-                  <li>
-                    <strong>Identificar o Cliente:</strong> Digite o telefone ou nome na busca rápida. Se o cliente já comprou antes, o endereço da obra e bairro serão puxados na hora. Se for um cliente novo, apenas preencha o Nome e Bairro — o sistema cadastra sozinho quando você salvar!
-                  </li>
-                  <li>
-                    <strong>Lançamento de Madeiras:</strong> Selecione a madeira no campo rápido. Para vigas e caibros (Metro Linear), informe a quantidade e clique no comprimento desejado (ex: 3.5m, 4.0m, 5.0m). Se o cliente quer madeira plainada e lisinha, marque <strong>Aparelhar</strong>.
-                  </li>
-                  <li>
-                    <strong>Kits Prontos em 1 Clique:</strong> Para telhados completos ou caixarias de obra, use os botões rápidos. A <em>Calculadora de Telhado</em> calcula tudo que precisa em segundos com base nos $m^2$.
-                  </li>
-                  <li>
-                    <strong>Fechamento e Emissão:</strong> Selecione o frete, insira o Sinal pago e clique em <em>Aprovar Venda</em>. Pressione <kbd class="nav-badge" style="background:#0F172A; color:#FFF;">F9</kbd> para entregar a via com preços ao cliente ou <kbd class="nav-badge" style="background:#0F172A; color:#FFF;">F10</kbd> para imprimir o romaneio sem preços para a serra.
-                  </li>
-                </ol>
+                <!-- CARD 1 -->
+                <div style="background: #FFFFFF; border: 1px solid var(--border-medium); border-top: 3px solid #059669; border-radius: var(--radius-md); padding: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="background: #ECFDF5; color: #047857; font-weight: 800; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">1</span>
+                    <strong style="color: #047857; font-size: 13.5px;">Identificar o Cliente</strong>
+                  </div>
+                  <p style="color: var(--text-secondary); font-size: 12.5px; margin-bottom: 8px;">
+                    Digite o telefone, nome ou CPF no campo de busca. Se o cliente já comprou, o endereço e bairro são preenchidos na hora.
+                  </p>
+                  <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 4px; font-size: 11.5px; color: #334155;">
+                    💡 <strong>Auto-cadastro:</strong> Para clientes novos, basta preencher o <em>Nome</em> e <em>Bairro</em> — o sistema cadastra sozinho ao salvar o pedido!
+                  </div>
+                </div>
+
+                <!-- CARD 2 -->
+                <div style="background: #FFFFFF; border: 1px solid var(--border-medium); border-top: 3px solid #0284C7; border-radius: var(--radius-md); padding: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="background: #F0F9FF; color: #0284C7; font-weight: 800; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">2</span>
+                    <strong style="color: #0284C7; font-size: 13.5px;">Adicionar Madeiras e Itens</strong>
+                  </div>
+                  <p style="color: var(--text-secondary); font-size: 12.5px; margin-bottom: 8px;">
+                    Busque a madeira pelo nome ou código. Escolha a quantidade de peças e o comprimento (ex: 3.0m, 4.0m).
+                  </p>
+                  <div style="background: #F0F9FF; border: 1px solid #BAE6FD; padding: 6px 10px; border-radius: 4px; font-size: 11.5px; color: #0369A1;">
+                    🪵 <strong>Plaina:</strong> Se o cliente quiser madeira lisa, selecione <strong>Aparelhada (+Plaina)</strong>. O sistema calcula a taxa de plaina e o pátio já recebe o aviso.
+                  </div>
+                </div>
+
+                <!-- CARD 3 -->
+                <div style="background: #FFFFFF; border: 1px solid var(--border-medium); border-top: 3px solid #D97706; border-radius: var(--radius-md); padding: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="background: #FFFBEB; color: #D97706; font-weight: 800; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">3</span>
+                    <strong style="color: #D97706; font-size: 13.5px;">Fechamento (Balcão vs Pátio)</strong>
+                  </div>
+                  <p style="color: var(--text-secondary); font-size: 12.5px; margin-bottom: 8px;">
+                    Escolha o tipo de operação correto nos botões de ação:
+                  </p>
+                  <div style="display: flex; flex-direction: column; gap: 5px; font-size: 11.5px;">
+                    <div style="background: #ECFDF5; padding: 4px 8px; border-radius: 4px; color: #047857;">
+                      ⚡ <strong>[F8] Finalizar Venda Balcão:</strong> Para retirada imediata (pregos, ferragens ou madeira pronta). Quita 100% e baixa o estoque na hora.
+                    </div>
+                    <div style="background: #EFF6FF; padding: 4px 8px; border-radius: 4px; color: #1E40AF;">
+                      🚚 <strong>Aprovar Venda (Pátio):</strong> Para madeiras que vão para corte, plaina ou entrega agendada de caminhão.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- CARD 4 -->
+                <div style="background: #FFFFFF; border: 1px solid var(--border-medium); border-top: 3px solid #2563EB; border-radius: var(--radius-md); padding: 14px;">
+                  <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <span style="background: #EFF6FF; color: #2563EB; font-weight: 800; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px;">4</span>
+                    <strong style="color: #2563EB; font-size: 13.5px;">WhatsApp & Comprovantes</strong>
+                  </div>
+                  <p style="color: var(--text-secondary); font-size: 12.5px; margin-bottom: 8px;">
+                    Após o pedido, envie as informações para o cliente com 1 clique:
+                  </p>
+                  <div style="display: flex; flex-direction: column; gap: 5px; font-size: 11.5px;">
+                    <div style="background: #F0FDF4; padding: 4px 8px; border-radius: 4px; color: #15803D;">
+                      💬 <strong>WhatsApp:</strong> Puxa o número do cliente e abre a conversa com o orçamento todo formatado.
+                    </div>
+                    <div style="background: #F8FAFC; padding: 4px 8px; border-radius: 4px; color: #334155;">
+                      🖨️ <strong>[F9] Imprimir:</strong> Abre a via comercial (com preços) ou o romaneio de carga para o motorista/pátio.
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- BLOCO 2: RECURSOS CRÍTICOS (ESTOQUE, CAIXA, ATALHOS) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+              
+              <!-- COMO FUNCIONA A TRAVA DE ESTOQUE -->
+              <div class="panel" style="margin-bottom: 0;">
+                <div class="panel-header" style="background: #FEF2F2;">
+                  <span class="panel-title" style="color: #991B1B; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                    <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: #DC2626; fill: none; stroke-width: 2.2;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Conferência Física de Estoque (Sem Travas Cegas)
+                  </span>
+                </div>
+                <div class="panel-body compact" style="font-size: 12px;">
+                  <p style="margin-bottom: 8px;">
+                    Na serraria é comum chegar mercadoria que ainda não foi lançada no computador. O sistema possui uma <strong>trava inteligente</strong>:
+                  </p>
+                  <ul style="padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: #475569; margin-bottom: 10px;">
+                    <li>Se você tentar vender um item com <strong>saldo zerado</strong> ou <strong>insuficiente</strong>, a tela de conferência física se abre automaticamente.</li>
+                    <li><strong>Acertar na Hora:</strong> Se você olhou a prateleira e viu que tem o produto (ex: 50 pacotes de pregos ou 20 caibros), digite a quantidade real no campo e clique em <strong>✓ Salvar Estoque</strong>. O sistema atualiza o saldo na hora e prossegue com a venda!</li>
+                    <li><strong>Liberar Venda:</strong> Se a conferência já foi feita visualmente no balcão, basta clicar no botão verde <strong>Mercadoria Conferida no Balcão</strong> para liberar sem burocracia.</li>
+                  </ul>
+                  <div style="background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 4px; padding: 6px 10px; color: #92400E; font-size: 11px;">
+                    🛡️ <strong>Zero surpresas:</strong> Nenhuma venda passa sem que você saiba exatamente a situação do estoque.
+                  </div>
+                </div>
               </div>
 
-              <!-- FÓRMULAS E ATALHOS -->
-              <div>
-                <h3 style="font-size: 13.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; border-bottom: 2px solid var(--border-medium); padding-bottom: 5px;">
-                  2. Tabela de Atalhos de Teclado
-                </h3>
-                
-                <table class="dense-table" style="margin-bottom: 16px;">
-                  <thead>
-                    <tr>
-                      <th style="width: 85px;">Tecla</th>
-                      <th>Ação Rápida no Balcão</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td><kbd class="font-mono" style="background:#F1F5F9; border:1px solid #CBD5E1; padding:2px 6px; border-radius: 3px;">F2</kbd></td>
-                      <td>Limpar e Iniciar Novo Orçamento</td>
-                    </tr>
-                    <tr>
-                      <td><kbd class="font-mono" style="background:#F1F5F9; border:1px solid #CBD5E1; padding:2px 6px; border-radius: 3px;">F9</kbd></td>
-                      <td>Imprimir Via do Cliente (Orçamento Comercial com Preços)</td>
-                    </tr>
-                    <tr>
-                      <td><kbd class="font-mono" style="background:#F1F5F9; border:1px solid #CBD5E1; padding:2px 6px; border-radius: 3px;">F10</kbd></td>
-                      <td>Imprimir Via do Pátio/Serra (Romaneio de Carga SEM PREÇOS)</td>
-                    </tr>
-                    <tr>
-                      <td><kbd class="font-mono" style="background:#F1F5F9; border:1px solid #CBD5E1; padding:2px 6px; border-radius: 3px;">Enter</kbd></td>
-                      <td>Na barra rápida, adiciona a linha de madeira à tabela</td>
-                    </tr>
-                    <tr>
-                      <td><kbd class="font-mono" style="background:#F1F5F9; border:1px solid #CBD5E1; padding:2px 6px; border-radius: 3px;">Esc</kbd></td>
-                      <td>Fechar qualquer janela ou modal aberto</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <!-- COMO USAR O PAINEL DO DONO & CAIXA -->
+              <div class="panel" style="margin-bottom: 0;">
+                <div class="panel-header" style="background: #ECFDF5;">
+                  <span class="panel-title" style="color: #065F46; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                    <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: #059669; fill: none; stroke-width: 2.2;"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                    Painel do Dono, Caixa & Ranking
+                  </span>
+                </div>
+                <div class="panel-body compact" style="font-size: 12px;">
+                  <p style="margin-bottom: 8px;">
+                    O <strong>Painel do Dono</strong> foi projetado para dar clareza total dos números da empresa:
+                  </p>
+                  <ul style="padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: #475569; margin-bottom: 10px;">
+                    <li><strong>Filtros por Período:</strong> Alterne entre <em>Hoje</em>, <em>Últimos 7 dias</em>, <em>Este Mês</em> ou <em>Todo o Histórico</em> com 1 clique.</li>
+                    <li><strong>Fechamento de Caixa:</strong> Veja exatamente quanto entrou em <strong>Pix</strong>, <strong>Dinheiro</strong> e <strong>Cartão</strong>, separando os sinais dos recebimentos na descarga.</li>
+                    <li><strong>Ranking dos Mais Vendidos:</strong> Descubra quais produtos mais trazem dinheiro para o caixa da madeireira e quais têm maior volume de saída.</li>
+                    <li><strong>Top Clientes:</strong> Identifique os 5 maiores compradores do período para manter relacionamento e fidelizar.</li>
+                  </ul>
+                  <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 4px; padding: 6px 10px; color: #166534; font-size: 11px;">
+                    💼 <strong>Gestão em Tempo Real:</strong> Cada venda finalizada no balcão reflete imediatamente no caixa e no ranking.
+                  </div>
+                </div>
+              </div>
 
-                <h3 style="font-size: 13.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; border-bottom: 2px solid var(--border-medium); padding-bottom: 5px;">
-                  3. Fórmulas Matemáticas da Serraria
-                </h3>
-                <div style="font-size: 12px; background-color: var(--bg-surface-subtle); border: 1px solid var(--border-light); padding: 10px; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 4px;">
-                  <div><strong>Metro Linear (ML):</strong> <code>Total ML = Qtd Peças × Comprimento (m)</code></div>
-                  <div><strong>Metro Cúbico (m³):</strong> <code>V = Qtd × (Espessura/100) × (Largura/100) × Comprimento</code></div>
-                  <div><strong>Peso da Carga (kg):</strong> <code>Peso = Volume (m³) × Densidade da Madeira (kg/m³)</code></div>
+            </div>
+
+            <!-- BLOCO 3: ATALHOS DE TECLADO & FÓRMULAS DA MADEIREIRA -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              
+              <!-- TABELA DE ATALHOS -->
+              <div>
+                <h4 style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                  <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: var(--brand-primary); fill: none; stroke-width: 2;"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="10" y2="8"/><line x1="14" y1="8" x2="14" y2="8"/><line x1="18" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="6" y1="16" x2="10" y2="16"/><line x1="14" y1="16" x2="18" y2="16"/></svg>
+                  Teclas de Atalho Oficiais (Agilidade no Balcão)
+                </h4>
+                
+                <div class="table-responsive">
+                  <table class="dense-table">
+                    <thead>
+                      <tr>
+                        <th style="width: 75px;" class="align-center">Tecla</th>
+                        <th>Ação no Sistema</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td class="align-center"><kbd class="font-mono" style="background:#F1F5F9; border:1px solid #CBD5E1; padding:2px 7px; border-radius: 4px; font-weight: 700;">F2</kbd></td>
+                        <td><strong>Limpar e Iniciar Novo Orçamento</strong> (Prepara a tela para o próximo cliente)</td>
+                      </tr>
+                      <tr>
+                        <td class="align-center"><kbd class="font-mono" style="background:#ECFDF5; border:1px solid #10B981; color:#047857; padding:2px 7px; border-radius: 4px; font-weight: 700;">F8</kbd></td>
+                        <td><strong>Finalizar Venda Balcão</strong> (Pronta entrega: quita 100% e baixa o estoque)</td>
+                      </tr>
+                      <tr>
+                        <td class="align-center"><kbd class="font-mono" style="background:#EFF6FF; border:1px solid #3B82F6; color:#1D4ED8; padding:2px 7px; border-radius: 4px; font-weight: 700;">F9</kbd></td>
+                        <td><strong>Imprimir Pedido / Comprovante</strong> (Abre a prévia com opção de Via Cliente ou Pátio)</td>
+                      </tr>
+                      <tr>
+                        <td class="align-center"><kbd class="font-mono" style="background:#F1F5F9; border:1px solid #CBD5E1; padding:2px 7px; border-radius: 4px; font-weight: 700;">Enter</kbd></td>
+                        <td>Na barra rápida de produtos, <strong>adiciona o item diretamente à tabela</strong></td>
+                      </tr>
+                      <tr>
+                        <td class="align-center"><kbd class="font-mono" style="background:#F1F5F9; border:1px solid #CBD5E1; padding:2px 7px; border-radius: 4px; font-weight: 700;">Esc</kbd></td>
+                        <td>Fecha qualquer janela ou tela sobreposta aberta</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- FÓRMULAS DA MADEIREIRA -->
+              <div>
+                <h4 style="font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                  <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: var(--brand-primary); fill: none; stroke-width: 2;"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                  Fórmulas Matemáticas do Motor Madeireiro
+                </h4>
+
+                <div style="background-color: var(--bg-surface-subtle); border: 1px solid var(--border-light); padding: 12px; border-radius: var(--radius-md); display: flex; flex-direction: column; gap: 8px; font-size: 12px;">
+                  <div>
+                    <strong style="color: var(--brand-primary-text);">1. Metro Linear (ML) — Vigas, Caibros e Ripas:</strong><br>
+                    <code>Metragem Total (ML) = Quantidade de Peças × Comprimento (m)</code>
+                  </div>
+                  <div>
+                    <strong style="color: var(--brand-primary-text);">2. Volume Cúbico (m³):</strong><br>
+                    <code>Volume (m³) = Peças × (Espessura/100) × (Largura/100) × Comprimento (m)</code>
+                  </div>
+                  <div>
+                    <strong style="color: var(--brand-primary-text);">3. Peso Estimado da Carga (kg) para o Caminhão:</strong><br>
+                    <code>Peso (kg) = Volume (m³) × Densidade Específica da Madeira</code>
+                  </div>
+                  <div style="font-size: 11px; color: var(--text-secondary); border-top: 1px dashed var(--border-medium); padding-top: 6px; margin-top: 2px;">
+                    🌲 <strong>Densidades calibradas no sistema:</strong> Garapeira e Peroba Rosa (~850 a 880 kg/m³), Pinus Seco (~500 kg/m³), Telhas cerâmicas (~2,2 kg/un).
+                  </div>
                 </div>
               </div>
 
@@ -2492,20 +2628,20 @@
 <div class="toast-container" id="toast-container"></div>
 
 <!-- SCRIPTS DO SISTEMA (MODULARES E INTEGRADOS) -->
-<script src="/js/data.js?v=20261015-v7"></script>
-<script src="/js/auth.js?v=20261015-v7"></script>
-<script src="/js/calc.js?v=20261015-v7"></script>
-<script src="/js/balcao.js?v=20261015-v7"></script>
-<script src="/js/historico.js?v=20261015-v7"></script>
-<script src="/js/patio.js?v=20261015-v7"></script>
-<script src="/js/precos.js?v=20261015-v7"></script>
-<script src="/js/estoque.js?v=20261015-v7"></script>
-<script src="/js/clientes.js?v=20261015-v7"></script>
-<script src="/js/gerente.js?v=20261015-v7"></script>
-<script src="/js/painel.js?v=20261015-v7"></script>
-<script src="/js/tutorial.js?v=20261015-v7"></script>
-<script src="/js/print.js?v=20261015-v7"></script>
-<script src="/js/app.js?v=20261015-v7"></script>
+<script src="/js/data.js?v=20261015-v8"></script>
+<script src="/js/auth.js?v=20261015-v8"></script>
+<script src="/js/calc.js?v=20261015-v8"></script>
+<script src="/js/balcao.js?v=20261015-v8"></script>
+<script src="/js/historico.js?v=20261015-v8"></script>
+<script src="/js/patio.js?v=20261015-v8"></script>
+<script src="/js/precos.js?v=20261015-v8"></script>
+<script src="/js/estoque.js?v=20261015-v8"></script>
+<script src="/js/clientes.js?v=20261015-v8"></script>
+<script src="/js/gerente.js?v=20261015-v8"></script>
+<script src="/js/painel.js?v=20261015-v8"></script>
+<script src="/js/tutorial.js?v=20261015-v8"></script>
+<script src="/js/print.js?v=20261015-v8"></script>
+<script src="/js/app.js?v=20261015-v8"></script>
 
 </body>
 </html>
