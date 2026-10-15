@@ -76,7 +76,9 @@ const HistoricoModule = {
       const temSaldoPendente = saldoReceber > 0;
 
       let statusBadge = '';
-      if (p.status === 'ORCAMENTO') {
+      if (p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') {
+        statusBadge = '<span class="badge-tag" style="background: #ECFDF5; color: #047857; border: 1px solid #10B981; font-weight: 700;">⚡ Balcão Quitado</span>';
+      } else if (p.status === 'ORCAMENTO') {
         statusBadge = '<span class="badge-tag badge-orcamento">Orçamento</span>';
       } else if (p.status === 'APROVADO') {
         statusBadge = '<span class="badge-tag badge-aprovado">Venda Aprovada</span>';
@@ -87,7 +89,9 @@ const HistoricoModule = {
       }
 
       let etapaPatioBadge = '';
-      if (p.etapa_patio === 'CORTE_PLAINA') {
+      if (p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') {
+        etapaPatioBadge = '<span class="badge-tag" style="background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1; font-weight: 600;">Retirada Balcão</span>';
+      } else if (p.etapa_patio === 'CORTE_PLAINA') {
         etapaPatioBadge = '<span class="badge-tag badge-amber">Na Plaina / Serra</span>';
       } else if (p.etapa_patio === 'SEPARACAO') {
         etapaPatioBadge = '<span class="badge-tag badge-bruta">Em Separação</span>';

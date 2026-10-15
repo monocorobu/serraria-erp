@@ -506,9 +506,31 @@
               </div>
 
               <div class="form-group">
-                <label class="form-label">Sinal Pago / Entrada (R$):</label>
-                <input type="number" id="balcao-sinal-valor" class="form-input font-mono" style="height: 30px;" value="0.00" step="50">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+                  <label class="form-label" style="margin-bottom: 0;">Valor Pago / Entrada (R$):</label>
+                  <span id="balcao-status-pagamento-badge" class="badge-tag badge-orcamento" style="font-size: 10px; padding: 1px 6px;">Pendente</span>
+                </div>
+                <input type="number" id="balcao-sinal-valor" class="form-input font-mono" style="height: 30px; margin-top: 3px;" value="0.00" step="10">
+                <div style="display: flex; gap: 4px; margin-top: 5px;">
+                  <button type="button" class="btn btn-sm" id="btn-pagar-total-balcao" style="padding: 2px 8px; font-size: 11px; background: #ECFDF5; border: 1px solid #10B981; color: #047857; font-weight: 700;" onclick="BalcaoModule.definirPagamentoTotal()" title="Definir pagamento 100% integral no balcão">
+                    ⚡ 100% Quitado (Total)
+                  </button>
+                  <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 10.5px;" onclick="BalcaoModule.definirPagamentoMetade()" title="Definir 50% de entrada">
+                    50% Sinal
+                  </button>
+                  <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 10.5px;" onclick="BalcaoModule.zerarPagamentoSinal()" title="Zerar valor pago">
+                    Zerar
+                  </button>
+                </div>
               </div>
+            </div>
+
+            <!-- OPÇÃO: RETIRADA IMEDIATA NO BALCÃO -->
+            <div style="margin-top: 10px; padding: 8px 12px; background: #F8FAFC; border: 1px solid var(--border-light); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between;">
+              <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 0; color: var(--text-primary);">
+                <input type="checkbox" id="balcao-retirada-imediata" style="width: 16px; height: 16px; cursor: pointer;" onchange="BalcaoModule.aoAlternarRetiradaImediata(this.checked)">
+                <span><strong>Retirada Imediata no Balcão</strong> (Pregos, parafusos, tintas, pronta entrega — não envia para fila de corte do pátio)</span>
+              </label>
             </div>
 
             <!-- SALDO A RECEBER NA ENTREGA -->
@@ -525,8 +547,12 @@
             <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             <span>Salvar Apenas Orçamento</span>
           </button>
+          <button class="btn btn-lg" id="btn-finalizar-balcao" style="background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; border: 1px solid #059669; font-weight: 700; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25); display: inline-flex; align-items: center; gap: 8px;" onclick="BalcaoModule.finalizarVendaBalcaoImediata()">
+            <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.2;"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+            <span>⚡ [F8] Finalizar Venda Balcão (Pago & Entregue Já)</span>
+          </button>
           <button class="btn btn-success btn-lg" id="btn-aprovar-venda">
-            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
             <span>Aprovar Venda e Enviar p/ Pátio</span>
           </button>
           <button class="btn btn-secondary" id="btn-imprimir-cliente-balcao">

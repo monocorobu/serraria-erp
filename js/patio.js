@@ -103,7 +103,8 @@ const PatioModule = {
     const temPlaina = p.itens && p.itens.some(i => i.aparelhar);
     const saldoReceber = p.resumo_financeiro?.saldo_a_receber || 0;
     const temSaldoCobrar = saldoReceber > 0;
-    const bairro = p.cliente?.bairro || p.resumo_financeiro?.bairro_frete || 'Balcão / Retirada';
+    const isBalcao = Boolean(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO');
+    const bairro = isBalcao ? 'Retirado no Balcão (Pronta Entrega)' : (p.cliente?.bairro || p.resumo_financeiro?.bairro_frete || 'Balcão / Retirada');
     const peso = p.resumo_fisico?.peso_total_kg || 0;
     const totalPecas = p.resumo_fisico?.total_pecas || (p.itens ? p.itens.length : 0);
     const etapaAnterior = this.getEtapaAnterior(p.etapa_patio);
@@ -113,7 +114,7 @@ const PatioModule = {
       <div class="kanban-card" onclick="PatioModule.abrirChecklistSeparacao('${p.id}')">
         <div class="kanban-card-header">
           <span class="kanban-card-num">#${p.numero}</span>
-          ${temPlaina ? '<span class="badge-tag badge-aparelhada">Requer Plaina</span>' : '<span class="badge-tag badge-bruta">Bruta</span>'}
+          ${isBalcao ? '<span class="badge-tag" style="background: #ECFDF5; color: #047857; border: 1px solid #10B981; font-size: 10px; font-weight: 700;">⚡ Retirada Balcão</span>' : temPlaina ? '<span class="badge-tag badge-aparelhada">Requer Plaina</span>' : '<span class="badge-tag badge-bruta">Bruta</span>'}
         </div>
         <div class="kanban-card-client">${p.cliente?.nome || 'Cliente'}</div>
         <div class="kanban-card-meta">

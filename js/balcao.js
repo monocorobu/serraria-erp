@@ -79,6 +79,28 @@ const BalcaoModule = {
     this.renderFormularioCliente();
     this.ocultarAlertaCliente();
     this.renderTabelaItens();
+
+    const inputSinal = document.getElementById('balcao-sinal-valor');
+    if (inputSinal) inputSinal.value = '0.00';
+
+    const inputFrete = document.getElementById('balcao-frete-valor');
+    if (inputFrete) {
+      inputFrete.value = '0.00';
+      inputFrete.disabled = false;
+    }
+
+    const inputDesc = document.getElementById('balcao-desconto-valor');
+    if (inputDesc) inputDesc.value = '0.00';
+
+    const chkRetirada = document.getElementById('balcao-retirada-imediata');
+    if (chkRetirada) chkRetirada.checked = false;
+
+    const selectBairro = document.getElementById('balcao-bairro-frete');
+    if (selectBairro) selectBairro.value = '';
+
+    const obsVenda = document.getElementById('balcao-observacoes');
+    if (obsVenda) obsVenda.value = '';
+
     this.atualizarTotais();
     
     // Foca na busca de cliente
@@ -122,8 +144,15 @@ const BalcaoModule = {
       selectFormaPgto.value = pedido.resumo_financeiro.forma_pagamento;
     }
 
+    const isRetiradaImediata = Boolean(pedido.finalizado_balcao || pedido.tipo_entrega === 'BALCAO_IMEDIATO');
+    const chkRetirada = document.getElementById('balcao-retirada-imediata');
+    if (chkRetirada) chkRetirada.checked = isRetiradaImediata;
+
     const inputFrete = document.getElementById('balcao-frete-valor');
-    if (inputFrete) inputFrete.value = pedido.resumo_financeiro.valor_frete || 0;
+    if (inputFrete) {
+      inputFrete.value = pedido.resumo_financeiro.valor_frete || 0;
+      inputFrete.disabled = isRetiradaImediata;
+    }
 
     const inputDesconto = document.getElementById('balcao-desconto-valor');
     if (inputDesconto) inputDesconto.value = pedido.resumo_financeiro.desconto_valor || 0;
@@ -347,6 +376,11 @@ const BalcaoModule = {
       btnAprovarVenda.addEventListener('click', () => this.salvarPedidoCompleto('APROVADO'));
     }
 
+    const btnFinalizarBalcao = document.getElementById('btn-finalizar-balcao');
+    if (btnFinalizarBalcao) {
+      btnFinalizarBalcao.addEventListener('click', () => this.finalizarVendaBalcaoImediata());
+    }
+
     const btnImprimirCliente = document.getElementById('btn-imprimir-cliente-balcao');
     if (btnImprimirCliente) {
       btnImprimirCliente.addEventListener('click', () => {
@@ -374,6 +408,138 @@ const BalcaoModule = {
         }
       });
     }
+  },
+
+  // Atalhos Rápidos de Pagamento no Balcão
+  definirPagamentoTotal() {
+    this.atualizarTotais();
+    const total = this.currentOrder.resumo_financeiro?.valor_total || 0;
+    const inputSinal = document.getElementById('balcao-sinal-valor');
+    if (inputSinal) {
+      inputSinal.value = total.toFixed(2);
+    }
+    this.atualizarTotais();
+    App.showToast(`Pagamento 100% integral selecionado (${CalcEngine.formatBRL(total)} - Quitado no balcão).`, 'success');
+  },
+
+  definirPagamentoMetade() {
+    this.atualizarTotais();
+    const total = this.currentOrder.resumo_financeiro?.valor_total || 0;
+    const metade = Math.round((total / 2) * 100) / 100;
+    const inputSinal = document.getElementById('balcao-sinal-valor');
+    if (inputSinal) {
+      inputSinal.value = metade.toFixed(2);
+    }
+    this.atualizarTotais();
+    App.showToast(`Sinal de 50% (${CalcEngine.formatBRL(metade)}) definido.`, 'info');
+  },
+
+  zerarPagamentoSinal() {
+    const inputSinal = document.getElementById('balcao-sinal-valor');
+    if (inputSinal) {
+      inputSinal.value = '0.00';
+    }
+    this.atualizarTotais();
+    App.showToast('Valor de entrada / sinal zerado.', 'info');
+  },
+
+  aoAlternarRetiradaImediata(isRetirada) {
+    const inputFrete = document.getElementById('balcao-frete-valor');
+    const selectBairro = document.getElementById('balcao-bairro-frete');
+
+    if (isRetirada) {
+      if (inputFrete) {
+        inputFrete.value = '0.00';
+        inputFrete.disabled = true;
+      }
+      if (selectBairro) {
+        selectBairro.value = '';
+      }
+      this.currentOrder.tipo_entrega = 'BALCAO_IMEDIATO';
+      this.currentOrder.finalizado_balcao = true;
+      App.showToast('Retirada Imediata no Balcão ativada (Sem frete e sem fila de corte do pátio).', 'info');
+    } else {
+      if (inputFrete) {
+        inputFrete.disabled = false;
+      }
+      this.currentOrder.tipo_entrega = 'ENTREGA_PADRAO';
+      this.currentOrder.finalizado_balcao = false;
+      App.showToast('Modo de entrega padrão no endereço/obra reativado.', 'info');
+    }
+
+    this.atualizarTotais();
+  },
+
+  finalizarVendaBalcaoImediata() {
+    if (!this.currentOrder || !this.currentOrder.itens || !this.currentOrder.itens.length) {
+      App.showToast('Adicione pelo menos 1 item ao carrinho para finalizar a venda no balcão.', 'warning');
+      return;
+    }
+
+    // Trava de segurança de desconto > 5% antes de prosseguir
+    const tetoLivre = CalcEngine.getDescontoMaximoLivre();
+    if (this.currentOrder.resumo_financeiro.desconto_percentual > tetoLivre && !this.currentOrder.resumo_financeiro.desconto_autorizado) {
+      App.showToast(`Desconto acima de ${tetoLivre}% requer autorização do gerente!`, 'error');
+      document.getElementById('balcao-senha-gerente')?.focus();
+      return;
+    }
+
+    // Ativa checkbox de retirada imediata e zera o frete
+    const chkRetirada = document.getElementById('balcao-retirada-imediata');
+    if (chkRetirada) chkRetirada.checked = true;
+
+    const inputFrete = document.getElementById('balcao-frete-valor');
+    if (inputFrete) {
+      inputFrete.value = '0.00';
+      inputFrete.disabled = true;
+    }
+
+    const selectBairro = document.getElementById('balcao-bairro-frete');
+    if (selectBairro) selectBairro.value = '';
+
+    // Recalcula totais sem frete
+    this.atualizarTotais();
+    const total = this.currentOrder.resumo_financeiro?.valor_total || 0;
+
+    // Seta 100% no campo de sinal / valor pago
+    const inputSinal = document.getElementById('balcao-sinal-valor');
+    if (inputSinal) {
+      inputSinal.value = total.toFixed(2);
+    }
+    this.atualizarTotais();
+
+    const nomeCli = document.getElementById('balcao-cliente-nome')?.value?.trim() || 
+                    document.getElementById('balcao-busca-cliente')?.value?.trim() || 
+                    'Cliente Balcão';
+    const totalPecas = this.currentOrder.itens.reduce((acc, i) => acc + (parseFloat(i.quantidade) || 1), 0);
+
+    const msg = `⚡ FINALIZAR VENDA DE BALCÃO?\n\n` +
+      `• Pedido: #${this.currentOrder.numero}\n` +
+      `• Cliente: ${nomeCli}\n` +
+      `• Itens: ${totalPecas} un/pçs\n` +
+      `• Valor Total: ${CalcEngine.formatBRL(total)}\n` +
+      `• Pagamento: 100% Quitado no Balcão\n` +
+      `• Retirada: Imediata no Balcão (Pronta entrega / não vai p/ corte do pátio)\n` +
+      `• Estoque: Baixa física imediata dos itens\n\n` +
+      `Confirmar conclusão e emitir cupom?`;
+
+    if (!confirm(msg)) {
+      return;
+    }
+
+    this.currentOrder.tipo_entrega = 'BALCAO_IMEDIATO';
+    this.currentOrder.finalizado_balcao = true;
+
+    // Salva com status 'ENTREGUE'
+    const pedidoSalvo = this.salvarPedidoCompleto('ENTREGUE');
+
+    // Abre comprovante / recibo para impressão imediata
+    if (pedidoSalvo && window.PrintModule) {
+      PrintModule.abrirModalImpressao(pedidoSalvo, 'CLIENTE');
+    }
+
+    // Prepara tela do balcão para o próximo atendimento
+    this.iniciarNovoOrcamento();
   },
 
   renderBairrosSelect() {
@@ -1309,7 +1475,32 @@ const BalcaoModule = {
     if (elTotal) elTotal.textContent = CalcEngine.formatBRL(totais.valor_total);
 
     const elSaldo = document.getElementById('balcao-saldo-receber');
-    if (elSaldo) elSaldo.textContent = CalcEngine.formatBRL(totais.saldo_a_receber);
+    if (elSaldo) {
+      if (totais.valor_total > 0 && totais.saldo_a_receber <= 0) {
+        elSaldo.innerHTML = '<span style="color: #059669; font-weight: 800;">R$ 0,00 (100% QUITADO)</span>';
+      } else {
+        elSaldo.textContent = CalcEngine.formatBRL(totais.saldo_a_receber);
+      }
+    }
+
+    // Atualiza badge de status de pagamento do balcão
+    const badgePgto = document.getElementById('balcao-status-pagamento-badge');
+    if (badgePgto) {
+      if (totais.valor_total > 0 && totais.saldo_a_receber <= 0) {
+        badgePgto.textContent = '● Quitado (100%)';
+        badgePgto.className = 'badge-tag badge-entregue';
+        badgePgto.style.cssText = 'font-size: 10.5px; padding: 2px 7px; background: #ECFDF5; color: #047857; border: 1px solid #10B981; font-weight: 700;';
+      } else if (totais.valor_sinal > 0) {
+        const pct = Math.round((totais.valor_sinal / (totais.valor_total || 1)) * 100);
+        badgePgto.textContent = `● Sinal (${pct}%)`;
+        badgePgto.className = 'badge-tag badge-aprovado';
+        badgePgto.style.cssText = 'font-size: 10.5px; padding: 2px 7px; background: #EFF6FF; color: #1D4ED8; border: 1px solid #93C5FD; font-weight: 600;';
+      } else {
+        badgePgto.textContent = 'Pendente';
+        badgePgto.className = 'badge-tag badge-orcamento';
+        badgePgto.style.cssText = 'font-size: 10.5px; padding: 2px 7px;';
+      }
+    }
 
     const elPecas = document.getElementById('balcao-total-pecas');
     if (elPecas) elPecas.textContent = totais.total_pecas;
@@ -1645,6 +1836,35 @@ const BalcaoModule = {
         carregado: false,
         requer_plaina: item.aparelhar
       }));
+    } else if (statusFinal === 'ENTREGUE') {
+      this.currentOrder.etapa_patio = 'ENTREGUE';
+      this.currentOrder.finalizado_balcao = true;
+      this.currentOrder.tipo_entrega = 'BALCAO_IMEDIATO';
+      this.currentOrder.data_entrega = new Date().toISOString();
+      this.currentOrder.resumo_financeiro.valor_sinal = this.currentOrder.resumo_financeiro.valor_total;
+      this.currentOrder.resumo_financeiro.saldo_a_receber = 0;
+
+      // Gera checklist como já concluído
+      this.currentOrder.checklist_patio = this.currentOrder.itens.map(item => ({
+        item_id: item.id,
+        descricao: `${item.descricao} (${item.quantidade} pcs ${item.comprimento_m ? 'x ' + item.comprimento_m + 'm' : ''}) - RETIRADO NO BALCÃO`,
+        cortado: true,
+        carregado: true,
+        requer_plaina: false
+      }));
+
+      // BAIXA IMEDIATA NO ESTOQUE FÍSICO
+      this.currentOrder.itens.forEach(item => {
+        if (item.produto_id) {
+          DB.ajustarEstoque(item.produto_id, -item.quantidade, false);
+        }
+      });
+      if (window.EstoqueModule) {
+        EstoqueModule.renderCardsKPI();
+        EstoqueModule.renderTabelaEstoque();
+      }
+      if (window.PrecosModule) PrecosModule.renderTabelaPrecos();
+      this.renderProdutosSelect();
     }
 
     this.currentOrder.observacoes_venda = getVal('balcao-observacoes');
@@ -1657,8 +1877,8 @@ const BalcaoModule = {
       return;
     }
 
-    // Se aprovou venda, credita para o vendedor da equipe
-    if (statusFinal === 'APROVADO' && this.currentOrder.vendedor?.id) {
+    // Se aprovou venda ou finalizou no balcão, credita para o vendedor da equipe
+    if ((statusFinal === 'APROVADO' || statusFinal === 'ENTREGUE') && this.currentOrder.vendedor?.id) {
       const funcs = DB.getFuncionarios();
       const func = funcs.find(f => f.id === this.currentOrder.vendedor.id);
       if (func) {
@@ -1677,8 +1897,13 @@ const BalcaoModule = {
     // Salva no banco de dados local
     DB.salvarPedido(this.currentOrder);
 
-    // Se aprovou venda com sinal, gera registro financeiro se cliente tiver conta
-    if (statusFinal === 'APROVADO' && this.currentOrder.resumo_financeiro.saldo_a_receber > 0) {
+    // Guarda cópia do pedido salvo para retornar
+    const pedidoRetorno = JSON.parse(JSON.stringify(this.currentOrder));
+
+    // Feedback visual
+    if (statusFinal === 'ENTREGUE') {
+      App.showToast(`⚡ Venda #${this.currentOrder.numero} finalizada e quitada no balcão! Estoque baixado e caixa atualizado.`, 'success');
+    } else if (statusFinal === 'APROVADO' && this.currentOrder.resumo_financeiro.saldo_a_receber > 0) {
       App.showToast(`Venda #${this.currentOrder.numero} aprovada! Enviada para o pátio (${this.currentOrder.etapa_patio}). Saldo a receber: ${CalcEngine.formatBRL(this.currentOrder.resumo_financeiro.saldo_a_receber)}`, 'success');
     } else {
       App.showToast(`Orçamento #${this.currentOrder.numero} salvo com sucesso!`, 'success');
@@ -1689,6 +1914,8 @@ const BalcaoModule = {
     PatioModule.renderKanban();
     PainelModule.atualizarIndicadores();
     if (window.GerenteModule) GerenteModule.render();
+
+    return pedidoRetorno;
   },
 
   enviarResumoWhatsapp() {

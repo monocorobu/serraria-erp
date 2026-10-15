@@ -149,6 +149,12 @@ const App = {
         e.preventDefault();
         this.switchTab('balcao');
         BalcaoModule.abrirModalCalculadoraTelhado();
+      } else if (e.key === 'F8') {
+        e.preventDefault();
+        this.switchTab('balcao');
+        if (typeof BalcaoModule !== 'undefined' && BalcaoModule.finalizarVendaBalcaoImediata) {
+          BalcaoModule.finalizarVendaBalcaoImediata();
+        }
       } else if (e.key === 'F9') {
         e.preventDefault();
         if (BalcaoModule.currentOrder && BalcaoModule.currentOrder.itens.length) {

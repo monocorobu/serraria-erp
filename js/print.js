@@ -192,9 +192,9 @@ const PrintModule = {
             </div>
           </div>
           <div class="print-doc-meta">
-            <div class="print-doc-title">VIA DO CLIENTE</div>
-            <div class="print-doc-number">ORÇAMENTO Nº #${p.numero}</div>
-            <div class="print-doc-date">Emissão: <strong>${dataCriacao}</strong> | Válido até: <strong>${validadeAte}</strong></div>
+            <div class="print-doc-title">${(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? 'CUPOM DE VENDA DE BALCÃO / RECIBO' : (p.status === 'ENTREGUE' ? 'COMPROVANTE DE ENTREGA E QUITAÇÃO' : 'VIA DO CLIENTE')}</div>
+            <div class="print-doc-number">${(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? 'VENDA Nº #' + p.numero : (p.status === 'ORCAMENTO' ? 'ORÇAMENTO Nº #' + p.numero : 'PEDIDO Nº #' + p.numero)}</div>
+            <div class="print-doc-date">Emissão: <strong>${dataCriacao}</strong> | Status: <strong>${(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? '100% PAGO & RETIRADO NO BALCÃO' : (p.status === 'ENTREGUE' ? 'QUITADO' : 'Válido até ' + validadeAte)}</strong></div>
           </div>
         </div>
 
@@ -203,7 +203,7 @@ const PrintModule = {
           <div>
             <div class="print-client-row"><strong>Cliente:</strong> ${p.cliente?.nome || 'Cliente Balcão'}</div>
             <div class="print-client-row"><strong>CPF/CNPJ:</strong> ${p.cliente?.documento || 'Não informado'} | <strong>Telefone:</strong> ${p.cliente?.telefone || 'Não informado'}</div>
-            <div class="print-client-row"><strong>Endereço da Obra:</strong> ${p.cliente?.endereco_obra || 'Retirada no Pátio'}</div>
+            <div class="print-client-row"><strong>Local de Entrega:</strong> ${(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? 'Retirada Imediata no Balcão da Madeireira' : (p.cliente?.endereco_obra || 'Retirada no Pátio')}</div>
           </div>
           <div>
             <div class="print-client-row"><strong>Bairro:</strong> ${p.cliente?.bairro || p.resumo_financeiro?.bairro_frete || '-'}</div>
@@ -271,7 +271,11 @@ const PrintModule = {
               <span class="font-mono">${CalcEngine.formatBRL(p.resumo_financeiro?.valor_total || 0)}</span>
             </div>
             
-            ${saldoReceber > 0 ? `
+            ${(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? `
+              <div style="margin-top: 6px; padding: 6px 8px; background: #ECFDF5; border: 1px solid #10B981; border-radius: 4px; font-weight: 700; color: #047857; font-size: 11px; text-align: center;">
+                ✓ 100% PAGO NO BALCÃO — MERCADORIA ENTREGUE NA HORA
+              </div>
+            ` : saldoReceber > 0 ? `
               <div class="print-balance-due-box" style="margin-top: 6px;">
                 <span>SALDO A PAGAR NA ENTREGA:</span>
                 <span class="font-mono" style="font-size: 13px;">${CalcEngine.formatBRL(saldoReceber)}</span>
