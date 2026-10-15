@@ -2195,8 +2195,23 @@ const BalcaoModule = {
       return;
     }
 
-    const tel = (this.currentOrder.cliente && this.currentOrder.cliente.telefone) ? this.currentOrder.cliente.telefone.replace(/\D/g, '') : '';
-    const nome = this.currentOrder.cliente?.nome || 'Cliente';
+    // Pega o telefone tanto do formulário na tela quanto do cadastro do cliente
+    const telInput = document.getElementById('balcao-cliente-telefone')?.value || '';
+    const telCliente = this.currentOrder.cliente?.telefone || '';
+    let rawTel = (telInput || telCliente).replace(/\D/g, '');
+
+    // Formata o número com o DDI do Brasil (55) se tiver 10 ou 11 dígitos
+    let phoneParam = '';
+    if (rawTel.length >= 10) {
+      if (rawTel.startsWith('55') && rawTel.length >= 12) {
+        phoneParam = rawTel;
+      } else {
+        phoneParam = '55' + rawTel;
+      }
+    }
+
+    const nomeInput = document.getElementById('balcao-cliente-nome')?.value || document.getElementById('balcao-busca-cliente')?.value || '';
+    const nome = (nomeInput || this.currentOrder.cliente?.nome || 'Cliente').trim();
     const num = this.currentOrder.numero;
     const total = CalcEngine.formatBRL(this.currentOrder.resumo_financeiro.valor_total);
     const sinal = CalcEngine.formatBRL(this.currentOrder.resumo_financeiro.valor_sinal);
@@ -2231,7 +2246,13 @@ const BalcaoModule = {
     texto += `\nProposta válida por 7 dias corridos.`;
     texto += `\nQualquer dúvida estamos à disposição!`;
 
-    const url = `https://api.whatsapp.com/send?phone=${tel.length >= 10 ? '55' + tel : ''}&text=${encodeURIComponent(texto)}`;
+    if (phoneParam) {
+      App.showToast(`Abrindo conversa direta no WhatsApp com ${nome} (${rawTel})...`, 'info');
+    } else {
+      App.showToast('Abrindo WhatsApp com orçamento pronto... Preencha o telefone no cabeçalho para abrir direto no contato!', 'info');
+    }
+
+    const url = `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(texto)}`;
     window.open(url, '_blank');
   }
 };

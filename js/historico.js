@@ -233,7 +233,16 @@ const HistoricoModule = {
     const pedido = DB.getPedidos().find(p => p.id === pedidoId);
     if (!pedido) return;
 
-    const tel = pedido.cliente?.telefone ? pedido.cliente.telefone.replace(/\D/g, '') : '';
+    let rawTel = pedido.cliente?.telefone ? pedido.cliente.telefone.replace(/\D/g, '') : '';
+    let phoneParam = '';
+    if (rawTel.length >= 10) {
+      if (rawTel.startsWith('55') && rawTel.length >= 12) {
+        phoneParam = rawTel;
+      } else {
+        phoneParam = '55' + rawTel;
+      }
+    }
+
     const nome = pedido.cliente?.nome || 'Cliente';
     const num = pedido.numero;
     const total = CalcEngine.formatBRL(pedido.resumo_financeiro?.valor_total || 0);
@@ -246,7 +255,13 @@ const HistoricoModule = {
     texto += `Gostaria de saber se você conseguiu analisar a nossa proposta do *Orçamento #${num}* no valor de *${total}*.\n\n`;
     texto += `Temos os lotes de madeira selecionados prontos no nosso pátio para corte e entrega. Consegue nos dar um retorno para programarmos o carregamento para esta semana? Obrigado!`;
 
-    const url = `https://api.whatsapp.com/send?phone=${tel.length >= 10 ? '55' + tel : ''}&text=${encodeURIComponent(texto)}`;
+    if (phoneParam) {
+      App.showToast(`Abrindo conversa no WhatsApp com ${nome} (${rawTel})...`, 'info');
+    } else {
+      App.showToast('Abrindo WhatsApp... Dica: cadastre o telefone do cliente para abrir direto no contato!', 'info');
+    }
+
+    const url = `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(texto)}`;
     window.open(url, '_blank');
   }
 };
