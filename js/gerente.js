@@ -977,9 +977,6 @@ const GerenteModule = {
       return;
     }
 
-    const confirmou = confirm(`ATENÇÃO - EXCLUSÃO DE CONTA:\n\nDeseja realmente apagar permanentemente a conta de acesso do usuário:\n@${u.username} (${u.nome} - ${u.cargo || u.perfil})?\n\nEle perderá o acesso imediato ao sistema.`);
-    if (!confirmou) return;
-
     DB.excluirUsuario(usrId);
     this.renderTabelaContas();
     App.showToast(`Conta de usuário @${u.username} apagada com sucesso!`, 'success');
@@ -990,17 +987,11 @@ const GerenteModule = {
     if (!u) return;
 
     const novoPerfil = u.perfil === 'ADMIN' ? 'FUNCIONARIO' : 'ADMIN';
-    const msg = novoPerfil === 'ADMIN' 
-      ? `Promover @${u.username} para Administrador? Ele terá acesso total às contas e caixa.`
-      : `Rebaixar @${u.username} para Funcionário? Ele terá acesso apenas às rotinas de balcão e pátio.`;
-
-    if (confirm(msg)) {
-      u.perfil = novoPerfil;
-      DB.salvarUsuario(u);
-      this.renderTabelaContas();
-      AuthModule.aplicarPermissoesUI();
-      App.showToast(`Perfil de @${u.username} alterado para ${novoPerfil === 'ADMIN' ? 'Administrador' : 'Funcionário'}.`, 'success');
-    }
+    u.perfil = novoPerfil;
+    DB.salvarUsuario(u);
+    this.renderTabelaContas();
+    AuthModule.aplicarPermissoesUI();
+    App.showToast(`Perfil de @${u.username} alterado para ${novoPerfil === 'ADMIN' ? 'Administrador' : 'Funcionário'}.`, 'success');
   },
 
   alternarStatusUsuario(usrId) {

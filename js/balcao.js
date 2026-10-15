@@ -417,9 +417,8 @@ const BalcaoModule = {
     const btnNovoOrcamento = document.getElementById('btn-novo-orcamento');
     if (btnNovoOrcamento) {
       btnNovoOrcamento.addEventListener('click', () => {
-        if (confirm('Deseja iniciar um novo orçamento? Dados não salvos serão descartados.')) {
-          this.iniciarNovoOrcamento();
-        }
+        this.iniciarNovoOrcamento();
+        App.showToast('Novo orçamento iniciado.', 'info');
       });
     }
   },
@@ -530,38 +529,22 @@ const BalcaoModule = {
     }
     this.atualizarTotais();
 
-    const nomeCli = document.getElementById('balcao-cliente-nome')?.value?.trim() || 
-                    document.getElementById('balcao-busca-cliente')?.value?.trim() || 
-                    'Cliente Balcão';
-    const totalPecas = this.currentOrder.itens.reduce((acc, i) => acc + (parseFloat(i.quantidade) || 1), 0);
-
-    const msg = `⚡ FINALIZAR VENDA DE BALCÃO?\n\n` +
-      `• Pedido: #${this.currentOrder.numero}\n` +
-      `• Cliente: ${nomeCli}\n` +
-      `• Itens: ${totalPecas} un/pçs\n` +
-      `• Valor Total: ${CalcEngine.formatBRL(total)}\n` +
-      `• Pagamento: 100% Quitado no Balcão\n` +
-      `• Retirada: Imediata no Balcão (Pronta entrega / não vai p/ corte do pátio)\n` +
-      `• Estoque: Baixa física imediata dos itens\n\n` +
-      `Confirmar conclusão e emitir cupom?`;
-
-    if (!confirm(msg)) {
-      return;
-    }
-
     this.currentOrder.tipo_entrega = 'BALCAO_IMEDIATO';
     this.currentOrder.finalizado_balcao = true;
 
-    // Salva com status 'ENTREGUE'
+    // Salva com status 'ENTREGUE' (com trava estrita de estoque)
     const pedidoSalvo = this.salvarPedidoCompleto('ENTREGUE');
 
-    // Abre comprovante / recibo para impressão imediata
-    if (pedidoSalvo && window.PrintModule) {
-      PrintModule.abrirModalImpressao(pedidoSalvo, 'CLIENTE');
-    }
+    if (pedidoSalvo) {
+      // Abre comprovante / recibo para impressão imediata
+      if (window.PrintModule) {
+        PrintModule.abrirModalImpressao(pedidoSalvo, 'CLIENTE');
+      }
 
-    // Prepara tela do balcão para o próximo atendimento
-    this.iniciarNovoOrcamento();
+      // Prepara tela do balcão para o próximo atendimento
+      this.iniciarNovoOrcamento();
+      App.showToast(`⚡ Venda #${pedidoSalvo.numero} finalizada e quitada no balcão!`, 'success');
+    }
   },
 
   // =========================================================================
@@ -616,11 +599,37 @@ const BalcaoModule = {
     const pendencias = [];
 
     for (const item of (this.currentOrder.itens || [])) {
-      const prod = produtos.find(p => p.id === item.produto_id);
-      if (!prod) continue;
+      const qtdPedida = parseFloat(item.quantidade) || 0;
+
+      // Busca produto com múltiplas estratégias seguras
+      const prod = produtos.find(p => 
+        (item.produto_id && (p.id === item.produto_id || String(p.id) === String(item.produto_id))) ||
+        (item.codigo && p.codigo && p.codigo.trim().toUpperCase() === item.codigo.trim().toUpperCase()) ||
+        (item.descricao && p.nome && (p.nome.trim().toLowerCase() === item.descricao.trim().toLowerCase() || item.descricao.toLowerCase().includes(p.nome.toLowerCase())))
+      );
+
+      if (!prod) {
+        // Se o produto não consta cadastrado ou não foi localizado no catálogo
+        pendencias.push({
+          item,
+          produto: {
+            id: item.produto_id || ('prod_temp_' + (item.codigo || Math.random().toString(36).substr(2, 5))),
+            codigo: item.codigo || 'SEM-COD',
+            nome: item.descricao || 'Item sem cadastro',
+            unidade_medida: item.tipo_calculo || 'un',
+            estoque_atual: 0
+          },
+          tipo: 'ZERADO',
+          estoque: 0,
+          qtdPedida,
+          unidade: item.tipo_calculo || 'un',
+          motivo: 'Estoque ZERADO no sistema (0 un)'
+        });
+        continue;
+      }
 
       const estoque = parseFloat(prod.estoque_atual) || 0;
-      const qtdPedida = parseFloat(item.quantidade) || 0;
+      const unidade = prod.unidade_medida || prod.tipo_calculo || 'un';
 
       if (estoque <= 0) {
         pendencias.push({
@@ -629,7 +638,7 @@ const BalcaoModule = {
           tipo: 'ZERADO',
           estoque,
           qtdPedida,
-          unidade: prod.unidade_medida || prod.tipo_calculo || 'un',
+          unidade,
           motivo: 'Estoque ZERADO no sistema (0 un)'
         });
       } else if (qtdPedida > estoque) {
@@ -639,7 +648,7 @@ const BalcaoModule = {
           tipo: 'INSUFICIENTE',
           estoque,
           qtdPedida,
-          unidade: prod.unidade_medida || prod.tipo_calculo || 'un',
+          unidade,
           motivo: `Quantidade pedida (${qtdPedida}) é maior que estoque (${estoque})`
         });
       }
@@ -2074,12 +2083,12 @@ const BalcaoModule = {
     const clienteGarantido = DB.garantirCliente(clienteData);
     this.currentOrder.cliente = clienteGarantido;
 
-    // Se estiver aprovando venda para envio ao pátio, verifica estoque
-    if (statusFinal === 'APROVADO') {
+    // Se estiver aprovando venda para envio ao pátio OU finalizando no balcão, verifica estoque
+    if (statusFinal === 'APROVADO' || statusFinal === 'ENTREGUE') {
       const pendenciasEstoque = this.verificarEstoqueItens();
       if (pendenciasEstoque.length > 0 && !this._liberacaoEstoqueAutorizada) {
-        this.abrirModalAlertaEstoque('APROVAR_VENDA');
-        return;
+        this.abrirModalAlertaEstoque(statusFinal === 'ENTREGUE' ? 'FINALIZAR_BALCAO' : 'APROVAR_VENDA');
+        return null;
       }
       this._liberacaoEstoqueAutorizada = false;
     }

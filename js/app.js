@@ -142,9 +142,8 @@ const App = {
       if (e.key === 'F2') {
         e.preventDefault();
         this.switchTab('balcao');
-        if (confirm('Atalho [F2]: Deseja iniciar um novo orçamento no balcão?')) {
-          BalcaoModule.iniciarNovoOrcamento();
-        }
+        BalcaoModule.iniciarNovoOrcamento();
+        this.showToast('Novo orçamento iniciado [F2]', 'info');
       } else if (e.key === 'F4') {
         e.preventDefault();
         this.switchTab('balcao');

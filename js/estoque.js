@@ -550,33 +550,27 @@ const EstoqueModule = {
     const prod = DB.getProdutos().find(p => p.id === prodId);
     if (!prod) return;
 
-    const msg = `Tem certeza que deseja EXCLUIR permanentemente o produto:\n\n[${prod.codigo}] ${prod.nome}\n\nEsta operação removerá o item do catálogo e do inventário de estoque. Deseja prosseguir?`;
+    DB.excluirProduto(prodId);
+    this.fecharModalEditarProduto();
+    this.render();
 
-    if (confirm(msg)) {
-      DB.excluirProduto(prodId);
-      this.fecharModalEditarProduto();
-      this.render();
-
-      if (window.PrecosModule) {
-        PrecosModule.renderCategoriasPills();
-        PrecosModule.renderTabelaPrecos();
-      }
-      if (window.BalcaoModule) {
-        BalcaoModule.renderProdutosSelect();
-      }
-
-      App.showToast(`Produto [${prod.codigo}] excluído do sistema com sucesso.`, 'info');
+    if (window.PrecosModule) {
+      PrecosModule.renderCategoriasPills();
+      PrecosModule.renderTabelaPrecos();
     }
+    if (window.BalcaoModule) {
+      BalcaoModule.renderProdutosSelect();
+    }
+
+    App.showToast(`Produto [${prod.codigo}] excluído do sistema com sucesso.`, 'info');
   },
 
   restaurarEstoqueDemo() {
-    if (confirm('Deseja recarregar o estoque padrão com as quantidades do catálogo de demonstração?\n\nIsso atualizará os saldos zerados caso seu navegador tenha mantido cache antigo.')) {
-      DB.restaurarEstoquePadrao();
-      this.render();
-      if (window.PrecosModule) PrecosModule.renderTabelaPrecos();
-      if (window.BalcaoModule) BalcaoModule.renderProdutosSelect();
-      App.showToast('Estoque padrão restaurado com sucesso!', 'success');
-    }
+    DB.restaurarEstoquePadrao();
+    this.render();
+    if (window.PrecosModule) PrecosModule.renderTabelaPrecos();
+    if (window.BalcaoModule) BalcaoModule.renderProdutosSelect();
+    App.showToast('Estoque padrão restaurado com sucesso!', 'success');
   }
 };
 

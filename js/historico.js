@@ -130,20 +130,14 @@ const HistoricoModule = {
             ` : '<span style="color: var(--action-green);">Quitado</span>'}
           </td>
           <td class="align-center" style="white-space: nowrap;">
-            <button class="btn btn-sm btn-secondary" title="Reabrir no Balcão" onclick="BalcaoModule.carregarPedidoParaEdicao('${p.id}')">
-              Balcão
+            <button class="btn btn-sm btn-primary" title="Abrir e Editar no Balcão" onclick="BalcaoModule.carregarPedidoParaEdicao('${p.id}')" style="padding: 2px 8px; font-size: 11px;">
+              Editar
             </button>
-            <button class="btn btn-sm btn-secondary" title="Duplicar Orçamento (Comparativo de Madeira)" onclick="HistoricoModule.abrirModalDuplicar('${p.id}')">
-              Duplicar
+            <button class="btn btn-sm btn-secondary" title="Imprimir Pedido (Via Cliente ou Pátio)" onclick="PrintModule.abrirModalImpressaoById('${p.id}', 'CLIENTE')" style="padding: 2px 8px; font-size: 11px;">
+              Imprimir
             </button>
-            <button class="btn btn-sm btn-secondary" title="Cobrar Retorno no WhatsApp" onclick="HistoricoModule.cobrarRetornoWhatsapp('${p.id}')">
+            <button class="btn btn-sm btn-secondary" title="Compartilhar via WhatsApp" onclick="HistoricoModule.cobrarRetornoWhatsapp('${p.id}')" style="padding: 2px 8px; font-size: 11px;">
               WhatsApp
-            </button>
-            <button class="btn btn-sm btn-secondary" title="Imprimir Via Cliente" onclick="PrintModule.abrirModalImpressaoById('${p.id}', 'CLIENTE')">
-              Via Cliente
-            </button>
-            <button class="btn btn-sm btn-secondary" title="Imprimir Via Pátio" onclick="PrintModule.abrirModalImpressaoById('${p.id}', 'PATIO')">
-              Via Pátio
             </button>
           </td>
         </tr>

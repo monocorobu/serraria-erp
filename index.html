@@ -140,16 +140,6 @@
             <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
             <span>Calculadora Telhado</span>
           </button>
-          <button class="shortcut-btn" id="btn-header-print-cli" onclick="PrintModule.abrirModalImpressao(BalcaoModule.currentOrder, 'CLIENTE')">
-            <kbd>F9</kbd>
-            <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            <span>Via Cliente</span>
-          </button>
-          <button class="shortcut-btn" id="btn-header-print-patio" onclick="PrintModule.abrirModalImpressao(BalcaoModule.currentOrder, 'PATIO')">
-            <kbd>F10</kbd>
-            <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/></svg>
-            <span>Via Pátio</span>
-          </button>
         </div>
 
         <div class="header-divider-v"></div>
@@ -491,14 +481,14 @@
             <!-- TOTAL GERAL DO ORÇAMENTO -->
             <div class="summary-row grand-total">
               <span>VALOR TOTAL DO PEDIDO:</span>
-              <span id="balcao-valor-total" class="font-mono">R$ 0,00</span>
+              <span id="balcao-total-geral" class="font-mono">R$ 0,00</span>
             </div>
 
-            <!-- CONTROLE DE SINAL E SALDO A RECEBER NA ENTREGA -->
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-medium); display: grid; grid-template-columns: 1.2fr 1fr; gap: 10px;">
+            <!-- CONTROLE DE PAGAMENTO E VALOR PAGO -->
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-medium); display: grid; grid-template-columns: 1.1fr 1.2fr; gap: 10px;">
               <div class="form-group">
                 <label class="form-label">Condição de Pagamento:</label>
-                <select id="balcao-forma-pagamento" class="form-select" style="height: 30px;">
+                <select id="balcao-forma-pagamento" class="form-select" style="height: 32px;">
                   <option value="Pix">Pix (Instantâneo)</option>
                   <option value="Dinheiro">Dinheiro</option>
                   <option value="Cartão de Débito">Cartão de Débito</option>
@@ -510,66 +500,61 @@
 
               <div class="form-group">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                  <label class="form-label" style="margin-bottom: 0;">Valor Pago / Entrada (R$):</label>
-                  <span id="balcao-status-pagamento-badge" class="badge-tag badge-orcamento" style="font-size: 10px; padding: 1px 6px;">Pendente</span>
+                  <label class="form-label" style="margin-bottom: 0;">Valor Pago / Entrada:</label>
+                  <div style="display: flex; gap: 3px;">
+                    <button type="button" class="btn btn-sm" id="btn-pagar-total-balcao" style="padding: 1px 7px; font-size: 11px; background: #ECFDF5; border: 1px solid #10B981; color: #047857; font-weight: 700;" onclick="BalcaoModule.definirPagamentoTotal()" title="Quitar 100% no balcão">
+                      100% Total
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" style="padding: 1px 6px; font-size: 10.5px;" onclick="BalcaoModule.definirPagamentoMetade()" title="Definir 50% de entrada">
+                      50%
+                    </button>
+                    <button type="button" class="btn btn-sm btn-secondary" style="padding: 1px 6px; font-size: 10.5px;" onclick="BalcaoModule.zerarPagamentoSinal()" title="Zerar valor pago">
+                      Zerar
+                    </button>
+                  </div>
                 </div>
-                <input type="number" id="balcao-sinal-valor" class="form-input font-mono" style="height: 30px; margin-top: 3px;" value="0.00" step="10">
-                <div style="display: flex; gap: 4px; margin-top: 5px;">
-                  <button type="button" class="btn btn-sm" id="btn-pagar-total-balcao" style="padding: 2px 8px; font-size: 11px; background: #ECFDF5; border: 1px solid #10B981; color: #047857; font-weight: 700;" onclick="BalcaoModule.definirPagamentoTotal()" title="Definir pagamento 100% integral no balcão">
-                    ⚡ 100% Quitado (Total)
-                  </button>
-                  <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 10.5px;" onclick="BalcaoModule.definirPagamentoMetade()" title="Definir 50% de entrada">
-                    50% Sinal
-                  </button>
-                  <button type="button" class="btn btn-sm btn-secondary" style="padding: 2px 6px; font-size: 10.5px;" onclick="BalcaoModule.zerarPagamentoSinal()" title="Zerar valor pago">
-                    Zerar
-                  </button>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <input type="number" id="balcao-sinal-valor" class="form-input font-mono" style="height: 32px; flex: 1;" value="0.00" step="10">
+                  <span id="balcao-status-pagamento-badge" class="badge-tag badge-orcamento" style="font-size: 10px; padding: 4px 7px; height: 32px; display: inline-flex; align-items: center;">Pendente</span>
                 </div>
               </div>
             </div>
 
-            <!-- OPÇÃO: RETIRADA IMEDIATA NO BALCÃO -->
-            <div style="margin-top: 10px; padding: 8px 12px; background: #F8FAFC; border: 1px solid var(--border-light); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: space-between;">
-              <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 0; color: var(--text-primary);">
-                <input type="checkbox" id="balcao-retirada-imediata" style="width: 16px; height: 16px; cursor: pointer;" onchange="BalcaoModule.aoAlternarRetiradaImediata(this.checked)">
-                <span><strong>Retirada Imediata no Balcão</strong> (Pregos, parafusos, tintas, pronta entrega — não envia para fila de corte do pátio)</span>
-              </label>
-            </div>
-
             <!-- SALDO A RECEBER NA ENTREGA -->
-            <div class="summary-row balance-due">
+            <div class="summary-row balance-due" style="margin-top: 10px;">
               <span>SALDO A RECEBER NA ENTREGA:</span>
               <span id="balcao-saldo-receber" class="font-mono">R$ 0,00</span>
             </div>
           </div>
         </div>
 
-        <!-- BARRA DE AÇÕES DIRETAS DO BALCÃO -->
-        <div class="order-actions-bar">
-          <button class="btn btn-secondary" id="btn-salvar-orcamento">
-            <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            <span>Salvar Apenas Orçamento</span>
-          </button>
-          <button class="btn btn-lg" id="btn-finalizar-balcao" style="background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; border: 1px solid #059669; font-weight: 700; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25); display: inline-flex; align-items: center; gap: 8px;" onclick="BalcaoModule.finalizarVendaBalcaoImediata()">
-            <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.2;"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-            <span>⚡ [F8] Finalizar Venda Balcão (Pago & Entregue Já)</span>
-          </button>
-          <button class="btn btn-success btn-lg" id="btn-aprovar-venda">
-            <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-            <span>Aprovar Venda e Enviar p/ Pátio</span>
-          </button>
-          <button class="btn btn-secondary" id="btn-imprimir-cliente-balcao">
-            <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            <span>[F9] Via do Cliente</span>
-          </button>
-          <button class="btn btn-secondary" id="btn-imprimir-patio-balcao">
-            <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/></svg>
-            <span>[F10] Via do Pátio</span>
-          </button>
-          <button class="btn btn-whatsapp" id="btn-whatsapp-balcao">
-            <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            <span>Enviar no WhatsApp</span>
-          </button>
+        <!-- BARRA DE AÇÕES ESSENCIAIS DO BALCÃO -->
+        <div class="order-actions-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <button class="btn btn-lg" id="btn-finalizar-balcao" style="background: linear-gradient(135deg, #059669 0%, #047857 100%); color: #ffffff; border: 1px solid #059669; font-weight: 700; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25); display: inline-flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2.2;"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+              <span>⚡ [F8] Finalizar Venda Balcão (Pago & Entregue Já)</span>
+            </button>
+            <button class="btn btn-primary btn-lg" id="btn-aprovar-venda" style="font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2;"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              <span>Aprovar Venda (Enviar p/ Pátio)</span>
+            </button>
+            <button class="btn btn-secondary" id="btn-salvar-orcamento" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Salvar Orçamento</span>
+            </button>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="btn btn-secondary" id="btn-imprimir-balcao" onclick="PrintModule.abrirModalImpressao(BalcaoModule.currentOrder, 'CLIENTE')" title="Imprimir Comprovante / Pedido" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              <span>[F9] Imprimir</span>
+            </button>
+            <button class="btn btn-whatsapp" id="btn-whatsapp-balcao" title="Enviar Orçamento via WhatsApp" style="display: inline-flex; align-items: center; gap: 6px;">
+              <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+              <span>WhatsApp</span>
+            </button>
+          </div>
         </div>
 
       </section>
@@ -618,7 +603,7 @@
                     <th style="width: 120px;" class="align-center">Peças / Peso</th>
                     <th style="width: 110px;" class="align-right">Valor Total</th>
                     <th style="width: 120px;" class="align-right">Saldo Entrega</th>
-                    <th style="width: 280px;" class="align-center">Ações Rápidas</th>
+                    <th style="width: 210px;" class="align-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody id="hist-pedidos-tbody"></tbody>
@@ -2409,20 +2394,20 @@
 <div class="toast-container" id="toast-container"></div>
 
 <!-- SCRIPTS DO SISTEMA (MODULARES E INTEGRADOS) -->
-<script src="/js/data.js"></script>
-<script src="/js/auth.js"></script>
-<script src="/js/calc.js"></script>
-<script src="/js/balcao.js"></script>
-<script src="/js/historico.js"></script>
-<script src="/js/patio.js"></script>
-<script src="/js/precos.js"></script>
-<script src="/js/estoque.js"></script>
-<script src="/js/clientes.js"></script>
-<script src="/js/gerente.js"></script>
-<script src="/js/painel.js"></script>
-<script src="/js/tutorial.js"></script>
-<script src="/js/print.js"></script>
-<script src="/js/app.js"></script>
+<script src="/js/data.js?v=20261015-v5"></script>
+<script src="/js/auth.js?v=20261015-v5"></script>
+<script src="/js/calc.js?v=20261015-v5"></script>
+<script src="/js/balcao.js?v=20261015-v5"></script>
+<script src="/js/historico.js?v=20261015-v5"></script>
+<script src="/js/patio.js?v=20261015-v5"></script>
+<script src="/js/precos.js?v=20261015-v5"></script>
+<script src="/js/estoque.js?v=20261015-v5"></script>
+<script src="/js/clientes.js?v=20261015-v5"></script>
+<script src="/js/gerente.js?v=20261015-v5"></script>
+<script src="/js/painel.js?v=20261015-v5"></script>
+<script src="/js/tutorial.js?v=20261015-v5"></script>
+<script src="/js/print.js?v=20261015-v5"></script>
+<script src="/js/app.js?v=20261015-v5"></script>
 
 </body>
 </html>

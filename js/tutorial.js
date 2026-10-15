@@ -21,25 +21,23 @@ const TutorialModule = {
   },
 
   restaurarDadosDemo() {
-    if (confirm('Atenção: Isso irá restaurar o banco de dados original da madeireira com todos os 18 produtos, clientes e pedidos de teste. Deseja continuar?')) {
-      DB.resetDemo();
-      BalcaoModule.iniciarNovoOrcamento();
-      BalcaoModule.renderBairrosSelect();
-      BalcaoModule.renderCarpinteirosSelect();
-      BalcaoModule.renderVendedoresSelect();
-      BalcaoModule.renderProdutosSelect();
-      HistoricoModule.renderTabelaPedidos();
-      PatioModule.renderKanban();
-      PrecosModule.renderTabelaPrecos();
-      ClientesModule.renderListaClientes();
-      ClientesModule.renderListaCarpinteiros();
-      if (window.GerenteModule) GerenteModule.render();
-      if (window.AuthModule) AuthModule.carregarSessao();
-      PainelModule.atualizarIndicadores();
+    DB.resetDemo();
+    BalcaoModule.iniciarNovoOrcamento();
+    BalcaoModule.renderBairrosSelect();
+    BalcaoModule.renderCarpinteirosSelect();
+    BalcaoModule.renderVendedoresSelect();
+    BalcaoModule.renderProdutosSelect();
+    HistoricoModule.renderTabelaPedidos();
+    PatioModule.renderKanban();
+    PrecosModule.renderTabelaPrecos();
+    ClientesModule.renderListaClientes();
+    ClientesModule.renderListaCarpinteiros();
+    if (window.GerenteModule) GerenteModule.render();
+    if (window.AuthModule) AuthModule.carregarSessao();
+    PainelModule.atualizarIndicadores();
 
-      App.showToast('Dados de demonstração restaurados com sucesso!', 'success');
-      App.switchTab('balcao');
-    }
+    App.showToast('Dados de demonstração restaurados com sucesso!', 'success');
+    App.switchTab('balcao');
   },
 
   carregarExemploGuiado() {
