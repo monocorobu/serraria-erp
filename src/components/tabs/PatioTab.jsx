@@ -13,25 +13,45 @@ export const PatioTab = () => {
   const { orders, saveOrder, openPrintModal, showToast } = useApp();
   const [selectedRomaneioOrder, setSelectedRomaneioOrder] = useState(null);
 
-  // Filtra pedidos relevantes para o pátio
+  // Mapeia sinônimos de etapas do legado para as 4 colunas canônicas do Kanban
+  const getColunaId = (etapa) => {
+    switch (etapa) {
+      case 'CORTE_PLAINA':
+      case 'SERRA_PLAINA':
+        return 'CORTE_PLAINA';
+      case 'CARREGAMENTO':
+      case 'PRONTO_CARREGAR':
+      case 'SAIU_ENTREGA':
+        return 'CARREGAMENTO';
+      case 'ENTREGUE':
+        return 'ENTREGUE';
+      case 'SEPARACAO':
+      case 'NAO_ENVIADO':
+      default:
+        return 'SEPARACAO';
+    }
+  };
+
+  // Filtra pedidos relevantes para o pátio (aprovados ou entregues)
   const patioOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'APROVADO' || o.etapa_patio === 'ENTREGUE');
+    return orders.filter(o => o.status === 'APROVADO' || o.etapa_patio === 'ENTREGUE' || o.status === 'ENTREGUE');
   }, [orders]);
 
   const getEtapaNome = (etapa) => {
-    switch (etapa) {
+    const col = getColunaId(etapa);
+    switch (col) {
       case 'SEPARACAO': return 'Separação';
       case 'CORTE_PLAINA': return 'Serra & Plaina';
-      case 'CARREGAMENTO': return 'Pronto / Carregamento';
+      case 'CARREGAMENTO': return 'Pronto / Carregando';
       case 'ENTREGUE': return 'Concluído & Entregue';
       default: return etapa || 'Pátio';
     }
   };
 
   const getEtapaAnterior = (p) => {
-    const etapa = p.etapa_patio || 'SEPARACAO';
+    const colId = getColunaId(p.etapa_patio);
     const temPlaina = p.itens?.some(i => i.aparelhar);
-    switch (etapa) {
+    switch (colId) {
       case 'ENTREGUE':
         return 'CARREGAMENTO';
       case 'CARREGAMENTO':
@@ -44,9 +64,9 @@ export const PatioTab = () => {
   };
 
   const getProximaEtapa = (p) => {
-    const etapa = p.etapa_patio || 'SEPARACAO';
+    const colId = getColunaId(p.etapa_patio);
     const temPlaina = p.itens?.some(i => i.aparelhar);
-    switch (etapa) {
+    switch (colId) {
       case 'SEPARACAO':
         return temPlaina ? 'CORTE_PLAINA' : 'CARREGAMENTO';
       case 'CORTE_PLAINA':
@@ -124,7 +144,7 @@ export const PatioTab = () => {
       {/* KANBAN OPERACIONAL DO PÁTIO */}
       <div className="kanban-board" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', alignItems: 'start' }}>
         {COLUNAS.map(col => {
-          const pedidosNaColuna = patioOrders.filter(p => (p.etapa_patio || 'SEPARACAO') === col.id);
+          const pedidosNaColuna = patioOrders.filter(p => getColunaId(p.etapa_patio) === col.id);
 
           return (
             <div key={col.id} className="kanban-column" style={{ backgroundColor: 'var(--bg-secondary)', border: '1.5px solid var(--border-medium)', borderRadius: 'var(--radius-md)', padding: '12px' }}>
@@ -243,70 +263,85 @@ export const PatioTab = () => {
                           </div>
                         )}
 
-                        {/* AÇÕES DE TRANSIÇÃO DO KANBAN */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '6px', paddingTop: '8px', borderTop: '1px solid var(--border-light)' }}>
-                          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                            {/* BOTÃO VOLTAR UMA ETAPA NO CARD */}
-                            {etapaAnterior && (
-                              <button 
-                                type="button" 
-                                className="btn btn-sm btn-secondary" 
-                                style={{ fontSize: '10.5px', padding: '3px 7px', color: 'var(--text-secondary)' }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMoverEtapa(p.id, etapaAnterior);
-                                }}
-                                title={`Voltar para etapa: ${getEtapaNome(etapaAnterior)}`}
-                              >
-                                ← Voltar
-                              </button>
-                            )}
-
+                        {/* AÇÕES DE TRANSIÇÃO DO KANBAN: 1. ESQUERDA (VOLTAR) | 2. MEIO (ROMANEIO) | 3. DIREITA (AVANÇAR) */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px', alignItems: 'center', paddingTop: '8px', borderTop: '1px solid var(--border-light)' }}>
+                          {/* 1. ESQUERDA: VOLTAR ETAPA */}
+                          {etapaAnterior ? (
                             <button 
                               type="button" 
                               className="btn btn-sm btn-secondary" 
-                              style={{ fontSize: '10.5px', padding: '3px 7px' }}
+                              style={{ fontSize: '10.5px', padding: '4px 2px', width: '100%', justifyContent: 'center', whiteSpace: 'nowrap' }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleAbrirRomaneio(p);
+                                handleMoverEtapa(p.id, etapaAnterior);
                               }}
-                              title="Conferir romaneio e checklist detalhado"
+                              title={`Voltar pedido para: ${getEtapaNome(etapaAnterior)}`}
                             >
-                              Romaneio
+                              ← Voltar
                             </button>
-                          </div>
+                          ) : (
+                            <button 
+                              type="button" 
+                              className="btn btn-sm btn-secondary" 
+                              disabled
+                              style={{ fontSize: '10.5px', padding: '4px 2px', width: '100%', justifyContent: 'center', opacity: 0.35, cursor: 'not-allowed', whiteSpace: 'nowrap' }}
+                              title="Primeira etapa do pátio"
+                            >
+                              ← Voltar
+                            </button>
+                          )}
 
-                          <div style={{ display: 'flex', gap: '4px' }}>
-                            {proximaEtapa === 'ENTREGUE' ? (
-                              <button 
-                                type="button" 
-                                className="btn btn-sm" 
-                                style={{ fontSize: '10.5px', padding: '3px 8px', backgroundColor: '#059669', color: '#FFFFFF', fontWeight: 700 }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMoverEtapa(p.id, 'ENTREGUE');
-                                }}
-                              >
-                                Concluir Entrega
-                              </button>
-                            ) : proximaEtapa ? (
-                              <button 
-                                type="button" 
-                                className="btn btn-sm btn-primary" 
-                                style={{ fontSize: '10.5px', padding: '3px 8px' }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMoverEtapa(p.id, proximaEtapa);
-                                }}
-                              >
-                                {proximaEtapa === 'CORTE_PLAINA' ? 'Para Plaina →' : 'Pronto Carga →'}
-                              </button>
-                            ) : (
-                              <span className="badge-tag badge-entregue font-mono" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                                Entregue ✓
-                              </span>
-                            )}
-                          </div>
+                          {/* 2. MEIO: ROMANEIO */}
+                          <button 
+                            type="button" 
+                            className="btn btn-sm btn-secondary" 
+                            style={{ fontSize: '10.5px', padding: '4px 2px', width: '100%', justifyContent: 'center', fontWeight: 600, whiteSpace: 'nowrap' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAbrirRomaneio(p);
+                            }}
+                            title="Conferir romaneio e checklist detalhado"
+                          >
+                            Romaneio
+                          </button>
+
+                          {/* 3. DIREITA: PRÓXIMA ETAPA */}
+                          {proximaEtapa === 'ENTREGUE' ? (
+                            <button 
+                              type="button" 
+                              className="btn btn-sm" 
+                              style={{ fontSize: '10.5px', padding: '4px 2px', width: '100%', justifyContent: 'center', backgroundColor: '#059669', color: '#FFFFFF', fontWeight: 700, whiteSpace: 'nowrap' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMoverEtapa(p.id, 'ENTREGUE');
+                              }}
+                              title="Confirmar entrega da carga"
+                            >
+                              Concluir ✓
+                            </button>
+                          ) : proximaEtapa ? (
+                            <button 
+                              type="button" 
+                              className="btn btn-sm btn-primary" 
+                              style={{ fontSize: '10.5px', padding: '4px 2px', width: '100%', justifyContent: 'center', whiteSpace: 'nowrap' }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMoverEtapa(p.id, proximaEtapa);
+                              }}
+                              title={`Avançar para: ${getEtapaNome(proximaEtapa)}`}
+                            >
+                              {proximaEtapa === 'CORTE_PLAINA' ? 'Plaina →' : 'Carga →'}
+                            </button>
+                          ) : (
+                            <button 
+                              type="button" 
+                              className="btn btn-sm" 
+                              disabled
+                              style={{ fontSize: '10.5px', padding: '4px 2px', width: '100%', justifyContent: 'center', backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #10B981', opacity: 0.9, cursor: 'default', whiteSpace: 'nowrap' }}
+                            >
+                              Entregue ✓
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -325,7 +360,7 @@ export const PatioTab = () => {
             <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                   Romaneio & Checklist de Carga #{selectedRomaneioOrder.numero}
                 </span>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
@@ -431,10 +466,11 @@ export const PatioTab = () => {
               </div>
             </div>
 
+            {/* RODAPÉ DO MODAL COM 3 ÁREAS: ESQUERDA (VOLTAR) | MEIO (IMPRIMIR) | DIREITA (AVANÇAR / FECHAR) */}
             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', padding: '12px 16px', borderTop: '1px solid var(--border-light)' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                {/* BOTÃO VOLTAR UMA ETAPA DENTRO DO MODAL DE ROMANEIO */}
-                {getEtapaAnterior(selectedRomaneioOrder) && (
+              {/* ESQUERDA: VOLTAR ETAPA */}
+              <div>
+                {getEtapaAnterior(selectedRomaneioOrder) ? (
                   <button 
                     type="button" 
                     className="btn btn-secondary"
@@ -446,9 +482,32 @@ export const PatioTab = () => {
                   >
                     ← Voltar para {getEtapaNome(getEtapaAnterior(selectedRomaneioOrder))}
                   </button>
+                ) : (
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary"
+                    disabled
+                    style={{ opacity: 0.35, cursor: 'not-allowed' }}
+                  >
+                    ← Início do Pátio
+                  </button>
                 )}
+              </div>
 
-                {/* BOTÃO AVANÇAR ETAPA DENTRO DO MODAL DE ROMANEIO */}
+              {/* MEIO: IMPRIMIR ROMANEIO A5 */}
+              <div>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary"
+                  onClick={() => openPrintModal(selectedRomaneioOrder, 'PATIO')}
+                  title="Imprimir Romaneio de Pátio Formato A5"
+                >
+                  Imprimir Romaneio A5
+                </button>
+              </div>
+
+              {/* DIREITA: AVANÇAR ETAPA / FECHAR */}
+              <div style={{ display: 'flex', gap: '8px' }}>
                 {getProximaEtapa(selectedRomaneioOrder) && (
                   <button 
                     type="button" 
@@ -464,17 +523,6 @@ export const PatioTab = () => {
                       : `Avançar para ${getEtapaNome(getProximaEtapa(selectedRomaneioOrder))} →`}
                   </button>
                 )}
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary"
-                  onClick={() => openPrintModal(selectedRomaneioOrder, 'PATIO')}
-                  title="Imprimir Romaneio de Pátio Formato A5"
-                >
-                  Imprimir Romaneio A5
-                </button>
                 <button 
                   type="button" 
                   className="btn btn-secondary"
