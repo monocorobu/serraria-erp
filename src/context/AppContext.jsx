@@ -12,7 +12,7 @@ export const AppProvider = ({ children }) => {
   const [clients, setClients] = useState(() => DB.getClientes());
   const [carpenters, setCarpenters] = useState(() => DB.getCarpinteiros());
   const [employees, setEmployees] = useState(() => DB.getFuncionarios());
-  const [bairros, setBairros] = useState(() => DB.getBairrosFrete());
+  const [bairros, setBairros] = useState(() => DB.getBairros());
   const [editingOrderId, setEditingOrderId] = useState(null);
 
   // Autenticação & Usuário Ativo

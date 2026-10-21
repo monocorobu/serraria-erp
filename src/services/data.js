@@ -2004,6 +2004,10 @@ const DB = {
     return this.get(STORAGE_KEYS.BAIRROS, SEED_BAIRROS);
   },
 
+  getBairrosFrete() {
+    return this.getBairros();
+  },
+
   getPedidos() {
     const pedidos = this.get(STORAGE_KEYS.PEDIDOS, SEED_PEDIDOS);
     // Garante retrocompatibilidade para que todo item possua largura_cm
