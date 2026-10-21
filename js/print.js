@@ -226,6 +226,15 @@ const PrintModule = {
     const endEmpresa = config.endereco_madeireira || 'Av. Adhemar Pinto de Siqueira, 1000 - Vila Galvão, Caçapava - SP';
     const telEmpresa = config.telefone_madeireira || '(12) 99603-3793';
 
+    // Percentual e cálculo de Preço Bruto (A Prazo / Cartão)
+    const pctBruto = (p.resumo_financeiro?.percentual_bruto !== undefined && p.resumo_financeiro?.percentual_bruto !== null)
+      ? parseFloat(p.resumo_financeiro.percentual_bruto)
+      : ((typeof CalcEngine !== 'undefined' && CalcEngine.getPercentualPrecoBruto) ? CalcEngine.getPercentualPrecoBruto() : (config.percentual_preco_bruto || 20.0));
+    const totalAVista = p.resumo_financeiro?.valor_total || 0;
+    const totalBruto = p.resumo_financeiro?.valor_total_bruto 
+      ? p.resumo_financeiro.valor_total_bruto 
+      : ((typeof CalcEngine !== 'undefined' && CalcEngine.calcularPrecoBruto) ? CalcEngine.calcularPrecoBruto(totalAVista, pctBruto) : parseFloat((totalAVista * (1 + pctBruto / 100)).toFixed(2)));
+
     // Determina densidade dinâmica para caber 100% em folha A5 Deitada
     const itemCount = p.itens ? p.itens.length : 0;
     const densityClass = itemCount <= 4 ? 'density-normal' : (itemCount <= 8 ? 'density-compact' : 'density-dense');
@@ -283,19 +292,28 @@ const PrintModule = {
             </tr>
           </thead>
           <tbody>
-            ${p.itens.map((it, idx) => `
-              <tr>
-                <td class="align-center font-mono" style="font-size: 9.5px;">${idx + 1}</td>
-                <td class="font-mono">${it.codigo}</td>
-                <td><strong>${it.descricao}</strong></td>
-                <td class="align-center font-mono">${it.quantidade}</td>
-                <td class="align-center font-mono">${it.largura_cm ? it.largura_cm + ' cm' : '-'}</td>
-                <td class="align-center font-mono">${it.comprimento_m > 0 ? it.comprimento_m + 'm' : '-'}</td>
-                <td class="align-right font-mono">${CalcEngine.formatNumero(it.metragem_total, it.tipo_calculo === 'ML' ? 1 : 0)} ${it.tipo_calculo === 'ML' ? 'ML' : it.tipo_calculo === 'M2' ? 'm²' : 'un'}</td>
-                <td class="align-right font-mono">${CalcEngine.formatBRL(it.valor_unitario)}</td>
-                <td class="align-right font-mono" style="font-weight: 700;">${CalcEngine.formatBRL(it.subtotal)}</td>
-              </tr>
-            `).join('')}
+            ${p.itens.map((it, idx) => {
+              const subtotalItem = it.subtotal || 0;
+              const subtotalItemBruto = (typeof CalcEngine !== 'undefined' && CalcEngine.calcularPrecoBruto)
+                ? CalcEngine.calcularPrecoBruto(subtotalItem, pctBruto)
+                : parseFloat((subtotalItem * (1 + pctBruto / 100)).toFixed(2));
+              return `
+                <tr>
+                  <td class="align-center font-mono" style="font-size: 9.5px;">${idx + 1}</td>
+                  <td class="font-mono">${it.codigo}</td>
+                  <td><strong>${it.descricao}</strong></td>
+                  <td class="align-center font-mono">${it.quantidade}</td>
+                  <td class="align-center font-mono">${it.largura_cm ? it.largura_cm + ' cm' : '-'}</td>
+                  <td class="align-center font-mono">${it.comprimento_m > 0 ? it.comprimento_m + 'm' : '-'}</td>
+                  <td class="align-right font-mono">${CalcEngine.formatNumero(it.metragem_total, it.tipo_calculo === 'ML' ? 1 : 0)} ${it.tipo_calculo === 'ML' ? 'ML' : it.tipo_calculo === 'M2' ? 'm²' : 'un'}</td>
+                  <td class="align-right font-mono">${CalcEngine.formatBRL(it.valor_unitario)}</td>
+                  <td class="align-right font-mono" style="font-weight: 700;">
+                    ${CalcEngine.formatBRL(subtotalItem)}
+                    <div style="font-size: 8px; color: #475569; font-weight: 500;" title="Preço Bruto do item a prazo">Bruto: ${CalcEngine.formatBRL(subtotalItemBruto)}</div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
 
@@ -338,8 +356,12 @@ const PrintModule = {
                 </div>
               ` : ''}
               <div class="print-financial-line print-total-highlight">
-                <span>VALOR TOTAL DO PEDIDO:</span>
-                <span class="font-mono">${CalcEngine.formatBRL(p.resumo_financeiro?.valor_total || 0)}</span>
+                <span>TOTAL À VISTA (PIX / DINH.):</span>
+                <span class="font-mono">${CalcEngine.formatBRL(totalAVista)}</span>
+              </div>
+              <div class="print-financial-line print-bruto-highlight">
+                <span>PREÇO BRUTO (A PRAZO +${pctBruto}%):</span>
+                <span class="font-mono">${CalcEngine.formatBRL(totalBruto)}</span>
               </div>
               
               ${(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? `
@@ -348,7 +370,7 @@ const PrintModule = {
                 </div>
               ` : saldoReceber > 0 ? `
                 <div class="print-balance-due-box">
-                  <span>SALDO A PAGAR NA ENTREGA:</span>
+                  <span>SALDO À VISTA A RECEBER:</span>
                   <span class="font-mono" style="font-size: 11.5px;">${CalcEngine.formatBRL(saldoReceber)}</span>
                 </div>
               ` : `

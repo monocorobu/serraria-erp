@@ -24,6 +24,32 @@ const CalcEngine = {
   },
 
   /**
+   * Obtém o percentual configurado pelo gerente para o Preço Bruto (a prazo / cartão)
+   * Padrão: 20%
+   */
+  getPercentualPrecoBruto() {
+    if (typeof DB !== 'undefined' && DB.getConfig) {
+      const cfg = DB.getConfig();
+      if (cfg && cfg.percentual_preco_bruto !== undefined) {
+        const val = parseFloat(cfg.percentual_preco_bruto);
+        return isNaN(val) ? 20.0 : val;
+      }
+    }
+    return 20.0;
+  },
+
+  /**
+   * Calcula o Preço Bruto baseado no valor à vista e no percentual configurado
+   * Preço Bruto = Valor À Vista * (1 + percentual / 100)
+   */
+  calcularPrecoBruto(valorAVista, percentual = null) {
+    const pct = percentual !== null ? parseFloat(percentual) : this.getPercentualPrecoBruto();
+    const valor = parseFloat(valorAVista) || 0;
+    const finalPct = isNaN(pct) ? 20.0 : pct;
+    return parseFloat((valor * (1 + finalPct / 100)).toFixed(2));
+  },
+
+  /**
    * Calcula uma linha de produto do orçamento
    * @param {Object} item - Dados do item (produto, quantidade, comprimento, aparelhar, etc.)
    * @param {Object} produto - Cadastro do produto
@@ -238,6 +264,10 @@ const CalcEngine = {
     const saldoReceber = Math.max(0, valorTotal - sinal);
     const veiculo = this.identificarVeiculo(totalPesoKg, totalVolumeM3);
 
+    // Cálculo do Preço Bruto (A Prazo / Cartão com % do gerente)
+    const percentualBruto = this.getPercentualPrecoBruto();
+    const valorTotalBruto = this.calcularPrecoBruto(valorTotal, percentualBruto);
+
     return {
       subtotal_itens_puros: parseFloat(subtotalItensPuros.toFixed(2)),
       taxa_aparelhamento: parseFloat(totalTaxaPlaina.toFixed(2)),
@@ -247,6 +277,8 @@ const CalcEngine = {
       desconto_percentual: parseFloat(descontoPct.toFixed(2)),
       requer_autorizacao: requerAutorizacao,
       valor_total: parseFloat(valorTotal.toFixed(2)),
+      percentual_bruto: percentualBruto,
+      valor_total_bruto: parseFloat(valorTotalBruto.toFixed(2)),
       valor_sinal: parseFloat(sinal.toFixed(2)),
       saldo_a_receber: parseFloat(saldoReceber.toFixed(2)),
       total_pecas: Math.round(totalPecas),

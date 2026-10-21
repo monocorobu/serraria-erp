@@ -1208,6 +1208,7 @@ const SEED_CONFIG = {
   taxa_plaina_padrao_ml: 3.50,
   taxa_plaina_padrao_m2: 8.00,
   meta_faturamento_mensal: 150000.00,
+  percentual_preco_bruto: 20.0,
   nome_madeireira: 'Serraria e Madeireira Bom Jesus',
   cnpj_madeireira: '16.482.988/0001-02',
   telefone_madeireira: '(12) 99603-3793',
@@ -1833,7 +1834,11 @@ const DB = {
   },
 
   getConfig() {
-    return this.get(STORAGE_KEYS.CONFIG, SEED_CONFIG);
+    const cfg = this.get(STORAGE_KEYS.CONFIG, SEED_CONFIG);
+    if (cfg && cfg.percentual_preco_bruto === undefined) {
+      cfg.percentual_preco_bruto = 20.0;
+    }
+    return cfg;
   },
 
   salvarConfig(cfg) {

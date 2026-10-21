@@ -131,7 +131,10 @@ const HistoricoModule = {
             ${p.resumo_fisico?.total_pecas || p.itens.length} pçs | ${CalcEngine.formatKg(p.resumo_fisico?.peso_total_kg || 0)}
           </td>
           <td class="align-right font-mono" style="font-weight: 700;">
-            ${CalcEngine.formatBRL(p.resumo_financeiro?.valor_total || 0)}
+            <div>${CalcEngine.formatBRL(p.resumo_financeiro?.valor_total || 0)}</div>
+            <div style="font-size: 10px; font-weight: normal; color: #2563EB;" title="Preço Bruto (A Prazo / Cartão)">
+              Bruto: ${CalcEngine.formatBRL(p.resumo_financeiro?.valor_total_bruto || (typeof CalcEngine !== 'undefined' ? CalcEngine.calcularPrecoBruto(p.resumo_financeiro?.valor_total || 0, p.resumo_financeiro?.percentual_bruto) : 0))}
+            </div>
           </td>
           <td class="align-right font-mono" style="font-weight: 700;">
             ${temSaldoPendente ? `
@@ -277,13 +280,17 @@ const HistoricoModule = {
     const nome = pedido.cliente?.nome || 'Cliente';
     const num = pedido.numero;
     const total = CalcEngine.formatBRL(pedido.resumo_financeiro?.valor_total || 0);
+    const pctBruto = pedido.resumo_financeiro?.percentual_bruto !== undefined ? pedido.resumo_financeiro.percentual_bruto : CalcEngine.getPercentualPrecoBruto();
+    const totalBruto = CalcEngine.formatBRL(pedido.resumo_financeiro?.valor_total_bruto || CalcEngine.calcularPrecoBruto(pedido.resumo_financeiro?.valor_total || 0, pctBruto));
 
     const config = (typeof DB !== 'undefined' && DB.getConfig) ? DB.getConfig() : {};
     const nomeEmpresa = config.nome_madeireira || 'Serraria e Madeireira Bom Jesus';
 
     let texto = `Olá *${nome}*, tudo bem?\n`;
     texto += `Aqui é da *${nomeEmpresa}* (Caçapava - SP).\n\n`;
-    texto += `Gostaria de saber se você conseguiu analisar a nossa proposta do *Orçamento #${num}* no valor de *${total}*.\n\n`;
+    texto += `Gostaria de saber se você conseguiu analisar a nossa proposta do *Orçamento #${num}*:\n`;
+    texto += `💵 *À Vista (Pix/Dinheiro):* ${total}\n`;
+    texto += `💳 *Preço Bruto (A Prazo/Cartão):* ${totalBruto}\n\n`;
     texto += `Temos os lotes de madeira selecionados prontos no nosso pátio para corte e entrega. Consegue nos dar um retorno para programarmos o carregamento para esta semana? Obrigado!`;
 
     if (phoneParam) {

@@ -533,6 +533,7 @@ const GerenteModule = {
 
     const inputSenha = document.getElementById('cfg-senha-gerente');
     const inputTeto = document.getElementById('cfg-teto-desconto');
+    const inputPrecoBruto = document.getElementById('cfg-percentual-preco-bruto');
     const inputPlainaMl = document.getElementById('cfg-taxa-plaina-ml');
     const inputPlainaM2 = document.getElementById('cfg-taxa-plaina-m2');
     const inputMeta = document.getElementById('cfg-meta-mensal');
@@ -543,6 +544,7 @@ const GerenteModule = {
 
     if (inputSenha) inputSenha.value = config.senha_gerente || '1234';
     if (inputTeto) inputTeto.value = config.desconto_maximo_livre !== undefined ? config.desconto_maximo_livre : 5.0;
+    if (inputPrecoBruto) inputPrecoBruto.value = config.percentual_preco_bruto !== undefined ? config.percentual_preco_bruto : 20.0;
     if (inputPlainaMl) inputPlainaMl.value = config.taxa_plaina_padrao_ml || 3.50;
     if (inputPlainaM2) inputPlainaM2.value = config.taxa_plaina_padrao_m2 || 8.00;
     if (inputMeta) inputMeta.value = config.meta_faturamento_mensal || 150000;
@@ -561,6 +563,9 @@ const GerenteModule = {
   salvarConfiguracoes() {
     const senha = document.getElementById('cfg-senha-gerente').value.trim();
     const teto = parseFloat(document.getElementById('cfg-teto-desconto').value) || 5.0;
+    const inputPrecoBrutoEl = document.getElementById('cfg-percentual-preco-bruto');
+    const precoBrutoVal = inputPrecoBrutoEl ? parseFloat(inputPrecoBrutoEl.value) : 20.0;
+    const precoBrutoPct = !isNaN(precoBrutoVal) && precoBrutoVal >= 0 ? precoBrutoVal : 20.0;
     const plainaMl = parseFloat(document.getElementById('cfg-taxa-plaina-ml').value) || 3.50;
     const plainaM2 = parseFloat(document.getElementById('cfg-taxa-plaina-m2').value) || 8.00;
     const meta = parseFloat(document.getElementById('cfg-meta-mensal').value) || 150000;
@@ -577,6 +582,7 @@ const GerenteModule = {
     const configData = {
       senha_gerente: senha,
       desconto_maximo_livre: teto,
+      percentual_preco_bruto: precoBrutoPct,
       taxa_plaina_padrao_ml: plainaMl,
       taxa_plaina_padrao_m2: plainaM2,
       meta_faturamento_mensal: meta,
@@ -589,6 +595,11 @@ const GerenteModule = {
     DB.salvarConfig(configData);
     CalcEngine.DEFAULT_TAXA_PLAINA_ML = plainaMl;
     CalcEngine.DEFAULT_TAXA_PLAINA_M2 = plainaM2;
+
+    // Atualiza imediatamente os totais do balcão se houver orçamento aberto
+    if (window.BalcaoModule && typeof BalcaoModule.atualizarTotais === 'function') {
+      BalcaoModule.atualizarTotais();
+    }
 
     this.renderCardsResumo();
     App.showToast('Configurações e parâmetros gerenciais salvos com sucesso!', 'success');

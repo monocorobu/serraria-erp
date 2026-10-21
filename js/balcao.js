@@ -70,6 +70,8 @@ const BalcaoModule = {
         desconto_percentual: 0,
         desconto_autorizado: false,
         valor_total: 0,
+        percentual_bruto: 20.0,
+        valor_total_bruto: 0,
         forma_pagamento: 'Pix',
         valor_sinal: 0,
         saldo_a_receber: 0
@@ -1765,6 +1767,8 @@ const BalcaoModule = {
       desconto_percentual: totais.desconto_percentual,
       desconto_autorizado: this.currentOrder.resumo_financeiro.desconto_autorizado || !totais.requer_autorizacao,
       valor_total: totais.valor_total,
+      percentual_bruto: totais.percentual_bruto,
+      valor_total_bruto: totais.valor_total_bruto,
       forma_pagamento: document.getElementById('balcao-forma-pagamento')?.value || 'Pix',
       valor_sinal: totais.valor_sinal,
       saldo_a_receber: totais.saldo_a_receber
@@ -1777,8 +1781,16 @@ const BalcaoModule = {
     const elPlaina = document.getElementById('balcao-taxa-plaina-total');
     if (elPlaina) elPlaina.textContent = CalcEngine.formatBRL(totais.taxa_aparelhamento);
 
-    const elTotal = document.getElementById('balcao-valor-total');
+    // Valor Total À Vista
+    const elTotal = document.getElementById('balcao-total-geral') || document.getElementById('balcao-valor-total');
     if (elTotal) elTotal.textContent = CalcEngine.formatBRL(totais.valor_total);
+
+    // Preço Bruto (A Prazo / Cartão)
+    const elBruto = document.getElementById('balcao-total-bruto');
+    if (elBruto) elBruto.textContent = CalcEngine.formatBRL(totais.valor_total_bruto);
+
+    const elBadgePctBruto = document.getElementById('balcao-badge-pct-bruto');
+    if (elBadgePctBruto) elBadgePctBruto.textContent = `A PRAZO (+${totais.percentual_bruto}%)`;
 
     const elSaldo = document.getElementById('balcao-saldo-receber');
     if (elSaldo) {
