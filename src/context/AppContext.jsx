@@ -1,27 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { DB, STORAGE_KEYS } from '../services/data.js';
 import { CalcEngine } from '../services/calc.js';
+import { useOrders } from '../hooks/useOrders.js';
+import { useEstoque } from '../hooks/useEstoque.js';
+import { usePrecoBruto } from '../hooks/usePrecoBruto.js';
+import { useClientes } from '../hooks/useClientes.js';
+import { useAuth } from '../hooks/useAuth.js';
 
 const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('balcao');
-  const [config, setConfig] = useState(() => DB.getConfig());
-  const [products, setProducts] = useState(() => DB.getProdutos());
-  const [orders, setOrders] = useState(() => DB.getPedidos());
-  const [clients, setClients] = useState(() => DB.getClientes());
-  const [carpenters, setCarpenters] = useState(() => DB.getCarpinteiros());
-  const [employees, setEmployees] = useState(() => DB.getFuncionarios());
   const [bairros, setBairros] = useState(() => DB.getBairros());
-  const [editingOrderId, setEditingOrderId] = useState(null);
+  const [employees, setEmployees] = useState(() => DB.getFuncionarios());
 
-  // Autenticação & Usuário Ativo
-  const [currentUser, setCurrentUser] = useState(() => {
-    const list = DB.getUsuarios();
-    return list[0] || { id: 'u_1', nome: 'Carlos Eduardo', perfil: 'ADMIN', cargo: 'Gerente Geral' };
-  });
-
-  // Notificações Toast
+  // Notificações Toast do Sistema
   const [toasts, setToasts] = useState([]);
   const showToast = useCallback((message, type = 'info') => {
     const id = Date.now() + Math.random();
@@ -31,7 +24,14 @@ export const AppProvider = ({ children }) => {
     }, 4000);
   }, []);
 
-  // Modal de Impressão Global (A5 Deitada)
+  // Custom Hooks React Especializados
+  const ordersHook = useOrders(showToast);
+  const estoqueHook = useEstoque(showToast);
+  const precoBrutoHook = usePrecoBruto(showToast);
+  const clientesHook = useClientes(showToast);
+  const authHook = useAuth(showToast);
+
+  // Modal de Impressão Global A5 Deitada com Duplo Preço
   const [printModal, setPrintModal] = useState({
     isOpen: false,
     order: null,
@@ -57,92 +57,78 @@ export const AppProvider = ({ children }) => {
     }));
   }, []);
 
-  // Atualizações reativas de Estado & Banco de Dados
-  const refreshAll = useCallback(() => {
-    setConfig(DB.getConfig());
-    setProducts(DB.getProdutos());
-    setOrders(DB.getPedidos());
-    setClients(DB.getClientes());
-    setCarpenters(DB.getCarpinteiros());
+  // Restaurar dados originais de demonstração
+  const resetDemo = useCallback(() => {
+    DB.resetDemo();
+    ordersHook.setOrders(DB.getPedidos());
+    estoqueHook.setProducts(DB.getProdutos());
+    clientesHook.setClients(DB.getClientes());
+    clientesHook.setCarpenters(DB.getCarpinteiros());
+    setBairros(DB.getBairros());
     setEmployees(DB.getFuncionarios());
-    setBairros(DB.getBairrosFrete());
-  }, []);
-
-  const saveOrder = useCallback((order) => {
-    const saved = DB.salvarPedido(order);
-    setOrders(DB.getPedidos());
-    return saved;
-  }, []);
-
-  const updateConfig = useCallback((newConfig) => {
-    DB.salvarConfig(newConfig);
-    setConfig(DB.getConfig());
-    showToast('Configurações atualizadas com sucesso!', 'success');
-  }, [showToast]);
-
-  const updateProduct = useCallback((product) => {
-    const list = DB.getProdutos();
-    const idx = list.findIndex(p => p.id === product.id);
-    if (idx >= 0) {
-      list[idx] = product;
-    } else {
-      list.push(product);
-    }
-    DB.set(STORAGE_KEYS.PRODUTOS, list);
-    setProducts([...list]);
-    showToast(`Produto "${product.nome}" salvo!`, 'success');
-  }, [showToast]);
-
-  const adjustStock = useCallback((productId, novaQtd, motivo = 'Ajuste manual') => {
-    const list = DB.getProdutos();
-    const p = list.find(item => item.id === productId);
-    if (p) {
-      p.estoque_atual = Math.max(0, parseFloat(novaQtd) || 0);
-      DB.set(STORAGE_KEYS.PRODUTOS, list);
-      setProducts([...list]);
-      showToast(`Estoque de "${p.nome}" atualizado para ${p.estoque_atual} un.`, 'info');
-    }
-  }, [showToast]);
-
-  // Teclas de atalho globais (F2 = Balcão, etc.)
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'F2') {
-        e.preventDefault();
-        setActiveTab('balcao');
-        showToast('Navegando para o Balcão [F2]', 'info');
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showToast]);
+    precoBrutoHook.setConfig(DB.getConfig());
+    showToast('Dados restaurados com sucesso!', 'success');
+  }, [ordersHook, estoqueHook, clientesHook, precoBrutoHook, showToast]);
 
   const value = {
+    // Navegação
     activeTab,
     setActiveTab,
-    config,
-    updateConfig,
-    products,
-    setProducts,
-    updateProduct,
-    adjustStock,
-    orders,
-    saveOrder,
-    refreshAll,
-    clients,
-    carpenters,
-    employees,
+
+    // Pedidos (useOrders)
+    orders: ordersHook.orders,
+    setOrders: ordersHook.setOrders,
+    saveOrder: ordersHook.saveOrder,
+    cancelOrder: ordersHook.cancelOrder,
+    duplicateOrder: ordersHook.duplicateOrder,
+    editingOrderId: ordersHook.editingOrderId,
+    setEditingOrderId: ordersHook.setEditingOrderId,
+    generateWhatsAppText: ordersHook.generateWhatsAppText,
+
+    // Catálogo & Estoque (useEstoque)
+    products: estoqueHook.products,
+    setProducts: estoqueHook.setProducts,
+    saveProduct: estoqueHook.saveProduct,
+    updateProduct: estoqueHook.saveProduct,
+    deleteProduct: estoqueHook.deleteProduct,
+    adjustStock: estoqueHook.adjustStock,
+    checkStockAvailability: estoqueHook.checkStockAvailability,
+    stockMetrics: estoqueHook.metrics,
+
+    // Preço Bruto & Parâmetros (usePrecoBruto)
+    config: precoBrutoHook.config,
+    updateConfig: precoBrutoHook.updatePercentual,
+    percentualPrecoBruto: precoBrutoHook.percentual,
+    updatePercentualPrecoBruto: precoBrutoHook.updatePercentual,
+    calcularPrecoBruto: precoBrutoHook.calcularBruto,
+    simularParcelamento: precoBrutoHook.simularParcelamento,
+
+    // Clientes & Parceiros (useClientes)
+    clients: clientesHook.clients,
+    setClients: clientesHook.setClients,
+    carpenters: clientesHook.carpenters,
+    setCarpenters: clientesHook.setCarpenters,
+    saveClient: clientesHook.saveClient,
+    saveCarpenter: clientesHook.saveCarpenter,
+    payCommission: clientesHook.payCommission,
+
+    // Usuário & Sessão RBAC (useAuth)
+    currentUser: authHook.currentUser,
+    setCurrentUser: authHook.setCurrentUser,
+    switchUser: authHook.switchUser,
+    login: authHook.login,
+    isAdmin: authHook.isAdmin,
+
+    // Auxiliares
     bairros,
-    currentUser,
-    setCurrentUser,
+    employees,
     toasts,
     showToast,
     printModal,
     openPrintModal,
     closePrintModal,
     togglePrintMode,
-    editingOrderId,
-    setEditingOrderId
+    resetDemo
   };
 
   return (
