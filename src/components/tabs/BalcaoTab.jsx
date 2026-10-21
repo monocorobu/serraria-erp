@@ -133,26 +133,7 @@ export const BalcaoTab = () => {
       .trim();
   };
 
-  // Informações financeiras completas do cliente (débito em conta + pedidos em aberto no pátio)
-  const getClienteInfoFinanceira = (c) => {
-    const saldoConta = parseFloat(c.saldo_devedor) || 0;
-    const pedidosPendentes = orders.filter(o => 
-      (o.cliente?.id === c.id || (o.cliente?.nome && c.nome && normalizeText(o.cliente.nome) === normalizeText(c.nome))) &&
-      o.id !== order.id &&
-      o.status !== 'CANCELADO' &&
-      o.status !== 'ORCAMENTO' &&
-      (o.resumo_financeiro?.saldo_a_receber || 0) > 0
-    );
-    const totalPedidosAberto = pedidosPendentes.reduce((acc, o) => acc + (o.resumo_financeiro?.saldo_a_receber || 0), 0);
-    const totalPendente = saldoConta + totalPedidosAberto;
 
-    return {
-      saldoConta,
-      totalPedidosAberto,
-      pedidosPendentes,
-      totalPendente
-    };
-  };
 
   // Filtragem de clientes em tempo real (busca inteligente por nome, telefone, documento ou bairro)
   const matchingClients = useMemo(() => {
@@ -171,42 +152,7 @@ export const BalcaoTab = () => {
     }).slice(0, 8);
   }, [order.cliente?.nome, clients]);
 
-  // Alerta visual detalhado se o cliente selecionado tiver débito em conta ou pedidos pendentes de entrega
-  const clienteAlerta = useMemo(() => {
-    if (!order.cliente?.id && !order.cliente?.nome) return null;
-    const cli = clients.find(c => 
-      (order.cliente.id && c.id === order.cliente.id) ||
-      (order.cliente.nome && c.nome && normalizeText(c.nome) === normalizeText(order.cliente.nome))
-    );
-    if (!cli) return null;
 
-    const info = getClienteInfoFinanceira(cli);
-
-    if (info.totalPendente > 0) {
-      const detalhes = [];
-      if (info.saldoConta > 0) {
-        detalhes.push(`Débito em conta anterior: ${CalcEngine.formatBRL(info.saldoConta)}${cli.pedido_pendente_ref ? ' (ref. Pedido ' + cli.pedido_pendente_ref + ')' : ''}`);
-      }
-      if (info.pedidosPendentes.length > 0) {
-        const pedRefs = info.pedidosPendentes.map(p => `#${p.numero} (${CalcEngine.formatBRL(p.resumo_financeiro?.saldo_a_receber || 0)} a receber no pátio)`).join(', ');
-        detalhes.push(`Pedido(s) em andamento: ${pedRefs}`);
-      }
-
-      return {
-        tipo: 'debito',
-        msg: `Atenção Financeiro: Cliente possui pendências financeiras totalizando ${CalcEngine.formatBRL(info.totalPendente)}. [${detalhes.join(' • ')}]`
-      };
-    }
-
-    if (info.saldoConta < 0) {
-      return {
-        tipo: 'credito',
-        msg: `Crédito em haver: Cliente possui crédito a favor de ${CalcEngine.formatBRL(Math.abs(info.saldoConta))} na madeireira.`
-      };
-    }
-
-    return null;
-  }, [order.cliente?.id, order.cliente?.nome, clients, orders, order.id]);
 
   // Fechar dropdown de clientes ao clicar fora
   useEffect(() => {
@@ -512,15 +458,7 @@ export const BalcaoTab = () => {
           </span>
         </div>
 
-        {/* ALERTA DE CLIENTE (DÉBITO OU CRÉDITO) */}
-        {clienteAlerta && (
-          <div 
-            className={`client-alert-banner ${clienteAlerta.tipo === 'debito' ? 'alert-warning' : 'alert-info'}`}
-            style={{ margin: '12px 16px 0 16px', borderRadius: 'var(--radius-sm)' }}
-          >
-            <span>{clienteAlerta.msg}</span>
-          </div>
-        )}
+
 
         <div className="panel-body">
           <div className="form-grid form-grid-client-header">
@@ -560,47 +498,23 @@ export const BalcaoTab = () => {
               {isClientDropdownOpen && (
                 <div className="autocomplete-dropdown" style={{ zIndex: 1000 }}>
                   {matchingClients.length > 0 ? (
-                    matchingClients.map(c => {
-                      const infoFin = getClienteInfoFinanceira(c);
-                      return (
-                        <div 
-                          key={c.id} 
-                          className="autocomplete-item"
-                          onClick={() => handleSelectClient(c)}
-                        >
-                          <div>
-                            <div className="autocomplete-item-name">{c.nome}</div>
-                            <div className="autocomplete-item-sub">
-                              {c.telefone || 'Sem telefone'} | {c.bairro || 'Sem bairro'} {c.documento ? `| Doc: ${c.documento}` : ''}
-                            </div>
+                    matchingClients.map(c => (
+                      <div 
+                        key={c.id} 
+                        className="autocomplete-item"
+                        onClick={() => handleSelectClient(c)}
+                      >
+                        <div>
+                          <div className="autocomplete-item-name">{c.nome}</div>
+                          <div className="autocomplete-item-sub">
+                            {c.telefone || 'Sem telefone'} | {c.bairro || 'Sem bairro'} {c.documento ? `| Doc: ${c.documento}` : ''}
                           </div>
-                          {infoFin.totalPendente > 0 ? (
-                            <div style={{ textAlign: 'right' }}>
-                              <span className="badge-tag badge-cancelado" style={{ fontSize: '10px', padding: '2px 6px' }}>
-                                Deve {CalcEngine.formatBRL(infoFin.totalPendente)}
-                              </span>
-                              {infoFin.totalPedidosAberto > 0 && infoFin.saldoConta > 0 ? (
-                                <div style={{ fontSize: '9.5px', color: '#92400E', marginTop: '2px' }}>
-                                  Conta: {CalcEngine.formatBRL(infoFin.saldoConta)} | Pedido: {CalcEngine.formatBRL(infoFin.totalPedidosAberto)}
-                                </div>
-                              ) : infoFin.totalPedidosAberto > 0 ? (
-                                <div style={{ fontSize: '9.5px', color: '#92400E', marginTop: '2px' }}>
-                                  Saldo a receber na entrega
-                                </div>
-                              ) : (
-                                <div style={{ fontSize: '9.5px', color: '#92400E', marginTop: '2px' }}>
-                                  Débito em conta anterior
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 500 }}>
-                              Selecionar
-                            </span>
-                          )}
                         </div>
-                      );
-                    })
+                        <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 600 }}>
+                          Selecionar
+                        </span>
+                      </div>
+                    ))
                   ) : (
                     <div className="autocomplete-item" style={{ color: 'var(--text-muted)', cursor: 'default' }}>
                       <span>Nenhum cliente cadastrado com este nome. Os dados serão salvos automaticamente ao finalizar!</span>
@@ -1158,7 +1072,6 @@ export const BalcaoTab = () => {
                 <option value="Cartão de Débito">Cartão de Débito</option>
                 <option value="Cartão de Crédito">Cartão de Crédito</option>
                 <option value="Boleto Bancário">Boleto Bancário</option>
-                <option value="Conta Corrente / Pendura">Conta Corrente / Pendura</option>
               </select>
             </div>
 

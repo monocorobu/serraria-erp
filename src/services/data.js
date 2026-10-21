@@ -1020,10 +1020,6 @@ const SEED_CLIENTES = [
     endereco_obra: 'Av. dos Ipês, 450 - Canteiro de Obras 02',
     bairro: 'Jardim América',
     cidade: 'São Paulo',
-    saldo_devedor: 0.00,
-    historico_financeiro: [
-      { data: '2026-09-15', tipo: 'QUITACAO', valor: 12300.00, pedido_id: 'PED-1024', obs: 'Pagamento total via Pix' }
-    ],
     observacoes: 'Descarga liberada das 08h às 17h. Acesso fácil para caminhão toco.'
   },
   {
@@ -1035,8 +1031,6 @@ const SEED_CLIENTES = [
     endereco_obra: 'Estrada Vicinal do Ribeirão, Km 8 - Porteira Verde',
     bairro: 'Zona Rural / Represa',
     cidade: 'Atibaia',
-    saldo_devedor: 0.00,
-    historico_financeiro: [],
     observacoes: 'Estrada de terra batida. Não mandar caminhão truck se estiver chovendo forte.'
   },
   {
@@ -1048,12 +1042,7 @@ const SEED_CLIENTES = [
     endereco_obra: 'Rua das Palmeiras, 112 - Sobrado em Reforma',
     bairro: 'Vila Nova',
     cidade: 'São Paulo',
-    saldo_devedor: 450.00, // Alerta: Saldo em aberto!
-    pedido_pendente_ref: '#1018',
-    historico_financeiro: [
-      { data: '2026-09-28', tipo: 'PENDURA', valor: 450.00, pedido_id: 'PED-1018', obs: 'Diferença de frete e pregos pendurados' }
-    ],
-    observacoes: 'Cliente pontual, porém restam R$ 450,00 da última entrega da Vila Nova.'
+    observacoes: 'Cliente da obra da Vila Nova. Canteiro de reforma.'
   },
   {
     id: 'cli_4',
@@ -1064,8 +1053,6 @@ const SEED_CLIENTES = [
     endereco_obra: 'Alameda das Acácias, Lote 42 - Condomínio Fechado',
     bairro: 'Alphaville / Tamboré',
     cidade: 'Santana de Parnaíba',
-    saldo_devedor: 0.00,
-    historico_financeiro: [],
     observacoes: 'Portaria exige identificação do motorista e placa do caminhão com 24h de antecedência.'
   },
   {
@@ -1077,11 +1064,7 @@ const SEED_CLIENTES = [
     endereco_obra: 'Rua da Olaria, 89 - Galpão 3',
     bairro: 'Distrito Industrial',
     cidade: 'Guarulhos',
-    saldo_devedor: -200.00, // Crédito a favor de R$ 200,00
-    historico_financeiro: [
-      { data: '2026-10-02', tipo: 'CREDITO', valor: 200.00, pedido_id: 'DEP-ANTECIPADO', obs: 'Adiantamento em dinheiro' }
-    ],
-    observacoes: 'Possui crédito antecipado de R$ 200,00 para abater na próxima compra.'
+    observacoes: 'Entrega direto no galpão.'
   }
 ];
 
@@ -1526,7 +1509,7 @@ const SEED_PEDIDOS = [
       endereco_obra: 'Rua das Palmeiras, 112 - Sobrado em Reforma',
       bairro: 'Vila Nova',
       cidade: 'São Paulo',
-      observacoes: 'Alerta de saldo devedor anterior de R$ 450,00.'
+      observacoes: 'Entrega na obra da Vila Nova.'
     },
     carpinteiro_id: 'carp_3',
     carpinteiro_nome: 'Eng. Marcos Obra',
@@ -1993,7 +1976,20 @@ const DB = {
   },
 
   getClientes() {
-    return this.get(STORAGE_KEYS.CLIENTES, SEED_CLIENTES);
+    const list = this.get(STORAGE_KEYS.CLIENTES, SEED_CLIENTES);
+    let changed = false;
+    list.forEach(c => {
+      if (c.saldo_devedor !== undefined || c.historico_financeiro !== undefined || c.pedido_pendente_ref !== undefined) {
+        delete c.saldo_devedor;
+        delete c.historico_financeiro;
+        delete c.pedido_pendente_ref;
+        changed = true;
+      }
+    });
+    if (changed) {
+      this.set(STORAGE_KEYS.CLIENTES, list);
+    }
+    return list;
   },
 
   getCarpinteiros() {
@@ -2093,8 +2089,6 @@ const DB = {
         endereco_obra: clienteData.endereco_obra || '',
         bairro: clienteData.bairro || '',
         cidade: clienteData.cidade || 'Caçapava',
-        saldo_devedor: 0.00,
-        historico_financeiro: [],
         observacoes: 'Cadastrado automaticamente via Balcão de Vendas'
       };
       clientes.push(novoCliente);
