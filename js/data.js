@@ -1354,6 +1354,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_988',
         codigo: '1-793',
         descricao: 'VIGA EUCALIPTO 5X20',
+        largura_cm: 20,
         acabamento: 'BRUTA',
         aparelhar: false,
         tipo_calculo: 'ML',
@@ -1371,6 +1372,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_823',
         codigo: 'T-647',
         descricao: 'TABUA EUCALIPTO 15 CM',
+        largura_cm: 15,
         acabamento: 'BRUTA',
         aparelhar: false,
         tipo_calculo: 'ML',
@@ -1388,6 +1390,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_729',
         codigo: '1-555',
         descricao: 'PREGO 19X36 C/C - KG',
+        largura_cm: 0,
         acabamento: 'BRUTA',
         aparelhar: false,
         tipo_calculo: 'UN',
@@ -1449,6 +1452,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_987',
         codigo: '1-792',
         descricao: 'VIGA EUCALIPTO 5X15',
+        largura_cm: 15,
         acabamento: 'APARELHADA',
         aparelhar: true,
         tipo_calculo: 'ML',
@@ -1466,6 +1470,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_440',
         codigo: 'MAT-440',
         descricao: 'FORRO PVC BRANCO GELO REGUA 200 MM X 3,50 (0,70 M²)',
+        largura_cm: 20,
         acabamento: 'BRUTA', // Já beneficiado
         aparelhar: false,
         tipo_calculo: 'M2',
@@ -1530,6 +1535,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_831',
         codigo: 'T-655',
         descricao: 'TABUA PINUS 20CM X 3MTS',
+        largura_cm: 20,
         acabamento: 'BRUTA',
         aparelhar: false,
         tipo_calculo: 'UN',
@@ -1547,6 +1553,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_833',
         codigo: 'T-657',
         descricao: 'TABUA PINUS 30CM X 3MTS',
+        largura_cm: 30,
         acabamento: 'BRUTA',
         aparelhar: false,
         tipo_calculo: 'UN',
@@ -1564,6 +1571,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_829',
         codigo: 'T-653',
         descricao: 'TABUA PINUS 10CM X 3MTS',
+        largura_cm: 10,
         acabamento: 'BRUTA',
         aparelhar: false,
         tipo_calculo: 'ML',
@@ -1581,6 +1589,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_721',
         codigo: '1-547',
         descricao: 'PREGO 17X21 C/C - KG',
+        largura_cm: 0,
         acabamento: 'BRUTA',
         aparelhar: false,
         tipo_calculo: 'UN',
@@ -1647,6 +1656,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_987',
         codigo: '1-792',
         descricao: 'VIGA EUCALIPTO 5X15',
+        largura_cm: 15,
         acabamento: 'BRUTA',
         aparelhar: false,
         tipo_calculo: 'ML',
@@ -1664,6 +1674,7 @@ const SEED_PEDIDOS = [
         produto_id: 'prod_870',
         codigo: 'T-681',
         descricao: 'TELHA BARRO BELO PORTUGUESA E ROMANA RESINADA CADA',
+        largura_cm: 0,
         acabamento: 'BRUTA',
         aparelhar: false,
         tipo_calculo: 'UN',
@@ -1987,7 +1998,24 @@ const DB = {
   },
 
   getPedidos() {
-    return this.get(STORAGE_KEYS.PEDIDOS, SEED_PEDIDOS);
+    const pedidos = this.get(STORAGE_KEYS.PEDIDOS, SEED_PEDIDOS);
+    // Garante retrocompatibilidade para que todo item possua largura_cm
+    pedidos.forEach(p => {
+      if (Array.isArray(p.itens)) {
+        p.itens.forEach(it => {
+          if (it.largura_cm === undefined || it.largura_cm === null) {
+            const m = it.descricao ? it.descricao.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*[xX]\s*(\d+(?:[.,]\d+)?)/) : null;
+            if (m && m[2]) {
+              it.largura_cm = parseFloat(m[2].replace(',', '.')) || 0;
+            } else {
+              const mCm = it.descricao ? it.descricao.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:cm|CM)\b/) : null;
+              it.largura_cm = mCm ? (parseFloat(mCm[1].replace(',', '.')) || 0) : 0;
+            }
+          }
+        });
+      }
+    });
+    return pedidos;
   },
 
   getNextNumeroPedido() {
@@ -1999,10 +2027,18 @@ const DB = {
 
   salvarPedido(pedido) {
     const pedidos = this.getPedidos();
-    const index = pedidos.findIndex(p => p.id === pedido.id);
+    const index = pedidos.findIndex(p => 
+      (pedido.id && p.id === pedido.id) || 
+      (pedido.numero && p.numero === pedido.numero)
+    );
+
     if (index >= 0) {
+      // Atualiza o orçamento existente em cima do anterior (sem duplicar)
+      pedido.data_atualizacao = new Date().toISOString();
       pedidos[index] = pedido;
     } else {
+      // Novo orçamento: insere no topo do histórico
+      if (!pedido.data_criacao) pedido.data_criacao = new Date().toISOString();
       pedidos.unshift(pedido);
     }
     this.set(STORAGE_KEYS.PEDIDOS, pedidos);

@@ -6,6 +6,8 @@
 const HistoricoModule = {
   currentFilter: 'TODOS',
   searchTerm: '',
+  currentPage: 1,
+  pageSize: 25,
 
   init() {
     this.renderTabelaPedidos();
@@ -18,6 +20,7 @@ const HistoricoModule = {
     if (inputBusca) {
       inputBusca.addEventListener('input', (e) => {
         this.searchTerm = e.target.value.trim().toLowerCase();
+        this.currentPage = 1;
         this.renderTabelaPedidos();
       });
     }
@@ -28,6 +31,7 @@ const HistoricoModule = {
         document.querySelectorAll('.filter-pill[data-filter]').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
         this.currentFilter = pill.dataset.filter;
+        this.currentPage = 1;
         this.renderTabelaPedidos();
       });
     });
@@ -65,12 +69,19 @@ const HistoricoModule = {
     if (!pedidos.length) {
       tbody.innerHTML = '';
       if (emptyState) emptyState.style.display = 'block';
+      const pagContainer = document.getElementById('historico-pagination-container');
+      if (pagContainer) pagContainer.innerHTML = '';
       return;
     }
 
     if (emptyState) emptyState.style.display = 'none';
 
-    tbody.innerHTML = pedidos.map(p => {
+    const totalCount = pedidos.length;
+    const paginatedPedidos = typeof Pagination !== 'undefined'
+      ? Pagination.slice(pedidos, this.currentPage, this.pageSize)
+      : pedidos;
+
+    tbody.innerHTML = paginatedPedidos.map(p => {
       const dataFormatada = new Date(p.data_criacao).toLocaleDateString('pt-BR');
       const saldoReceber = p.resumo_financeiro?.saldo_a_receber || 0;
       const temSaldoPendente = saldoReceber > 0;
@@ -143,6 +154,26 @@ const HistoricoModule = {
         </tr>
       `;
     }).join('');
+
+    // Renderiza a barra de paginação do histórico
+    if (typeof Pagination !== 'undefined') {
+      Pagination.render({
+        containerId: 'historico-pagination-container',
+        totalItems: totalCount,
+        currentPage: this.currentPage,
+        pageSize: this.pageSize,
+        onPageChange: (newPage) => {
+          this.currentPage = newPage;
+          this.renderTabelaPedidos();
+          document.querySelector('#tab-historico .table-responsive')?.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        onPageSizeChange: (newSize) => {
+          this.pageSize = newSize;
+          this.currentPage = 1;
+          this.renderTabelaPedidos();
+        }
+      });
+    }
   },
 
   abrirModalDuplicar(pedidoId) {

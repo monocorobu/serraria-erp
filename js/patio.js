@@ -192,13 +192,16 @@ const PatioModule = {
 
     // Se checklist estiver vazio, inicializa a partir dos itens
     if (!this.activePedidoChecklist.checklist_patio || !this.activePedidoChecklist.checklist_patio.length) {
-      this.activePedidoChecklist.checklist_patio = (this.activePedidoChecklist.itens || []).map(item => ({
-        item_id: item.id,
-        descricao: `${item.quantidade}x ${item.descricao} ${item.comprimento_m ? '(' + item.comprimento_m + 'm)' : ''}`,
-        cortado: false,
-        carregado: false,
-        requer_plaina: item.aparelhar
-      }));
+      this.activePedidoChecklist.checklist_patio = (this.activePedidoChecklist.itens || []).map(item => {
+        const dimStr = item.largura_cm ? `${item.largura_cm}cm x ${item.comprimento_m || 0}m` : (item.comprimento_m ? `${item.comprimento_m}m` : '');
+        return {
+          item_id: item.id,
+          descricao: `${item.quantidade}x ${item.descricao} ${dimStr ? '(' + dimStr + ')' : ''}`.trim(),
+          cortado: false,
+          carregado: false,
+          requer_plaina: item.aparelhar
+        };
+      });
     }
 
     this.renderItensChecklistModal();

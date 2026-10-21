@@ -28,6 +28,7 @@
         <h1>Serraria Bom Jesus</h1>
         <span>Caçapava - SP</span>
       </div>
+      <button class="sidebar-close-btn" id="btn-sidebar-close" aria-label="Fechar Menu">&times;</button>
     </div>
 
     <nav class="sidebar-nav">
@@ -118,14 +119,26 @@
     </div>
   </aside>
 
+  <!-- BACKDROP PARA SIDEBAR EM DISPOSITIVOS MÓVEIS / TABLETS -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
   <!-- ÁREA PRINCIPAL -->
   <main class="main-wrapper">
     
     <!-- BARRA SUPERIOR DE ATALHOS RÁPIDOS -->
     <header class="top-header no-print">
-      <div class="header-title-block">
-        <span class="header-title" id="header-active-title">Balcão de Vendas / Novo Orçamento</span>
-        <span class="header-subtitle" id="header-active-subtitle">Lançamento dinâmico de madeiramento, plaina e fechamento de pedidos</span>
+      <div class="header-left-group">
+        <button type="button" class="mobile-menu-btn" id="btn-mobile-sidebar" aria-label="Abrir Menu de Navegação" title="Abrir Menu">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.2" fill="none">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        <div class="header-title-block">
+          <span class="header-title" id="header-active-title">Balcão de Vendas / Novo Orçamento</span>
+          <span class="header-subtitle" id="header-active-subtitle">Lançamento dinâmico de madeiramento, plaina e fechamento de pedidos</span>
+        </div>
       </div>
 
       <div class="header-right-group">
@@ -172,9 +185,12 @@
               <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               Dados do Cliente, Destino da Obra & Indicação
             </span>
-            <span style="font-size: 12px; color: var(--text-secondary);">
-              Busca com preenchimento instantâneo ou auto-cadastro ao salvar
-            </span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span id="balcao-pedido-status-badge" class="badge-tag badge-bruta font-mono" style="font-size: 11px; font-weight: 700; padding: 2px 8px;">ORÇAMENTO (NOVO)</span>
+              <span style="font-size: 12px; color: var(--text-secondary);">
+                Busca com preenchimento instantâneo ou auto-cadastro ao salvar
+              </span>
+            </div>
           </div>
           
           <div class="panel-body compact">
@@ -186,7 +202,7 @@
               </button>
             </div>
 
-            <div class="form-grid" style="grid-template-columns: 2.2fr 1.2fr 1.2fr 1.5fr 1fr;">
+            <div class="form-grid form-grid-client-header">
               <!-- Campo de busca inteligente com autocomplete -->
               <div class="form-group autocomplete-wrapper">
                 <label class="form-label">
@@ -226,7 +242,7 @@
             </div>
 
             <!-- Segunda linha do cabeçalho: Vendedor, Carpinteiro e Instruções -->
-            <div class="form-grid" style="grid-template-columns: 1.2fr 1.2fr 2fr; margin-top: 10px;">
+            <div class="form-grid form-grid-client-sub">
               <div class="form-group">
                 <label class="form-label">Vendedor Responsável:</label>
                 <select id="balcao-vendedor-select" class="form-select"></select>
@@ -302,31 +318,22 @@
               </div>
             </div>
 
-            <!-- Acabamento: Bruta vs Aparelhada -->
-            <div class="form-group">
-              <label class="form-label">Acabamento:</label>
-              <select id="fast-acabamento-select" class="form-select">
-                <option value="BRUTA">Bruta</option>
-                <option value="APARELHADA">Aparelhada (+Plaina)</option>
-              </select>
-            </div>
-
             <!-- Quantidade -->
             <div class="form-group">
               <label class="form-label" id="fast-qtd-label">Qtd Peças:</label>
               <input type="number" id="fast-qtd-input" class="form-input font-mono" min="1" step="1" value="1">
             </div>
 
+            <!-- Largura da Madeira (cm) -->
+            <div class="form-group">
+              <label class="form-label" id="fast-largura-label">Largura (cm):</label>
+              <input type="number" id="fast-largura-input" class="form-input font-mono" min="0.5" step="0.5" placeholder="Ex: 15">
+            </div>
+
             <!-- Comprimento -->
             <div class="form-group">
               <label class="form-label" id="fast-comp-label">Comprimento (m):</label>
-              <div class="quick-length-pills">
-                <span class="pill-length" data-val="2.5">2.5</span>
-                <span class="pill-length active" data-val="3.0">3.0</span>
-                <span class="pill-length" data-val="3.5">3.5</span>
-                <span class="pill-length" data-val="4.0">4.0</span>
-              </div>
-              <input type="number" id="fast-comprimento-input" class="form-input font-mono" min="0.5" step="0.5" value="3.0">
+              <input type="number" id="fast-comprimento-input" class="form-input font-mono" min="0.1" step="0.1" value="3.0" placeholder="Ex: 3.0">
             </div>
 
             <!-- Preço Unitário -->
@@ -362,7 +369,7 @@
               Itens do Orçamento
             </span>
             <span style="font-size: 12px; color: var(--text-secondary);">
-              Edição direta na grade: alteração de peças, metragem ou acabamento recalcula na hora
+              Edição direta na grade: alteração de peças, largura ou comprimento recalcula na hora
             </span>
           </div>
 
@@ -373,9 +380,9 @@
                   <th style="width: 35px;" class="align-center">#</th>
                   <th style="width: 80px;">Código</th>
                   <th>Descrição da Madeira / Produto</th>
-                  <th style="width: 140px;" class="align-center">Acabamento (Plaina)</th>
                   <th style="width: 50px;" class="align-center">Unid.</th>
                   <th style="width: 85px;" class="align-center">Qtd Peças</th>
+                  <th style="width: 90px;" class="align-center">Largura (cm)</th>
                   <th style="width: 85px;" class="align-center">Compr. (m)</th>
                   <th style="width: 100px;" class="align-right">Metragem Total</th>
                   <th style="width: 105px;" class="align-right">Valor Unit. (R$)</th>
@@ -395,33 +402,6 @@
         <!-- BLOCO 4: RODAPÉ FÍSICO, FINANCEIRO, SINAL E AÇÕES FINAIS -->
         <div class="order-footer-grid">
           
-          <!-- RESUMO FÍSICO E ESTIMATIVA DO CAMINHÃO -->
-          <div class="summary-card">
-            <div class="summary-title">
-              <span>Logística & Transporte</span>
-              <span id="balcao-veiculo-sugerido" class="badge-tag badge-bruta">Picape Leve</span>
-            </div>
-
-            <div class="summary-row">
-              <span class="text-secondary">Total de Peças:</span>
-              <span id="balcao-total-pecas" class="font-mono" style="font-weight: 700;">0</span>
-            </div>
-
-            <div class="summary-row">
-              <span class="text-secondary">Volume Total Calculado:</span>
-              <span id="balcao-total-volume" class="font-mono" style="font-weight: 700;">0,000 m³</span>
-            </div>
-
-            <div class="summary-row">
-              <span class="text-secondary">Peso Estimado da Carga:</span>
-              <span id="balcao-total-peso" class="font-mono" style="font-weight: 800; font-size: 14px; color: var(--brand-primary-text);">0,0 kg</span>
-            </div>
-
-            <div style="margin-top: 12px; padding: 8px 12px; background-color: var(--bg-surface-subtle); border: 1px solid var(--border-light); font-size: 11px; color: var(--text-secondary); border-radius: var(--radius-md);">
-              Densidades médias calibradas: Garapeira e Peroba Rosa (~850-880 kg/m³), Pinus (~500 kg/m³), Telhas (~2,2 kg/un).
-            </div>
-          </div>
-
           <!-- RESUMO FINANCEIRO, FRETE, DESCONTO E FORMA DE PAGAMENTO -->
           <div class="summary-card highlight">
             <div class="summary-title">
@@ -480,7 +460,7 @@
             </div>
 
             <!-- CONTROLE DE PAGAMENTO E VALOR PAGO (ALINHAMENTO NIVELADO SEM DEGRAU) -->
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-medium); display: grid; grid-template-columns: 1.1fr 1.2fr; gap: 12px; align-items: start;">
+            <div class="balcao-totals-split">
               <div class="form-group" style="margin-bottom: 0;">
                 <div style="min-height: 24px; display: flex; align-items: center; margin-bottom: 4px;">
                   <label class="form-label" style="margin-bottom: 0;">Condição de Pagamento:</label>
@@ -543,7 +523,7 @@
           </div>
 
           <div style="display: flex; align-items: center; gap: 8px;">
-            <button class="btn btn-secondary" id="btn-imprimir-balcao" onclick="PrintModule.abrirModalImpressao(BalcaoModule.currentOrder, 'CLIENTE')" title="Imprimir Comprovante / Pedido" style="display: inline-flex; align-items: center; gap: 6px;">
+            <button class="btn btn-secondary" id="btn-imprimir-balcao" onclick="BalcaoModule.imprimirComprovanteBalcao('CLIENTE')" title="Salvar e Imprimir Orçamento (A5 Deitada)" style="display: inline-flex; align-items: center; gap: 6px;">
               <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
               <span>[F9] Imprimir</span>
             </button>
@@ -610,6 +590,9 @@
                 Nenhum pedido encontrado para o critério selecionado.
               </div>
             </div>
+
+            <!-- PAGINAÇÃO DO HISTÓRICO -->
+            <div id="historico-pagination-container"></div>
           </div>
         </div>
       </section>
@@ -736,6 +719,9 @@
                 <tbody id="precos-tabela-tbody"></tbody>
               </table>
             </div>
+
+            <!-- PAGINAÇÃO DA TABELA DE PREÇOS -->
+            <div id="precos-pagination-container"></div>
           </div>
         </div>
       </section>
@@ -746,7 +732,7 @@
       <section class="tab-content" id="tab-estoque">
         
         <!-- CARDS KPI DE ESTOQUE -->
-        <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
+        <div class="stats-grid stats-grid-4">
           <div class="stat-card">
             <span class="stat-label">Itens no Catálogo</span>
             <div class="stat-value font-mono" id="estoque-kpi-total-itens">0 produtos</div>
@@ -842,6 +828,9 @@
                 <tbody id="estoque-tabela-tbody"></tbody>
               </table>
             </div>
+
+            <!-- PAGINAÇÃO DO ESTOQUE -->
+            <div id="estoque-pagination-container"></div>
           </div>
         </div>
       </section>
@@ -891,6 +880,9 @@
                   <tbody id="clientes-tabela-tbody"></tbody>
                 </table>
               </div>
+
+              <!-- PAGINAÇÃO DE CLIENTES -->
+              <div id="clientes-pagination-container"></div>
             </div>
           </div>
         </div>
@@ -921,6 +913,9 @@
                   <tbody id="carpinteiros-tabela-tbody"></tbody>
                 </table>
               </div>
+
+              <!-- PAGINAÇÃO DE CARPINTEIROS -->
+              <div id="carpinteiros-pagination-container"></div>
             </div>
           </div>
         </div>
@@ -996,7 +991,7 @@
         </div>
 
         <!-- RELATÓRIO DE CAIXA E RANKING DE PRODUTOS MAIS VENDIDOS -->
-        <div style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 14px;">
+        <div class="painel-reports-grid">
           
           <!-- CAIXA DO PERÍODO POR FORMA DE PAGAMENTO -->
           <div class="panel">
@@ -1128,7 +1123,7 @@
       <section class="tab-content" id="tab-gerente">
         
         <!-- CARDS DE RESUMO EXECUTIVO -->
-        <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
+        <div class="stats-grid stats-grid-4">
           <div class="stat-card">
             <span class="stat-label">Equipe Cadastrada</span>
             <div class="stat-value font-mono" id="gerente-kpi-equipe">0 ativos</div>
@@ -1365,7 +1360,7 @@
 
             <!-- PANE 4: AUDITORIA & RANKING -->
             <div class="gerente-subtab-content" id="gerente-subtab-auditoria" style="display: none;">
-              <div style="display: grid; grid-template-columns: 1.2fr 2fr; gap: 20px;">
+              <div class="gerente-auditoria-grid">
                 
                 <!-- RANKING DA EQUIPE -->
                 <div>
@@ -1549,7 +1544,7 @@
             </div>
 
             <!-- BLOCO 2: RECURSOS CRÍTICOS (ESTOQUE, CAIXA, ATALHOS) -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+            <div class="tutorial-grid-2">
               
               <!-- COMO FUNCIONA A TRAVA DE ESTOQUE -->
               <div class="panel" style="margin-bottom: 0;">
@@ -1601,7 +1596,7 @@
             </div>
 
             <!-- BLOCO 3: ATALHOS DE TECLADO & FÓRMULAS DA MADEIREIRA -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="tutorial-grid-2" style="margin-bottom: 0;">
               
               <!-- TABELA DE ATALHOS -->
               <div>
@@ -2121,27 +2116,27 @@
   </div>
 </div>
 
-<!-- MODAL: IMPRESSÃO A4 (VIA CLIENTE E VIA PÁTIO) -->
+<!-- MODAL: IMPRESSÃO A5 DEITADA (VIA CLIENTE E VIA PÁTIO) -->
 <div class="modal-overlay" id="modal-impressao-a4">
-  <div class="modal-container modal-lg">
+  <div class="modal-container modal-xl" style="max-width: 920px;">
     <div class="modal-header no-print">
-      <span class="modal-title">Prévia de Impressão A4 (Documento Oficial)</span>
+      <span class="modal-title">Prévia de Impressão A5 Deitada (Documento Oficial)</span>
       <div style="display: flex; gap: 8px; align-items: center;">
         <button class="btn btn-sm btn-secondary" id="btn-toggle-modo-impressao">
           Alternar Modo
         </button>
         <button class="btn btn-sm btn-primary" id="btn-executar-impressao">
-          Imprimir Agora (Ctrl+P)
+          Imprimir A5 Deitada (Ctrl+P)
         </button>
         <button class="modal-close" onclick="PrintModule.fecharModalImpressao()">&times;</button>
       </div>
     </div>
-    <div class="modal-body" style="background-color: #E2E8F0; padding: 24px;">
+    <div class="modal-body" style="background-color: #E2E8F0; padding: 20px; overflow-x: auto;">
       <div id="print-sheet-content"></div>
     </div>
     <div class="modal-footer no-print">
       <button class="btn btn-secondary" onclick="PrintModule.fecharModalImpressao()">Fechar Prévia</button>
-      <button class="btn btn-primary" onclick="PrintModule.executarImpressao()">Imprimir (Ctrl+P)</button>
+      <button class="btn btn-primary" onclick="PrintModule.executarImpressao()">Imprimir A5 Deitada (Ctrl+P)</button>
     </div>
   </div>
 </div>
@@ -2631,6 +2626,7 @@
 <script src="/js/data.js?v=20261015-v8"></script>
 <script src="/js/auth.js?v=20261015-v8"></script>
 <script src="/js/calc.js?v=20261015-v8"></script>
+<script src="/js/pagination.js?v=20261015-v8"></script>
 <script src="/js/balcao.js?v=20261015-v8"></script>
 <script src="/js/historico.js?v=20261015-v8"></script>
 <script src="/js/patio.js?v=20261015-v8"></script>

@@ -8,6 +8,7 @@ const App = {
 
   init() {
     this.setupNavigation();
+    this.setupMobileSidebar();
     this.setupGlobalKeyboardShortcuts();
     
     // Inicializa Módulo de Autenticação e Segurança RBAC
@@ -57,6 +58,52 @@ const App = {
         const tab = item.dataset.tab;
         this.switchTab(tab);
       });
+    });
+  },
+
+  setupMobileSidebar() {
+    const btnOpen = document.getElementById('btn-mobile-sidebar');
+    const btnClose = document.getElementById('btn-sidebar-close');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    const sidebar = document.querySelector('.sidebar');
+
+    const openSidebar = () => {
+      sidebar?.classList.add('mobile-open');
+      backdrop?.classList.add('active');
+      document.body.style.overflow = window.innerWidth <= 1024 ? 'hidden' : '';
+    };
+
+    const closeSidebar = () => {
+      sidebar?.classList.remove('mobile-open');
+      backdrop?.classList.remove('active');
+      document.body.style.overflow = '';
+    };
+
+    btnOpen?.addEventListener('click', openSidebar);
+    btnClose?.addEventListener('click', closeSidebar);
+    backdrop?.addEventListener('click', closeSidebar);
+
+    // Fecha a sidebar ao clicar em qualquer item no tablet/celular
+    document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
+      item.addEventListener('click', () => {
+        if (window.innerWidth <= 1024) {
+          closeSidebar();
+        }
+      });
+    });
+
+    // Tecla Esc fecha sidebar mobile
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && sidebar?.classList.contains('mobile-open')) {
+        closeSidebar();
+      }
+    });
+
+    // Ao redimensionar para tela grande, limpa estilos
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 1024) {
+        closeSidebar();
+      }
     });
   },
 
@@ -130,8 +177,7 @@ const App = {
         if (modalImpressao && modalImpressao.classList.contains('active')) {
           PrintModule.executarImpressao();
         } else if (BalcaoModule.currentOrder && BalcaoModule.currentOrder.itens?.length) {
-          PrintModule.abrirModalImpressao(BalcaoModule.currentOrder, 'CLIENTE');
-          setTimeout(() => PrintModule.executarImpressao(), 300);
+          BalcaoModule.imprimirComprovanteBalcao('CLIENTE', true);
         } else {
           this.showToast('Abra ou selecione um orçamento com itens para imprimir a comanda.', 'warning');
         }
@@ -153,14 +199,14 @@ const App = {
       } else if (e.key === 'F9') {
         e.preventDefault();
         if (BalcaoModule.currentOrder && BalcaoModule.currentOrder.itens.length) {
-          PrintModule.abrirModalImpressao(BalcaoModule.currentOrder, 'CLIENTE');
+          BalcaoModule.imprimirComprovanteBalcao('CLIENTE');
         } else {
           this.showToast('Abra ou adicione itens a um orçamento para imprimir.', 'warning');
         }
       } else if (e.key === 'F10') {
         e.preventDefault();
         if (BalcaoModule.currentOrder && BalcaoModule.currentOrder.itens.length) {
-          PrintModule.abrirModalImpressao(BalcaoModule.currentOrder, 'PATIO');
+          BalcaoModule.imprimirComprovanteBalcao('PATIO');
         } else {
           this.showToast('Abra ou adicione itens a um orçamento para imprimir o romaneio.', 'warning');
         }

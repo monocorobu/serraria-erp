@@ -6,6 +6,8 @@
 const PrecosModule = {
   currentCategoria: 'TODAS',
   searchTerm: '',
+  currentPage: 1,
+  pageSize: 25,
 
   init() {
     this.renderCategoriasPills();
@@ -42,6 +44,7 @@ const PrecosModule = {
         container.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
         this.currentCategoria = pill.dataset.cat;
+        this.currentPage = 1;
         this.renderTabelaPrecos();
       });
     });
@@ -53,6 +56,7 @@ const PrecosModule = {
     if (inputBusca) {
       inputBusca.addEventListener('input', (e) => {
         this.searchTerm = e.target.value.trim().toLowerCase();
+        this.currentPage = 1;
         this.renderTabelaPrecos();
       });
     }
@@ -112,7 +116,12 @@ const PrecosModule = {
 
     const isAdmin = window.AuthModule ? AuthModule.isAdmin() : true;
 
-    tbody.innerHTML = produtos.map(p => {
+    const totalCount = produtos.length;
+    const paginatedProdutos = typeof Pagination !== 'undefined'
+      ? Pagination.slice(produtos, this.currentPage, this.pageSize)
+      : produtos;
+
+    tbody.innerHTML = paginatedProdutos.map(p => {
       const estoque = parseFloat(p.estoque_atual !== undefined ? p.estoque_atual : 0);
       const minimo = parseFloat(p.estoque_minimo || 10);
       let estoqueBadge = '';
@@ -165,6 +174,26 @@ const PrecosModule = {
         </tr>
       `;
     }).join('');
+
+    // Renderiza a barra de paginação
+    if (typeof Pagination !== 'undefined') {
+      Pagination.render({
+        containerId: 'precos-pagination-container',
+        totalItems: totalCount,
+        currentPage: this.currentPage,
+        pageSize: this.pageSize,
+        onPageChange: (newPage) => {
+          this.currentPage = newPage;
+          this.renderTabelaPrecos();
+          document.querySelector('#tab-precos .table-responsive')?.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        onPageSizeChange: (newSize) => {
+          this.pageSize = newSize;
+          this.currentPage = 1;
+          this.renderTabelaPrecos();
+        }
+      });
+    }
   },
 
   salvarPrecoInline(prodId, novoPreco) {

@@ -109,6 +109,7 @@ const BalcaoModule = {
     this._liberacaoEstoqueAutorizada = false;
 
     this.atualizarTotais();
+    this.atualizarBadgeOrcamento('NOVO');
     
     // Foca na busca de cliente
     const inputBusca = document.getElementById('balcao-busca-cliente');
@@ -172,8 +173,9 @@ const BalcaoModule = {
 
     this.renderTabelaItens();
     this.atualizarTotais();
+    this.atualizarBadgeOrcamento('EDITANDO');
     App.switchTab('balcao');
-    App.showToast(`Orçamento #${pedido.numero} carregado no balcão.`, 'info');
+    App.showToast(`Orçamento #${pedido.numero} carregado para edição no balcão.`, 'info');
   },
 
   setupEventListeners() {
@@ -261,16 +263,8 @@ const BalcaoModule = {
       });
     }
 
-    // Mudança de Acabamento na Barra Rápida
-    const selectAcabamento = document.getElementById('fast-acabamento-select');
-    if (selectAcabamento) {
-      selectAcabamento.addEventListener('change', () => {
-        this.atualizarPrecoRapido();
-      });
-    }
-
-    // Mudança de Qtd / Comprimento / Preço na Barra Rápida
-    ['fast-qtd-input', 'fast-comprimento-input', 'fast-preco-input'].forEach(id => {
+    // Mudança de Qtd / Largura / Comprimento / Preço na Barra Rápida
+    ['fast-qtd-input', 'fast-largura-input', 'fast-comprimento-input', 'fast-preco-input'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         el.addEventListener('input', () => {
@@ -288,20 +282,6 @@ const BalcaoModule = {
           }
         });
       }
-    });
-
-    // Pílulas de comprimento rápido
-    document.querySelectorAll('.pill-length').forEach(pill => {
-      pill.addEventListener('click', () => {
-        const comp = pill.dataset.val;
-        const inputComp = document.getElementById('fast-comprimento-input');
-        if (inputComp) {
-          inputComp.value = comp;
-          this.calcularSubtotalRapido();
-        }
-        document.querySelectorAll('.pill-length').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-      });
     });
 
     // Botão Adicionar Item
@@ -398,14 +378,21 @@ const BalcaoModule = {
     const btnImprimirCliente = document.getElementById('btn-imprimir-cliente-balcao');
     if (btnImprimirCliente) {
       btnImprimirCliente.addEventListener('click', () => {
-        PrintModule.abrirModalImpressao(this.currentOrder, 'CLIENTE');
+        this.imprimirComprovanteBalcao('CLIENTE');
       });
     }
 
     const btnImprimirPatio = document.getElementById('btn-imprimir-patio-balcao');
     if (btnImprimirPatio) {
       btnImprimirPatio.addEventListener('click', () => {
-        PrintModule.abrirModalImpressao(this.currentOrder, 'PATIO');
+        this.imprimirComprovanteBalcao('PATIO');
+      });
+    }
+
+    const btnImprimirBalcao = document.getElementById('btn-imprimir-balcao');
+    if (btnImprimirBalcao) {
+      btnImprimirBalcao.addEventListener('click', () => {
+        this.imprimirComprovanteBalcao('CLIENTE');
       });
     }
 
@@ -1255,6 +1242,9 @@ const BalcaoModule = {
     if (inputPreco) inputPreco.value = '0.00';
     if (subtotalEl) subtotalEl.textContent = 'R$ 0,00';
 
+    const inputLargura = document.getElementById('fast-largura-input');
+    if (inputLargura) inputLargura.value = '';
+
     const estBadge = document.getElementById('fast-produto-estoque-badge');
     if (estBadge) {
       estBadge.innerHTML = '';
@@ -1394,6 +1384,7 @@ const BalcaoModule = {
     if (!produto) return;
 
     const inputPreco = document.getElementById('fast-preco-input');
+    const inputLargura = document.getElementById('fast-largura-input');
     const inputComp = document.getElementById('fast-comprimento-input');
     const inputQtd = document.getElementById('fast-qtd-input');
     const labelQtd = document.getElementById('fast-qtd-label');
@@ -1402,15 +1393,28 @@ const BalcaoModule = {
     if (inputPreco) inputPreco.value = produto.preco_unitario.toFixed(2);
     if (inputQtd && !inputQtd.value) inputQtd.value = '1';
 
+    // Extrai dimensões sugeridas da descrição ou do cadastro da madeira
+    const dimensoes = this.extrairDimensoesProduto(produto.nome);
+
     // Ajusta campos de acordo com tipo_calculo
     if (produto.tipo_calculo === 'ML') {
+      if (inputLargura) {
+        inputLargura.disabled = false;
+        const largSugerida = produto.largura_cm || dimensoes.largura || 15;
+        inputLargura.value = largSugerida;
+      }
       if (inputComp) {
         inputComp.disabled = false;
-        inputComp.value = produto.comprimentos_comuns ? produto.comprimentos_comuns[1] || '3.0' : '3.0';
+        const compSugerido = dimensoes.comprimento || (produto.comprimentos_comuns ? produto.comprimentos_comuns[1] || '3.0' : '3.0');
+        inputComp.value = compSugerido;
       }
       if (labelQtd) labelQtd.textContent = 'Qtd Peças:';
       if (labelComp) labelComp.textContent = 'Compr. (m):';
     } else if (produto.tipo_calculo === 'M2') {
+      if (inputLargura) {
+        inputLargura.disabled = false;
+        inputLargura.value = produto.largura_cm || dimensoes.largura || '';
+      }
       if (inputComp) {
         inputComp.disabled = true;
         inputComp.value = '1.0';
@@ -1418,9 +1422,14 @@ const BalcaoModule = {
       if (labelQtd) labelQtd.textContent = 'Área (M²):';
       if (labelComp) labelComp.textContent = 'Fator (m):';
     } else {
+      if (inputLargura) {
+        const isMadeira = produto.categoria?.includes('Madeiras') || /TABUA|VIGA|CAIBRO|RIPA|SARRAFO/i.test(produto.nome);
+        inputLargura.disabled = !isMadeira;
+        inputLargura.value = isMadeira ? (produto.largura_cm || dimensoes.largura || '') : '';
+      }
       if (inputComp) {
         inputComp.disabled = true;
-        inputComp.value = produto.comprimento_padrao_m || '0';
+        inputComp.value = produto.comprimento_padrao_m || dimensoes.comprimento || '0';
       }
       if (labelQtd) labelQtd.textContent = 'Qtd (UN/KG):';
       if (labelComp) labelComp.textContent = 'Compr. (m):';
@@ -1428,6 +1437,39 @@ const BalcaoModule = {
 
     this.atualizarPrecoRapido();
     this.atualizarIndicadorEstoqueRapido(prodId, parseFloat(inputQtd?.value) || 1);
+  },
+
+  extrairDimensoesProduto(nome = '') {
+    let espessura = 0;
+    let largura = 0;
+    let comprimento = 0;
+
+    if (!nome) return { espessura, largura, comprimento };
+
+    // Padrão "5X20", "5 X 15", "1.5X5", "6X12"
+    const matchX = nome.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*[xX]\s*(\d+(?:[.,]\d+)?)(?:\s*(?:cm|CM|mm|MM))?/);
+    if (matchX) {
+      espessura = parseFloat(matchX[1].replace(',', '.')) || 0;
+      largura = parseFloat(matchX[2].replace(',', '.')) || 0;
+      if (/mm/i.test(matchX[0])) {
+        espessura = espessura / 10;
+        largura = largura / 10;
+      }
+    } else {
+      // Padrão "15 CM", "20CM", "30 CM"
+      const matchCm = nome.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:cm|CM)\b/);
+      if (matchCm) {
+        largura = parseFloat(matchCm[1].replace(',', '.')) || 0;
+      }
+    }
+
+    // Padrão comprimento "3MTS", "3.0M", "3 MT", "X 3,50"
+    const matchM = nome.match(/(?:^|\s|X\s*)(\d+(?:[.,]\d+)?)\s*(?:m|mts|mt|metros)\b/i);
+    if (matchM) {
+      comprimento = parseFloat(matchM[1].replace(',', '.')) || 0;
+    }
+
+    return { espessura, largura, comprimento };
   },
 
   atualizarPrecoRapido() {
@@ -1438,13 +1480,8 @@ const BalcaoModule = {
     const produto = DB.getProdutos().find(p => p.id === prodId);
     if (!produto) return;
 
-    const acabamento = document.getElementById('fast-acabamento-select').value;
     const inputPreco = document.getElementById('fast-preco-input');
-
-    let preco = produto.preco_unitario;
-    if (acabamento === 'APARELHADA') {
-      preco += (produto.taxa_plaina_padrao || CalcEngine.DEFAULT_TAXA_PLAINA_ML);
-    }
+    const preco = produto.preco_unitario;
 
     const isAdmin = window.AuthModule ? AuthModule.isAdmin() : true;
     if (inputPreco) {
@@ -1462,9 +1499,9 @@ const BalcaoModule = {
     const prodId = selectProd.value;
     const produto = DB.getProdutos().find(p => p.id === prodId);
 
-    const qtd = parseFloat(document.getElementById('fast-qtd-input').value) || 0;
-    const comp = parseFloat(document.getElementById('fast-comprimento-input').value) || 0;
-    const preco = parseFloat(document.getElementById('fast-preco-input').value) || 0;
+    const qtd = parseFloat(document.getElementById('fast-qtd-input')?.value) || 0;
+    const comp = parseFloat(document.getElementById('fast-comprimento-input')?.value) || 0;
+    const preco = parseFloat(document.getElementById('fast-preco-input')?.value) || 0;
     const subtotalEl = document.getElementById('fast-subtotal-preview');
 
     let total = 0;
@@ -1495,30 +1532,37 @@ const BalcaoModule = {
     const produto = DB.getProdutos().find(p => p.id === prodId);
     if (!produto) return;
 
-    const acabamento = document.getElementById('fast-acabamento-select').value;
-    const querAparelhar = acabamento === 'APARELHADA';
-    const qtd = parseFloat(document.getElementById('fast-qtd-input').value) || 0;
-    const comp = parseFloat(document.getElementById('fast-comprimento-input').value) || 0;
+    const inputLargura = document.getElementById('fast-largura-input');
+    const largura = inputLargura ? (parseFloat(inputLargura.value) || 0) : 0;
+    const qtd = parseFloat(document.getElementById('fast-qtd-input')?.value) || 0;
+    const comp = parseFloat(document.getElementById('fast-comprimento-input')?.value) || 0;
     const isAdmin = window.AuthModule ? AuthModule.isAdmin() : true;
     let precoUnitBase = produto.preco_unitario;
     if (isAdmin) {
       const inputPreco = document.getElementById('fast-preco-input');
       const valPreco = inputPreco ? parseFloat(inputPreco.value) : NaN;
       if (!isNaN(valPreco) && valPreco >= 0) {
-        precoUnitBase = querAparelhar ? Math.max(0, valPreco - (produto.taxa_plaina_padrao || CalcEngine.DEFAULT_TAXA_PLAINA_ML)) : valPreco;
+        precoUnitBase = valPreco;
       }
     }
 
     if (qtd <= 0) {
-      App.showToast('Informe uma quantidade válida.', 'warning');
-      document.getElementById('fast-qtd-input').focus();
+      App.showToast('Informe uma quantidade válida de peças.', 'warning');
+      document.getElementById('fast-qtd-input')?.focus();
       return;
     }
 
-    if (produto.tipo_calculo === 'ML' && comp <= 0) {
-      App.showToast('Informe o comprimento da madeira.', 'warning');
-      document.getElementById('fast-comprimento-input').focus();
-      return;
+    if (produto.tipo_calculo === 'ML') {
+      if (largura <= 0) {
+        App.showToast('Informe a largura da madeira (em cm).', 'warning');
+        if (inputLargura) inputLargura.focus();
+        return;
+      }
+      if (comp <= 0) {
+        App.showToast('Informe o comprimento da madeira (em metros).', 'warning');
+        document.getElementById('fast-comprimento-input')?.focus();
+        return;
+      }
     }
 
     // Alerta preventivo se o item estiver zerado ou com saldo baixo no estoque
@@ -1534,8 +1578,9 @@ const BalcaoModule = {
       produto_id: produto.id,
       codigo: produto.codigo,
       descricao: produto.nome,
-      acabamento: querAparelhar ? 'APARELHADA' : 'BRUTA',
-      aparelhar: querAparelhar,
+      largura_cm: largura > 0 ? largura : (produto.largura_cm || 0),
+      acabamento: 'BRUTA',
+      aparelhar: false,
       tipo_calculo: produto.tipo_calculo,
       quantidade: qtd,
       comprimento_m: produto.tipo_calculo === 'ML' ? comp : (produto.comprimento_padrao_m || 0),
@@ -1552,8 +1597,10 @@ const BalcaoModule = {
 
     // Limpa barra para o próximo item e mantém foco no campo de busca para agilidade máxima
     this.limparSelecaoProdutoRapido(true);
-    document.getElementById('fast-qtd-input').value = '1';
-    document.getElementById('fast-subtotal-preview').textContent = 'R$ 0,00';
+    const qtdEl = document.getElementById('fast-qtd-input');
+    if (qtdEl) qtdEl.value = '1';
+    const subtotalEl = document.getElementById('fast-subtotal-preview');
+    if (subtotalEl) subtotalEl.textContent = 'R$ 0,00';
     App.showToast(`+ ${itemObj.descricao} adicionado ao orçamento.`);
   },
 
@@ -1588,23 +1635,21 @@ const BalcaoModule = {
       }
 
       return `
-        <tr class="${isAparelhada ? 'row-aparelhada' : ''}" data-item-id="${item.id}">
+        <tr data-item-id="${item.id}">
           <td class="align-center font-mono" style="color: var(--text-muted); font-size: 11px;">${index + 1}</td>
           <td class="font-mono" style="font-weight: 600; color: var(--primary-green);">${item.codigo}</td>
           <td>
             <strong>${item.descricao}</strong>
-            ${isAparelhada ? '<span style="font-size: 10px; color: var(--action-green); font-weight: 700; margin-left: 6px;">[PLAINA 4 FACES]</span>' : ''}
             ${estoqueTag}
-          </td>
-          <td class="align-center">
-            <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 11px;">
-              <input type="checkbox" class="item-plaina-toggle" ${isAparelhada ? 'checked' : ''} onchange="BalcaoModule.togglePlainaItem('${item.id}', this.checked)">
-              <span class="badge-tag ${isAparelhada ? 'badge-aparelhada' : 'badge-bruta'}">${isAparelhada ? 'Aparelhada' : 'Bruta'}</span>
-            </label>
           </td>
           <td class="align-center font-mono">${item.tipo_calculo}</td>
           <td style="width: 80px;">
             <input type="number" step="1" min="1" class="table-input" value="${item.quantidade}" onchange="BalcaoModule.atualizarItemInline('${item.id}', 'quantidade', this.value)">
+          </td>
+          <td class="align-center" style="width: 90px;">
+            ${item.tipo_calculo === 'ML' || item.largura_cm ? `
+              <input type="number" step="0.5" min="0.5" class="table-input" value="${item.largura_cm || ''}" placeholder="cm" onchange="BalcaoModule.atualizarItemInline('${item.id}', 'largura_cm', this.value)" style="text-align: center; font-weight: 600;">
+            ` : `<span class="font-mono" style="color: var(--text-muted); display: block; text-align: center;">-</span>`}
           </td>
           <td style="width: 80px;">
             ${item.tipo_calculo === 'ML' ? `
@@ -1914,11 +1959,13 @@ const BalcaoModule = {
 
     kitItens.forEach(k => {
       if (k.prod) {
+        const dim = this.extrairDimensoesProduto(k.prod.nome);
         const itemObj = {
           id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
           produto_id: k.prod.id,
           codigo: k.prod.codigo,
           descricao: k.prod.nome,
+          largura_cm: k.prod.largura_cm || dim.largura || 0,
           acabamento: 'BRUTA',
           aparelhar: false,
           tipo_calculo: k.prod.tipo_calculo,
@@ -1955,11 +2002,13 @@ const BalcaoModule = {
 
     kitItens.forEach(k => {
       if (k.prod) {
+        const dim = this.extrairDimensoesProduto(k.prod.nome);
         const itemObj = {
           id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
           produto_id: k.prod.id,
           codigo: k.prod.codigo,
           descricao: k.prod.nome,
+          largura_cm: k.prod.largura_cm || dim.largura || 0,
           acabamento: 'BRUTA',
           aparelhar: false,
           tipo_calculo: k.prod.tipo_calculo,
@@ -2035,11 +2084,13 @@ const BalcaoModule = {
     resultado.itens_sugeridos.forEach(sug => {
       const prod = produtos.find(p => p.codigo === sug.codigo);
       if (prod) {
+        const dim = this.extrairDimensoesProduto(prod.nome);
         const itemObj = {
           id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
           produto_id: prod.id,
           codigo: prod.codigo,
           descricao: prod.nome,
+          largura_cm: prod.largura_cm || dim.largura || 0,
           acabamento: 'BRUTA',
           aparelhar: false,
           tipo_calculo: prod.tipo_calculo,
@@ -2059,11 +2110,59 @@ const BalcaoModule = {
     App.showToast(`Itens da Calculadora (${area} m²) adicionados ao orçamento!`);
   },
 
-  salvarPedidoCompleto(statusFinal = 'ORCAMENTO') {
-    if (!this.currentOrder.itens.length) {
-      App.showToast('Adicione pelo menos 1 item para salvar o orçamento.', 'warning');
+  atualizarBadgeOrcamento(estado = 'NOVO') {
+    const badge = document.getElementById('balcao-pedido-status-badge');
+    if (!badge || !this.currentOrder) return;
+
+    const num = this.currentOrder.numero || '';
+    if (estado === 'EDITANDO') {
+      badge.textContent = `EDITANDO ORÇAMENTO #${num}`;
+      badge.className = 'badge-tag font-mono';
+      badge.style.background = '#EFF6FF';
+      badge.style.color = '#1D4ED8';
+      badge.style.border = '1px solid #93C5FD';
+    } else if (estado === 'SALVO') {
+      badge.textContent = `ORÇAMENTO #${num} (SALVO NO HISTÓRICO)`;
+      badge.className = 'badge-tag font-mono';
+      badge.style.background = '#ECFDF5';
+      badge.style.color = '#047857';
+      badge.style.border = '1px solid #6EE7B7';
+    } else {
+      badge.textContent = `ORÇAMENTO #${num} (NOVO)`;
+      badge.className = 'badge-tag badge-bruta font-mono';
+      badge.style.background = '';
+      badge.style.color = '';
+      badge.style.border = '';
+    }
+  },
+
+  imprimirComprovanteBalcao(modo = 'CLIENTE', direto = false) {
+    if (!this.currentOrder || !this.currentOrder.itens || !this.currentOrder.itens.length) {
+      App.showToast('Adicione pelo menos 1 item ao orçamento antes de imprimir.', 'warning');
       return;
     }
+
+    // Auto-salva ou atualiza automaticamente o orçamento no banco e histórico antes de imprimir
+    const statusFinal = this.currentOrder.status || 'ORCAMENTO';
+    const pedidoSalvo = this.salvarPedidoCompleto(statusFinal);
+    if (!pedidoSalvo) return;
+
+    if (window.PrintModule) {
+      PrintModule.abrirModalImpressao(pedidoSalvo, modo);
+      if (direto) {
+        setTimeout(() => PrintModule.executarImpressao(), 300);
+      }
+    }
+  },
+
+  salvarPedidoCompleto(statusFinal = 'ORCAMENTO') {
+    if (!this.currentOrder || !this.currentOrder.itens || !this.currentOrder.itens.length) {
+      App.showToast('Adicione pelo menos 1 item para salvar o orçamento.', 'warning');
+      return null;
+    }
+
+    // Garante que cálculos, descontos, frete e forma de pagamento estejam 100% atualizados
+    this.atualizarTotais();
 
     // Pega dados do cliente digitados no cabeçalho
     const getVal = id => document.getElementById(id)?.value?.trim() || '';
@@ -2100,13 +2199,16 @@ const BalcaoModule = {
       this.currentOrder.etapa_patio = temPlaina ? 'CORTE_PLAINA' : 'SEPARACAO';
       
       // Gera checklist do pátio
-      this.currentOrder.checklist_patio = this.currentOrder.itens.map(item => ({
-        item_id: item.id,
-        descricao: `${item.descricao} (${item.quantidade} pcs ${item.comprimento_m ? 'x ' + item.comprimento_m + 'm' : ''}) ${item.aparelhar ? '- APARELHAR' : ''}`,
-        cortado: false,
-        carregado: false,
-        requer_plaina: item.aparelhar
-      }));
+      this.currentOrder.checklist_patio = this.currentOrder.itens.map(item => {
+        const dimStr = item.largura_cm ? `${item.largura_cm}cm x ${item.comprimento_m || 0}m` : (item.comprimento_m ? `${item.comprimento_m}m` : '');
+        return {
+          item_id: item.id,
+          descricao: `${item.descricao} (${item.quantidade} pcs ${dimStr ? 'x ' + dimStr : ''}) ${item.aparelhar ? '- APARELHAR' : ''}`.trim(),
+          cortado: false,
+          carregado: false,
+          requer_plaina: item.aparelhar
+        };
+      });
     } else if (statusFinal === 'ENTREGUE') {
       this.currentOrder.etapa_patio = 'ENTREGUE';
       this.currentOrder.finalizado_balcao = true;
@@ -2116,13 +2218,16 @@ const BalcaoModule = {
       this.currentOrder.resumo_financeiro.saldo_a_receber = 0;
 
       // Gera checklist como já concluído
-      this.currentOrder.checklist_patio = this.currentOrder.itens.map(item => ({
-        item_id: item.id,
-        descricao: `${item.descricao} (${item.quantidade} pcs ${item.comprimento_m ? 'x ' + item.comprimento_m + 'm' : ''}) - RETIRADO NO BALCÃO`,
-        cortado: true,
-        carregado: true,
-        requer_plaina: false
-      }));
+      this.currentOrder.checklist_patio = this.currentOrder.itens.map(item => {
+        const dimStr = item.largura_cm ? `${item.largura_cm}cm x ${item.comprimento_m || 0}m` : (item.comprimento_m ? `${item.comprimento_m}m` : '');
+        return {
+          item_id: item.id,
+          descricao: `${item.descricao} (${item.quantidade} pcs ${dimStr ? 'x ' + dimStr : ''}) - RETIRADO NO BALCÃO`.trim(),
+          cortado: true,
+          carregado: true,
+          requer_plaina: false
+        };
+      });
 
       // BAIXA IMEDIATA NO ESTOQUE FÍSICO
       this.currentOrder.itens.forEach(item => {
@@ -2165,8 +2270,18 @@ const BalcaoModule = {
       }
     }
 
-    // Salva no banco de dados local
+    // Verifica se já existia no banco de dados para feedback preciso (edição vs novo)
+    const pedidos = DB.getPedidos();
+    const jaExistia = pedidos.some(p => 
+      (this.currentOrder.id && p.id === this.currentOrder.id) || 
+      (this.currentOrder.numero && p.numero === this.currentOrder.numero)
+    );
+
+    // Salva no banco de dados local (se já existia, atualiza em cima sem duplicar)
     DB.salvarPedido(this.currentOrder);
+
+    // Atualiza badge visual para salvo no histórico
+    this.atualizarBadgeOrcamento('SALVO');
 
     // Guarda cópia do pedido salvo para retornar
     const pedidoRetorno = JSON.parse(JSON.stringify(this.currentOrder));
@@ -2177,7 +2292,11 @@ const BalcaoModule = {
     } else if (statusFinal === 'APROVADO' && this.currentOrder.resumo_financeiro.saldo_a_receber > 0) {
       App.showToast(`Venda #${this.currentOrder.numero} aprovada! Enviada para o pátio (${this.currentOrder.etapa_patio}). Saldo a receber: ${CalcEngine.formatBRL(this.currentOrder.resumo_financeiro.saldo_a_receber)}`, 'success');
     } else {
-      App.showToast(`Orçamento #${this.currentOrder.numero} salvo com sucesso!`, 'success');
+      if (jaExistia) {
+        App.showToast(`Orçamento #${this.currentOrder.numero} atualizado com sucesso no histórico!`, 'success');
+      } else {
+        App.showToast(`Orçamento #${this.currentOrder.numero} salvo com sucesso no histórico!`, 'success');
+      }
     }
 
     // Atualiza listas e kanban
@@ -2232,7 +2351,8 @@ const BalcaoModule = {
     texto += `*ITENS:*\n`;
 
     this.currentOrder.itens.forEach((it, idx) => {
-      texto += `${idx + 1}. ${it.quantidade}x ${it.descricao} ${it.comprimento_m ? '(' + it.comprimento_m + 'm)' : ''} [${it.acabamento}] = ${CalcEngine.formatBRL(it.subtotal)}\n`;
+      const dimStr = it.largura_cm ? ` (${it.largura_cm}cm x ${it.comprimento_m || 0}m)` : (it.comprimento_m ? ` (${it.comprimento_m}m)` : '');
+      texto += `${idx + 1}. ${it.quantidade}x ${it.descricao}${dimStr} = ${CalcEngine.formatBRL(it.subtotal)}\n`;
     });
 
     texto += `\n*RESUMO:*`;

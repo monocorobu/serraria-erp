@@ -6,6 +6,10 @@
 const ClientesModule = {
   activeSubTab: 'clientes', // 'clientes' ou 'carpinteiros'
   activeClienteProfile: null,
+  cliCurrentPage: 1,
+  cliPageSize: 25,
+  carpCurrentPage: 1,
+  carpPageSize: 25,
 
   init() {
     this.renderSubTabs();
@@ -42,7 +46,10 @@ const ClientesModule = {
     // Busca de Clientes
     const inputBuscaCli = document.getElementById('clientes-busca-input');
     if (inputBuscaCli) {
-      inputBuscaCli.addEventListener('input', () => this.renderListaClientes());
+      inputBuscaCli.addEventListener('input', () => {
+        this.cliCurrentPage = 1;
+        this.renderListaClientes();
+      });
     }
 
     // Modal Novo Cliente
@@ -105,9 +112,14 @@ const ClientesModule = {
       );
     }
 
+    const totalCount = clientes.length;
+    const paginatedClientes = typeof Pagination !== 'undefined'
+      ? Pagination.slice(clientes, this.cliCurrentPage, this.cliPageSize)
+      : clientes;
+
     const pedidos = DB.getPedidos();
 
-    tbody.innerHTML = clientes.map(c => {
+    tbody.innerHTML = paginatedClientes.map(c => {
       // Calcula total de compras
       const pedidosCli = pedidos.filter(p => p.cliente && (p.cliente.id === c.id || p.cliente.nome === c.nome));
       const totalGasto = pedidosCli.reduce((acc, p) => acc + (p.resumo_financeiro?.valor_total || 0), 0);
@@ -144,6 +156,26 @@ const ClientesModule = {
         </tr>
       `;
     }).join('');
+
+    // Renderiza a barra de paginação de clientes
+    if (typeof Pagination !== 'undefined') {
+      Pagination.render({
+        containerId: 'clientes-pagination-container',
+        totalItems: totalCount,
+        currentPage: this.cliCurrentPage,
+        pageSize: this.cliPageSize,
+        onPageChange: (newPage) => {
+          this.cliCurrentPage = newPage;
+          this.renderListaClientes();
+          document.querySelector('#subtab-clientes-view .table-responsive')?.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        onPageSizeChange: (newSize) => {
+          this.cliPageSize = newSize;
+          this.cliCurrentPage = 1;
+          this.renderListaClientes();
+        }
+      });
+    }
   },
 
   abrirFichaCliente(clienteId) {
@@ -278,7 +310,12 @@ const ClientesModule = {
     const carpinteiros = DB.getCarpinteiros();
     const pedidos = DB.getPedidos();
 
-    tbody.innerHTML = carpinteiros.map(carp => {
+    const totalCount = carpinteiros.length;
+    const paginatedCarpinteiros = typeof Pagination !== 'undefined'
+      ? Pagination.slice(carpinteiros, this.carpCurrentPage, this.carpPageSize)
+      : carpinteiros;
+
+    tbody.innerHTML = paginatedCarpinteiros.map(carp => {
       // Recalcula totais a partir dos pedidos reais
       const pedidosDoCarp = pedidos.filter(p => p.carpinteiro_id === carp.id && p.status !== 'CANCELADO');
       const totalVendido = pedidosDoCarp.reduce((acc, p) => acc + (p.resumo_financeiro?.valor_total || 0), 0);
@@ -308,6 +345,26 @@ const ClientesModule = {
         </tr>
       `;
     }).join('');
+
+    // Renderiza a barra de paginação de carpinteiros
+    if (typeof Pagination !== 'undefined') {
+      Pagination.render({
+        containerId: 'carpinteiros-pagination-container',
+        totalItems: totalCount,
+        currentPage: this.carpCurrentPage,
+        pageSize: this.carpPageSize,
+        onPageChange: (newPage) => {
+          this.carpCurrentPage = newPage;
+          this.renderListaCarpinteiros();
+          document.querySelector('#subtab-carpinteiros-view .table-responsive')?.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        onPageSizeChange: (newSize) => {
+          this.carpPageSize = newSize;
+          this.carpCurrentPage = 1;
+          this.renderListaCarpinteiros();
+        }
+      });
+    }
   },
 
   pagarComissaoModal(carpId, saldoPendente) {

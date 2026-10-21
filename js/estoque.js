@@ -7,6 +7,8 @@ const EstoqueModule = {
   searchTerm: '',
   currentStatus: 'TODOS', // 'TODOS', 'NORMAL', 'BAIXO', 'ZERADO'
   currentCategoria: 'TODAS',
+  currentPage: 1,
+  pageSize: 25,
 
   eventsInitialized: false,
 
@@ -24,6 +26,7 @@ const EstoqueModule = {
     if (inputBusca) {
       inputBusca.addEventListener('input', (e) => {
         this.searchTerm = e.target.value.toLowerCase().trim();
+        this.currentPage = 1;
         this.renderTabelaEstoque();
       });
     }
@@ -34,6 +37,7 @@ const EstoqueModule = {
         document.querySelectorAll('.estoque-status-pill').forEach(p => p.classList.remove('active'));
         pill.classList.add('active');
         this.currentStatus = pill.dataset.status;
+        this.currentPage = 1;
         this.renderTabelaEstoque();
       });
     });
@@ -43,6 +47,7 @@ const EstoqueModule = {
     if (selectCat) {
       selectCat.addEventListener('change', (e) => {
         this.currentCategoria = e.target.value;
+        this.currentPage = 1;
         this.renderTabelaEstoque();
       });
     }
@@ -169,10 +174,17 @@ const EstoqueModule = {
           </td>
         </tr>
       `;
+      const pagContainer = document.getElementById('estoque-pagination-container');
+      if (pagContainer) pagContainer.innerHTML = '';
       return;
     }
 
-    tbody.innerHTML = produtos.map(p => {
+    const totalCount = produtos.length;
+    const paginatedProdutos = typeof Pagination !== 'undefined'
+      ? Pagination.slice(produtos, this.currentPage, this.pageSize)
+      : produtos;
+
+    tbody.innerHTML = paginatedProdutos.map(p => {
       const estoque = parseFloat(p.estoque_atual) || 0;
       const minimo = parseFloat(p.estoque_minimo) || 10;
       const preco = parseFloat(p.preco_unitario) || 0;
@@ -236,6 +248,26 @@ const EstoqueModule = {
         </tr>
       `;
     }).join('');
+
+    // Renderiza a barra de paginação do estoque
+    if (typeof Pagination !== 'undefined') {
+      Pagination.render({
+        containerId: 'estoque-pagination-container',
+        totalItems: totalCount,
+        currentPage: this.currentPage,
+        pageSize: this.pageSize,
+        onPageChange: (newPage) => {
+          this.currentPage = newPage;
+          this.renderTabelaEstoque();
+          document.querySelector('#tab-estoque .table-responsive')?.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        onPageSizeChange: (newSize) => {
+          this.pageSize = newSize;
+          this.currentPage = 1;
+          this.renderTabelaEstoque();
+        }
+      });
+    }
   },
 
   salvarPrecoInline(prodId, novoPreco) {

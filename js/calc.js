@@ -41,8 +41,35 @@ const CalcEngine = {
     let volumeM3 = 0;
     let pesoKg = 0;
 
-    const espessuraCm = produto ? (parseFloat(produto.espessura_cm) || 0) : 0;
-    const larguraCm = produto ? (parseFloat(produto.largura_cm) || 0) : 0;
+    let espessuraCm = produto ? (parseFloat(produto.espessura_cm) || 0) : 0;
+    let larguraCm = (item.largura_cm !== undefined && item.largura_cm !== null && item.largura_cm !== '') 
+      ? (parseFloat(item.largura_cm) || 0) 
+      : (produto ? (parseFloat(produto.largura_cm) || 0) : 0);
+
+    // Heurística de extração de dimensões (largura e espessura em cm) caso não informadas
+    if (larguraCm === 0 && (produto?.nome || item.descricao)) {
+      const nomeRef = produto?.nome || item.descricao || '';
+      const matchX = nomeRef.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*[xX]\s*(\d+(?:[.,]\d+)?)(?:\s*(?:cm|CM|mm|MM))?/);
+      if (matchX) {
+        if (espessuraCm === 0) espessuraCm = parseFloat(matchX[1].replace(',', '.')) || 0;
+        larguraCm = parseFloat(matchX[2].replace(',', '.')) || 0;
+        if (/mm/i.test(matchX[0])) {
+          espessuraCm = espessuraCm / 10;
+          larguraCm = larguraCm / 10;
+        }
+      } else {
+        const matchCm = nomeRef.match(/(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:cm|CM)\b/);
+        if (matchCm) {
+          larguraCm = parseFloat(matchCm[1].replace(',', '.')) || 0;
+        }
+      }
+    }
+
+    if (espessuraCm === 0 && (tipo === 'ML' || tipo === 'M3')) {
+      const nomeRef = produto?.nome || item.descricao || '';
+      espessuraCm = /VIGA|PRANCHA|CAIBRO/i.test(nomeRef) ? 5.0 : 2.5;
+    }
+
     const densidade = produto ? (parseFloat(produto.densidade_kg_m3) || 750) : 750;
 
     switch (tipo) {
@@ -59,8 +86,9 @@ const CalcEngine = {
         }
 
         // Cubagem: V = Qtd * (Espessura/100) * (Largura/100) * Comprimento
-        if (espessuraCm > 0 && larguraCm > 0 && comp > 0) {
-          volumeM3 = qtd * (espessuraCm / 100) * (larguraCm / 100) * comp;
+        if (larguraCm > 0 && comp > 0) {
+          const esp = espessuraCm > 0 ? espessuraCm : 2.5;
+          volumeM3 = qtd * (esp / 100) * (larguraCm / 100) * comp;
           pesoKg = volumeM3 * densidade;
         }
         break;
