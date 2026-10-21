@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { DocMascara, DB, STORAGE_KEYS } from '../../services/data.js';
 
 export const ClientesTab = () => {
-  const { clients, carpenters, showToast, refreshAll } = useApp();
+  const { clients, carpenters, showToast, saveClient, saveCarpenter } = useApp();
 
   const [subtab, setSubtab] = useState('clientes');
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,18 +36,13 @@ export const ClientesTab = () => {
       return;
     }
 
-    const list = DB.getClientes();
-    const novo = {
+    const saved = saveClient({
       ...formCliente,
-      id: 'cli_' + Date.now(),
       data_cadastro: new Date().toISOString()
-    };
-    list.unshift(novo);
-    DB.set(STORAGE_KEYS.CLIENTES, list);
-    refreshAll();
+    });
     setModalCliente(false);
     setFormCliente({ nome: '', telefone: '', documento: '', endereco_obra: '', bairro: '', cidade: 'Caçapava' });
-    showToast(`Cliente ${novo.nome} cadastrado!`, 'success');
+    showToast(`Cliente ${saved.nome} cadastrado com sucesso!`, 'success');
   };
 
   const handleSalvarCarpinteiro = (e) => {
@@ -57,20 +52,9 @@ export const ClientesTab = () => {
       return;
     }
 
-    const list = DB.getCarpinteiros();
-    const novo = {
-      ...formCarpinteiro,
-      id: 'carp_' + Date.now(),
-      comissao_acumulada: 0,
-      comissao_paga: 0,
-      saldo_comissao: 0
-    };
-    list.unshift(novo);
-    DB.set(STORAGE_KEYS.CARPINTEIROS, list);
-    refreshAll();
+    const saved = saveCarpenter(formCarpinteiro);
     setModalCarpinteiro(false);
     setFormCarpinteiro({ nome: '', telefone: '', especialidade: 'Mestre Telhadista', comissao_padrao_pct: 3.0, pix: '' });
-    showToast(`Parceiro ${novo.nome} cadastrado!`, 'success');
   };
 
   const filteredClientes = clients.filter(c => {

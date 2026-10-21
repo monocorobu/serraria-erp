@@ -25,10 +25,10 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   // Custom Hooks React Especializados
-  const ordersHook = useOrders(showToast);
+  const clientesHook = useClientes(showToast);
+  const ordersHook = useOrders(showToast, clientesHook.refreshClients);
   const estoqueHook = useEstoque(showToast);
   const precoBrutoHook = usePrecoBruto(showToast);
-  const clientesHook = useClientes(showToast);
   const authHook = useAuth(showToast);
 
   // Modal de Impressão Global A5 Deitada com Duplo Preço
@@ -106,6 +106,7 @@ export const AppProvider = ({ children }) => {
     // Clientes & Parceiros (useClientes)
     clients: clientesHook.clients,
     setClients: clientesHook.setClients,
+    refreshClients: clientesHook.refreshClients,
     carpenters: clientesHook.carpenters,
     setCarpenters: clientesHook.setCarpenters,
     saveClient: clientesHook.saveClient,

@@ -9,6 +9,7 @@ export const BalcaoTab = () => {
     bairros, 
     carpenters, 
     clients, 
+    saveClient,
     config, 
     saveOrder, 
     showToast, 
@@ -118,6 +119,89 @@ export const BalcaoTab = () => {
   const [fastPreco, setFastPreco] = useState('0.00');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [senhaGerenteInput, setSenhaGerenteInput] = useState('');
+
+  // Autocomplete e busca de clientes cadastrados
+  const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
+  const clientAutocompleteRef = useRef(null);
+
+  // Filtragem de clientes em tempo real (busca inteligente por nome, telefone, documento ou bairro)
+  const matchingClients = useMemo(() => {
+    const termo = (order.cliente?.nome || '').trim().toLowerCase();
+    if (!termo) return [];
+    return clients.filter(c => {
+      const nomeMatch = c.nome && c.nome.toLowerCase().includes(termo);
+      const telMatch = c.telefone && c.telefone.replace(/\D/g, '').includes(termo.replace(/\D/g, ''));
+      const docMatch = c.documento && c.documento.replace(/\D/g, '').includes(termo.replace(/\D/g, ''));
+      const bairroMatch = c.bairro && c.bairro.toLowerCase().includes(termo);
+      return Boolean(nomeMatch || telMatch || docMatch || bairroMatch);
+    }).slice(0, 8);
+  }, [order.cliente?.nome, clients]);
+
+  // Alerta visual se o cliente selecionado tiver débito pendente ou crédito em haver
+  const clienteAlerta = useMemo(() => {
+    if (!order.cliente?.id) return null;
+    const cli = clients.find(c => c.id === order.cliente.id);
+    if (!cli) return null;
+    if (cli.saldo_devedor > 0) {
+      return {
+        tipo: 'debito',
+        msg: `Atenção: Cliente possui saldo devedor em aberto de ${CalcEngine.formatBRL(cli.saldo_devedor)} ${cli.pedido_pendente_ref ? `(ref. Pedido ${cli.pedido_pendente_ref})` : ''}.`
+      };
+    }
+    if (cli.saldo_devedor < 0) {
+      return {
+        tipo: 'credito',
+        msg: `Crédito em haver: Cliente possui crédito a favor de ${CalcEngine.formatBRL(Math.abs(cli.saldo_devedor))} na madeireira.`
+      };
+    }
+    return null;
+  }, [order.cliente?.id, clients]);
+
+  // Fechar dropdown de clientes ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (clientAutocompleteRef.current && !clientAutocompleteRef.current.contains(e.target)) {
+        setIsClientDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Selecionar cliente do autocomplete
+  const handleSelectClient = (c) => {
+    setOrder(prev => {
+      const updated = {
+        ...prev,
+        cliente: {
+          id: c.id || '',
+          nome: c.nome || '',
+          telefone: c.telefone || '',
+          documento: c.documento || '',
+          email: c.email || '',
+          endereco_obra: c.endereco_obra || '',
+          bairro: c.bairro || '',
+          cidade: c.cidade || 'Caçapava'
+        }
+      };
+
+      // Se o cliente tem bairro cadastrado, pré-seleciona no frete
+      if (c.bairro) {
+        const matchingBairro = bairros.find(b => b.nome.toLowerCase() === c.bairro.toLowerCase());
+        if (matchingBairro) {
+          updated.bairro_frete = matchingBairro.nome;
+          updated.frete_valor = matchingBairro.valor || 0;
+        } else {
+          updated.bairro_frete = c.bairro;
+        }
+      }
+
+      return updated;
+    });
+
+    setIsClientDropdownOpen(false);
+    showToast(`Cliente selecionado: ${c.nome}`);
+  };
 
   // Sugestões de produtos filtrados
   const produtosFiltrados = useMemo(() => {
@@ -280,6 +364,14 @@ export const BalcaoTab = () => {
     const orderCopy = JSON.parse(JSON.stringify(order));
     orderCopy.status = statusFinal;
 
+    // Auto-salva ou atualiza os dados cadastrais do cliente no banco
+    if (orderCopy.cliente && orderCopy.cliente.nome && orderCopy.cliente.nome.trim()) {
+      const savedCliente = saveClient(orderCopy.cliente);
+      if (savedCliente) {
+        orderCopy.cliente = { ...orderCopy.cliente, ...savedCliente };
+      }
+    }
+
     orderCopy.resumo_fisico = {
       total_pecas: totais.total_pecas,
       volume_total_m3: totais.volume_total_m3,
@@ -358,7 +450,7 @@ export const BalcaoTab = () => {
   return (
     <div className="balcao-layout">
       {/* CABEÇALHO DO CLIENTE & DADOS DA OBRA */}
-      <div className="panel" style={{ marginBottom: '14px' }}>
+      <div className="panel" style={{ marginBottom: '14px', overflow: 'visible' }}>
         <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span className="panel-title">
             <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -369,17 +461,84 @@ export const BalcaoTab = () => {
           </span>
         </div>
 
+        {/* ALERTA DE CLIENTE (DÉBITO OU CRÉDITO) */}
+        {clienteAlerta && (
+          <div 
+            className={`client-alert-banner ${clienteAlerta.tipo === 'debito' ? 'alert-warning' : 'alert-info'}`}
+            style={{ margin: '12px 16px 0 16px', borderRadius: 'var(--radius-sm)' }}
+          >
+            <span>{clienteAlerta.msg}</span>
+          </div>
+        )}
+
         <div className="panel-body">
           <div className="form-grid form-grid-client-header">
-            <div className="form-group">
-              <label className="form-label">Nome do Cliente:</label>
+            <div className="form-group autocomplete-wrapper" ref={clientAutocompleteRef}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="form-label" style={{ marginBottom: '4px' }}>Nome do Cliente:</label>
+                {order.cliente.id && (
+                  <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 600 }}>
+                    Cadastrado
+                  </span>
+                )}
+              </div>
               <input 
                 type="text" 
                 className="form-input" 
-                placeholder="Ex: João da Silva / Construtora Vale"
-                value={order.cliente.nome}
-                onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, nome: e.target.value } }))}
+                placeholder="Pesquisar por nome, telefone ou CPF..."
+                value={order.cliente.nome || ''}
+                autoComplete="off"
+                onChange={e => {
+                  const val = e.target.value;
+                  setOrder(prev => ({ 
+                    ...prev, 
+                    cliente: { 
+                      ...prev.cliente, 
+                      nome: val,
+                      id: prev.cliente.nome === val ? prev.cliente.id : ''
+                    } 
+                  }));
+                  setIsClientDropdownOpen(val.trim().length >= 1);
+                }}
+                onFocus={() => {
+                  if ((order.cliente.nome || '').trim().length >= 1) {
+                    setIsClientDropdownOpen(true);
+                  }
+                }}
               />
+              {isClientDropdownOpen && (
+                <div className="autocomplete-dropdown" style={{ zIndex: 1000 }}>
+                  {matchingClients.length > 0 ? (
+                    matchingClients.map(c => (
+                      <div 
+                        key={c.id} 
+                        className="autocomplete-item"
+                        onClick={() => handleSelectClient(c)}
+                      >
+                        <div>
+                          <div className="autocomplete-item-name">{c.nome}</div>
+                          <div className="autocomplete-item-sub">
+                            {c.telefone || 'Sem telefone'} | {c.bairro || 'Sem bairro'} {c.documento ? `| Doc: ${c.documento}` : ''}
+                          </div>
+                        </div>
+                        {c.saldo_devedor > 0 ? (
+                          <span className="badge-tag badge-cancelado" style={{ fontSize: '10px', padding: '2px 6px' }}>
+                            Deve {CalcEngine.formatBRL(c.saldo_devedor)}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 500 }}>
+                            Selecionar
+                          </span>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="autocomplete-item" style={{ color: 'var(--text-muted)', cursor: 'default' }}>
+                      <span>Nenhum cliente cadastrado com este nome. Os dados serão salvos automaticamente ao finalizar!</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="form-group">

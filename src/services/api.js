@@ -74,5 +74,29 @@ export const ApiClient = {
       // Offline fallback
     }
     return null;
+  },
+
+  async getClientes() {
+    try {
+      const res = await fetch('/api/clientes');
+      if (res.ok) return await res.json();
+    } catch (e) {
+      // Offline fallback
+    }
+    return null;
+  },
+
+  async saveCliente(cliente) {
+    try {
+      const res = await fetch('/api/clientes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cliente)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      // Offline fallback
+    }
+    return null;
   }
 };

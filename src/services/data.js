@@ -2056,7 +2056,8 @@ const DB = {
 
     // Se tiver cliente vinculado, atualizar histórico se necessário
     if (pedido.cliente && pedido.cliente.nome) {
-      this.garantirCliente(pedido.cliente);
+      const clienteGarantido = this.garantirCliente(pedido.cliente);
+      pedido.cliente = { ...pedido.cliente, ...clienteGarantido };
     }
 
     return pedido;
@@ -2100,6 +2101,10 @@ const DB = {
       this.set(STORAGE_KEYS.CLIENTES, clientes);
       return novoCliente;
     }
+  },
+
+  salvarCliente(clienteData) {
+    return this.garantirCliente(clienteData);
   }
 };
 

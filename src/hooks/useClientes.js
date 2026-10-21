@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { DB } from '../services/data.js';
+import { ApiClient } from '../services/api.js';
 
 /**
  * Custom Hook: useClientes
@@ -9,10 +10,18 @@ export function useClientes(showToast) {
   const [clients, setClients] = useState(() => DB.getClientes());
   const [carpenters, setCarpenters] = useState(() => DB.getCarpinteiros());
 
-  // Salvar ou auto-cadastrar cliente
+  // Atualizar lista reativa de clientes diretamente do banco local
+  const refreshClients = useCallback(() => {
+    setClients(DB.getClientes());
+  }, []);
+
+  // Salvar ou auto-cadastrar cliente com persistência local e nuvem
   const saveClient = useCallback((clienteData) => {
     const saved = DB.salvarCliente(clienteData);
     setClients(DB.getClientes());
+    if (saved && saved.id) {
+      ApiClient.saveCliente(saved).catch(() => {});
+    }
     return saved;
   }, []);
 
@@ -59,6 +68,7 @@ export function useClientes(showToast) {
   return {
     clients,
     setClients,
+    refreshClients,
     carpenters,
     setCarpenters,
     saveClient,

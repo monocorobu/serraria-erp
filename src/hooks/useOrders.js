@@ -7,7 +7,7 @@ import { ApiClient } from '../services/api.js';
  * Custom Hook: useOrders
  * Gerenciamento reativo de pedidos, persistência no banco e operações comerciais
  */
-export function useOrders(showToast) {
+export function useOrders(showToast, onOrderSaved) {
   const [orders, setOrders] = useState(() => DB.getPedidos());
   const [editingOrderId, setEditingOrderId] = useState(null);
 
@@ -17,11 +17,19 @@ export function useOrders(showToast) {
     const saved = DB.salvarPedido(pedido);
     setOrders(DB.getPedidos());
 
-    // 2. Sincroniza em segundo plano com o banco de dados via API serverless
+    // 2. Notifica callback (ex: refreshClients) e sincroniza cliente no banco
+    if (saved.cliente && saved.cliente.nome) {
+      if (onOrderSaved) onOrderSaved(saved);
+      if (saved.cliente.id) {
+        ApiClient.saveCliente(saved.cliente).catch(() => {});
+      }
+    }
+
+    // 3. Sincroniza em segundo plano com o banco de dados via API serverless
     ApiClient.savePedido(saved).catch(() => {});
 
     return saved;
-  }, []);
+  }, [onOrderSaved]);
 
   // Excluir ou cancelar pedido
   const cancelOrder = useCallback((pedidoId) => {
