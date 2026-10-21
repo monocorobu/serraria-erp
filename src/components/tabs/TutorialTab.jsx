@@ -85,7 +85,7 @@ export default function TutorialTab({ onCarregarExemplo }) {
                   Digite o telefone, nome ou CPF no campo de busca. Se o cliente já comprou, o endereço e bairro são preenchidos na hora.
                 </p>
                 <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '6px 10px', borderRadius: 4, fontSize: '11.5px', color: '#334155' }}>
-                  💡 <strong>Auto-cadastro:</strong> Para clientes novos, basta preencher o <em>Nome</em> e <em>Bairro</em> — o sistema cadastra sozinho ao salvar o pedido!
+                  <strong>Auto-cadastro:</strong> Para clientes novos, basta preencher o <em>Nome</em> e <em>Bairro</em> — o sistema cadastra sozinho ao salvar o pedido!
                 </div>
               </div>
 
@@ -99,7 +99,7 @@ export default function TutorialTab({ onCarregarExemplo }) {
                   Busque a madeira pelo nome ou código. Escolha a quantidade de peças e o comprimento (ex: 3.0m, 4.0m).
                 </p>
                 <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', padding: '6px 10px', borderRadius: 4, fontSize: '11.5px', color: '#0369A1' }}>
-                  🪵 <strong>Plaina:</strong> Se o cliente quiser madeira lisa, selecione <strong>Aparelhada (+Plaina)</strong>. O sistema calcula a taxa de plaina e o pátio já recebe o aviso.
+                  <strong>Plaina:</strong> Se o cliente quiser madeira lisa, selecione <strong>Aparelhada (+Plaina)</strong>. O sistema calcula a taxa de plaina e o pátio já recebe o aviso.
                 </div>
               </div>
 
@@ -114,10 +114,10 @@ export default function TutorialTab({ onCarregarExemplo }) {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: '11.5px' }}>
                   <div style={{ background: '#ECFDF5', padding: '4px 8px', borderRadius: 4, color: '#047857' }}>
-                    ⚡ <strong>[F8] Finalizar Venda Balcão:</strong> Para retirada imediata (pregos, ferragens ou madeira pronta). Quita 100% e baixa o estoque na hora.
+                    <strong>[F8] Finalizar Venda Balcão:</strong> Para retirada imediata (pregos, ferragens ou madeira pronta). Quita 100% e baixa o estoque na hora.
                   </div>
                   <div style={{ background: '#EFF6FF', padding: '4px 8px', borderRadius: 4, color: '#1E40AF' }}>
-                    🚚 <strong>Aprovar Venda (Pátio):</strong> Para madeiras que vão para corte, plaina ou entrega agendada de caminhão.
+                    <strong>Aprovar Venda (Pátio):</strong> Para madeiras que vão para corte, plaina ou entrega agendada de caminhão.
                   </div>
                 </div>
               </div>
@@ -133,10 +133,10 @@ export default function TutorialTab({ onCarregarExemplo }) {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: '11.5px' }}>
                   <div style={{ background: '#F0FDF4', padding: '4px 8px', borderRadius: 4, color: '#15803D' }}>
-                    💬 <strong>WhatsApp:</strong> Puxa o número do cliente e abre a conversa com o orçamento todo formatado com preços à vista e a prazo.
+                    <strong>WhatsApp:</strong> Puxa o número do cliente e abre a conversa com o orçamento todo formatado com preços à vista e a prazo.
                   </div>
                   <div style={{ background: '#F8FAFC', padding: '4px 8px', borderRadius: 4, color: '#334155' }}>
-                    🖨️ <strong>[F9] Imprimir:</strong> Abre a via comercial em A5 Paisagem com Preço À Vista e Preço Bruto ou o Romaneio do Pátio.
+                    <strong>[F9] Imprimir:</strong> Abre a via comercial em A5 Paisagem com Preço À Vista e Preço Bruto ou o Romaneio do Pátio.
                   </div>
                 </div>
               </div>
@@ -165,11 +165,11 @@ export default function TutorialTab({ onCarregarExemplo }) {
                 </p>
                 <ul style={{ paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6, color: '#475569', marginBottom: 10 }}>
                   <li>Se você tentar vender um item com <strong>saldo zerado</strong> ou <strong>insuficiente</strong>, a tela de conferência física se abre automaticamente.</li>
-                  <li><strong>Acertar na Hora:</strong> Se você olhou a prateleira e viu que tem o produto (ex: 50 pacotes de pregos ou 20 caibros), digite a quantidade real no campo e clique em <strong>✓ Salvar Estoque</strong>. O sistema atualiza o saldo na hora e prossegue com a venda!</li>
+                  <li><strong>Acertar na Hora:</strong> Se você olhou a prateleira e viu que tem o produto (ex: 50 pacotes de pregos ou 20 caibros), digite a quantidade real no campo e clique em <strong>Salvar Estoque</strong>. O sistema atualiza o saldo na hora e prossegue com a venda!</li>
                   <li><strong>Liberar Venda:</strong> Se a conferência já foi feita visualmente no balcão, basta clicar no botão verde <strong>Mercadoria Conferida no Balcão</strong> para liberar sem burocracia.</li>
                 </ul>
                 <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: 4, padding: '6px 10px', color: '#92400E', fontSize: 11 }}>
-                  🛡️ <strong>Zero surpresas:</strong> Nenhuma venda passa sem que você saiba exatamente a situação do estoque.
+                  <strong>Zero surpresas:</strong> Nenhuma venda passa sem que você saiba exatamente a situação do estoque.
                 </div>
               </div>
             </div>
@@ -196,7 +196,7 @@ export default function TutorialTab({ onCarregarExemplo }) {
                   <li><strong>Top Clientes:</strong> Identifique os 5 maiores compradores do período para manter relacionamento e fidelizar.</li>
                 </ul>
                 <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 4, padding: '6px 10px', color: '#166534', fontSize: 11 }}>
-                  💼 <strong>Gestão em Tempo Real:</strong> Cada venda finalizada no balcão reflete imediatamente no caixa e no ranking.
+                  <strong>Gestão em Tempo Real:</strong> Cada venda finalizada no balcão reflete imediatamente no caixa e no ranking.
                 </div>
               </div>
             </div>
@@ -281,7 +281,7 @@ export default function TutorialTab({ onCarregarExemplo }) {
                   <code>Peso (kg) = Volume (m³) × Densidade Específica da Madeira</code>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-medium)', paddingTop: 6, marginTop: 2 }}>
-                  🌲 <strong>Densidades calibradas no sistema:</strong> Garapeira e Peroba Rosa (~850 a 880 kg/m³), Pinus Seco (~500 kg/m³), Telhas cerâmicas (~2,2 kg/un).
+                  <strong>Densidades calibradas no sistema:</strong> Garapeira e Peroba Rosa (~850 a 880 kg/m³), Pinus Seco (~500 kg/m³), Telhas cerâmicas (~2,2 kg/un).
                 </div>
               </div>
             </div>

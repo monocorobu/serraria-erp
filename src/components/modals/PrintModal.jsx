@@ -274,7 +274,7 @@ export const PrintModal = () => {
 
                       {(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? (
                         <div className="print-status-tag paid">
-                          ✓ 100% PAGO NO BALCÃO — MERCADORIA ENTREGUE
+                          100% PAGO NO BALCÃO — MERCADORIA ENTREGUE
                         </div>
                       ) : saldoReceber > 0 ? (
                         <div className="print-balance-due-box">
@@ -283,7 +283,7 @@ export const PrintModal = () => {
                         </div>
                       ) : (
                         <div className="print-status-tag paid">
-                          ✓ PEDIDO TOTALMENTE PAGO
+                          PEDIDO TOTALMENTE PAGO
                         </div>
                       )}
                     </div>

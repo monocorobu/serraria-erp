@@ -73,24 +73,30 @@ export const GerenteTab = () => {
   return (
     <div className="gerente-layout">
       {/* SUB-ABAS DA CENTRAL DO GERENTE */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-medium)', paddingBottom: '10px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-medium)', paddingBottom: '10px', flexWrap: 'wrap' }}>
         <button 
           className={`btn ${subtab === 'parametros' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setSubtab('parametros')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          ⚙️ Parâmetros & Preço Bruto (%)
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Parâmetros & Preço Bruto (%)</span>
         </button>
         <button 
           className={`btn ${subtab === 'equipe' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setSubtab('equipe')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          👥 Equipe de Vendas ({employees.length})
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Equipe de Vendas ({employees.length})</span>
         </button>
         <button 
           className={`btn ${subtab === 'comissoes' ? 'btn-primary' : 'btn-secondary'}`}
           onClick={() => setSubtab('comissoes')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
-          💰 Comissões & Saldos
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          <span>Comissões & Saldos</span>
         </button>
       </div>
 
@@ -262,8 +268,9 @@ export const GerenteTab = () => {
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-lg" style={{ fontWeight: 700 }}>
-            💾 Salvar Parâmetros e Configurações
+          <button type="submit" className="btn btn-primary btn-lg" style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            <span>Salvar Parâmetros e Configurações</span>
           </button>
         </form>
       )}

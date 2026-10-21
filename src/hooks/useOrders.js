@@ -107,11 +107,11 @@ export function useOrders(showToast) {
       : 'A combinar / Retirada no Pátio';
     texto += `\n*Frete (${p.resumo_financeiro?.bairro_frete || 'Entrega'}):* ${frete}\n`;
 
-    texto += `\n💰 *VALORES DA PROPOSTA:*`;
-    texto += `\n💵 *À VISTA (Pix / Dinheiro):* ${total}`;
-    texto += `\n💳 *PREÇO BRUTO (A Prazo / Cartão em até 12x):* ${totalBruto}`;
+    texto += `\n*VALORES DA PROPOSTA:*`;
+    texto += `\n• *À VISTA (Pix / Dinheiro):* ${total}`;
+    texto += `\n• *PREÇO BRUTO (A Prazo / Cartão em até 12x):* ${totalBruto}`;
     texto += `\n\n_Proposta válida por 7 dias. Madeiras selecionadas com garantia de bitola e qualidade!_\n`;
-    texto += `📍 Serraria Bom Jesus • Caçapava - SP • Contato: (12) 3653-2000`;
+    texto += `Serraria Bom Jesus • Caçapava - SP • Contato: (12) 3653-2000`;
 
     return texto;
   }, []);

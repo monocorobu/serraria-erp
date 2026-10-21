@@ -115,39 +115,42 @@ export const BalcaoTab = () => {
   const [fastQtd, setFastQtd] = useState(1);
   const [fastLargura, setFastLargura] = useState('');
   const [fastComprimento, setFastComprimento] = useState('');
+  const [fastPreco, setFastPreco] = useState('0.00');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [senhaGerenteInput, setSenhaGerenteInput] = useState('');
 
   // Sugestões de produtos filtrados
   const produtosFiltrados = useMemo(() => {
-    if (!fastProductSearch.trim()) return products.slice(0, 15);
+    if (!fastProductSearch.trim()) return products.slice(0, 20);
     const termo = fastProductSearch.toLowerCase();
     return products.filter(p => 
       p.nome.toLowerCase().includes(termo) || 
       p.codigo.toLowerCase().includes(termo) ||
       (p.especie && p.especie.toLowerCase().includes(termo))
-    ).slice(0, 15);
+    ).slice(0, 20);
   }, [fastProductSearch, products]);
 
   // Preview de subtotal na barra rápida
   const fastSubtotalPreview = useMemo(() => {
     if (!selectedProduct) return 0;
+    const preco = parseFloat(fastPreco) || selectedProduct.preco_unitario || 0;
     const tempItem = {
       quantidade: fastQtd,
       largura_cm: parseFloat(fastLargura) || selectedProduct.largura_cm || 0,
       comprimento_m: parseFloat(fastComprimento) || selectedProduct.comprimento_padrao_m || 0,
       tipo_calculo: selectedProduct.tipo_calculo,
-      valor_unitario: selectedProduct.preco_unitario,
+      valor_unitario: preco,
       aparelhar: false
     };
     const c = CalcEngine.calcularItem(tempItem, selectedProduct);
     return c.subtotal;
-  }, [selectedProduct, fastQtd, fastLargura, fastComprimento]);
+  }, [selectedProduct, fastQtd, fastLargura, fastComprimento, fastPreco]);
 
   // Selecionar produto rápido
   const handleSelectFastProduct = (prod) => {
     setSelectedProduct(prod);
     setFastProductSearch(`${prod.codigo} - ${prod.nome}`);
+    setFastPreco(prod.preco_unitario !== undefined ? Number(prod.preco_unitario).toFixed(2) : '0.00');
     setIsDropdownOpen(false);
     if (prod.tipo_calculo === 'ML') {
       setFastLargura(prod.largura_cm || '');
@@ -186,7 +189,7 @@ export const BalcaoTab = () => {
       tipo_calculo: selectedProduct.tipo_calculo,
       quantidade: qtd,
       comprimento_m: selectedProduct.tipo_calculo === 'ML' ? comp : 0,
-      valor_unitario: selectedProduct.preco_unitario
+      valor_unitario: parseFloat(fastPreco) || selectedProduct.preco_unitario || 0
     };
 
     const calc = CalcEngine.calcularItem(itemObj, selectedProduct);
@@ -205,6 +208,7 @@ export const BalcaoTab = () => {
     setFastQtd(1);
     setFastLargura('');
     setFastComprimento('');
+    setFastPreco('0.00');
   };
 
   // Atualizar item inline (tabela)
@@ -228,48 +232,6 @@ export const BalcaoTab = () => {
       itens: prev.itens.filter(i => i.id !== itemId)
     }));
     showToast('Item removido do orçamento.', 'info');
-  };
-
-  // Adicionar kit telhado
-  const handleAddKitTelhado = (areaM2, especie = 'Garapeira') => {
-    const kit = CalcEngine.calcularKitTelhado(areaM2, especie);
-    const novosItens = [];
-
-    kit.itens_sugeridos.forEach(sug => {
-      const prod = products.find(p => p.codigo === sug.codigo) || {
-        id: 'prod_' + sug.codigo,
-        codigo: sug.codigo,
-        nome: sug.nome,
-        preco_unitario: sug.codigo.startsWith('MAD') ? 18.50 : (sug.codigo.startsWith('TEL') ? 2.80 : 24.00),
-        tipo_calculo: sug.tipo_calculo,
-        largura_cm: 12,
-        espessura_cm: 6,
-        densidade_kg_m3: 750
-      };
-
-      const it = {
-        id: 'item_kit_' + Date.now() + '_' + Math.random(),
-        produto_id: prod.id,
-        codigo: prod.codigo,
-        descricao: prod.nome,
-        largura_cm: prod.largura_cm || 0,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: prod.tipo_calculo,
-        quantidade: sug.quantidade,
-        comprimento_m: sug.comprimento_m || 0,
-        valor_unitario: prod.preco_unitario
-      };
-      const c = CalcEngine.calcularItem(it, prod);
-      novosItens.push({ ...it, ...c });
-    });
-
-    setOrder(prev => ({
-      ...prev,
-      itens: [...prev.itens, ...novosItens]
-    }));
-
-    showToast(`Kit Telhado ${areaM2}m² (${especie}) adicionado!`, 'success');
   };
 
   // Cálculos de Totais em Tempo Real
@@ -408,7 +370,7 @@ export const BalcaoTab = () => {
         </div>
 
         <div className="panel-body">
-          <div className="form-grid" style={{ gridTemplateColumns: '2fr 1.2fr 1.2fr 1.5fr' }}>
+          <div className="form-grid form-grid-client-header">
             <div className="form-group">
               <label className="form-label">Nome do Cliente:</label>
               <input 
@@ -443,30 +405,7 @@ export const BalcaoTab = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Indicação do Carpinteiro:</label>
-              <select 
-                className="form-select"
-                value={order.carpinteiro_id}
-                onChange={e => {
-                  const carp = carpenters.find(c => c.id === e.target.value);
-                  setOrder(prev => ({
-                    ...prev,
-                    carpinteiro_id: e.target.value,
-                    carpinteiro_nome: carp ? carp.nome : ''
-                  }));
-                }}
-              >
-                <option value="">Venda Direta (Sem Parceiro)</option>
-                {carpenters.map(c => (
-                  <option key={c.id} value={c.id}>{c.nome} ({c.especialidade || 'Mestre'})</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="form-grid" style={{ gridTemplateColumns: '2.5fr 1.5fr 1fr', marginTop: '10px' }}>
-            <div className="form-group">
-              <label className="form-label">Local de Entrega / Endereço da Obra:</label>
+              <label className="form-label">Local de Entrega / Endereço:</label>
               <input 
                 type="text" 
                 className="form-input" 
@@ -486,7 +425,9 @@ export const BalcaoTab = () => {
                 onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, bairro: e.target.value } }))}
               />
             </div>
+          </div>
 
+          <div className="form-grid form-grid-client-sub">
             <div className="form-group">
               <label className="form-label">Cidade:</label>
               <input 
@@ -496,146 +437,227 @@ export const BalcaoTab = () => {
                 onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, cidade: e.target.value } }))}
               />
             </div>
+
+            <div className="form-group">
+              <label className="form-label">Indicação do Carpinteiro:</label>
+              <select 
+                className="form-select"
+                value={order.carpinteiro_id}
+                onChange={e => {
+                  const carp = carpenters.find(c => c.id === e.target.value);
+                  setOrder(prev => ({
+                    ...prev,
+                    carpinteiro_id: e.target.value,
+                    carpinteiro_nome: carp ? carp.nome : ''
+                  }));
+                }}
+              >
+                <option value="">Venda Direta (Sem Parceiro)</option>
+                {carpenters.map(c => (
+                  <option key={c.id} value={c.id}>{c.nome} ({c.especialidade || 'Mestre'})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Instruções para Entrega / Descarga:</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="Ex: Acesso por estrada de terra; descarregar somente pela manhã"
+                value={order.observacoes || ''}
+                onChange={e => setOrder(prev => ({ ...prev, observacoes: e.target.value }))}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* BARRA DE INSERÇÃO RÁPIDA DE ITENS */}
-      <div className="fast-entry-bar">
-        <div className="fast-entry-container" style={{ position: 'relative' }}>
-          {/* Campo de Busca de Produto */}
-          <div style={{ flex: 3, position: 'relative' }}>
-            <label className="form-label">Produto / Madeira:</label>
-            <input 
-              type="text" 
-              className="form-input" 
-              placeholder="Digite código ou nome da madeira (ex: Viga Garapeira, Caibro...)"
-              value={fastProductSearch}
-              onFocus={() => setIsDropdownOpen(true)}
-              onChange={e => {
-                setFastProductSearch(e.target.value);
-                setIsDropdownOpen(true);
-              }}
-            />
-
-            {isDropdownOpen && produtosFiltrados.length > 0 && (
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  zIndex: 1000,
-                  backgroundColor: '#FFFFFF',
-                  border: '1.5px solid var(--border-medium)',
-                  borderRadius: 'var(--radius-sm)',
-                  maxHeight: '220px',
-                  overflowY: 'auto',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+      {/* BLOCO 2: BARRA DE INSERÇÃO RÁPIDA ESTILO LINHA DE MONTAGEM + KITS */}
+      <div className="fast-insert-bar">
+        <div className="fast-insert-grid">
+          {/* Produto / Código (Combobox Inteligente) */}
+          <div className="form-group product-combobox-container" id="fast-product-combobox-container">
+            <label className="form-label" htmlFor="fast-produto-search">Madeira / Material:</label>
+            <div className="product-combobox-input-wrap">
+              <span className="combobox-search-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </span>
+              <input 
+                type="text" 
+                id="fast-produto-search" 
+                className="form-input product-combobox-input" 
+                placeholder="Selecione ou digite para buscar produto..." 
+                autoComplete="off" 
+                spellCheck="false"
+                value={fastProductSearch}
+                onFocus={() => setIsDropdownOpen(true)}
+                onChange={e => {
+                  setFastProductSearch(e.target.value);
+                  setIsDropdownOpen(true);
                 }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddItem();
+                  }
+                }}
+              />
+              {fastProductSearch && (
+                <button 
+                  type="button" 
+                  className="combobox-clear-btn" 
+                  title="Limpar seleção" 
+                  tabIndex="-1"
+                  onClick={() => {
+                    setFastProductSearch('');
+                    setSelectedProduct(null);
+                    setFastPreco('0.00');
+                  }}
+                >
+                  &times;
+                </button>
+              )}
+              <button 
+                type="button" 
+                className="combobox-toggle-btn" 
+                title="Abrir lista de produtos" 
+                tabIndex="-1"
+                onClick={() => setIsDropdownOpen(prev => !prev)}
               >
-                {produtosFiltrados.map(p => (
-                  <div 
-                    key={p.id}
-                    onClick={() => handleSelectFastProduct(p)}
-                    style={{
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid #F1F5F9',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      fontSize: '12.5px'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                  >
-                    <span>
-                      <strong className="font-mono" style={{ color: 'var(--primary-green)' }}>{p.codigo}</strong> - {p.nome}
-                    </span>
-                    <span className="font-mono" style={{ fontWeight: 700 }}>
-                      {CalcEngine.formatBRL(p.preco_unitario)}/{p.tipo_calculo}
-                    </span>
-                  </div>
-                ))}
+                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+            </div>
+
+            {/* Dropdown Flutuante de Busca Inteligente */}
+            {isDropdownOpen && produtosFiltrados.length > 0 && (
+              <div id="fast-produto-dropdown" className="product-combobox-dropdown" style={{ display: 'block' }}>
+                <div className="combobox-header">
+                  <span id="fast-produto-status-text" className="combobox-status-text">
+                    <span className="combobox-status-badge"></span>
+                    <span id="fast-produto-status-count">{produtosFiltrados.length} itens encontrados</span>
+                  </span>
+                  <span className="combobox-kbd-hints">
+                    <kbd>↵ Enter</kbd> adicionar <kbd>Esc</kbd> fechar
+                  </span>
+                </div>
+                <div id="fast-produto-results" className="combobox-results-list" style={{ maxHeight: '240px', overflowY: 'auto' }}>
+                  {produtosFiltrados.map(p => (
+                    <div 
+                      key={p.id}
+                      className="combobox-item"
+                      onClick={() => handleSelectFastProduct(p)}
+                      style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}
+                    >
+                      <span>
+                        <strong className="font-mono" style={{ color: 'var(--brand-primary)' }}>{p.codigo}</strong> - {p.nome}
+                      </span>
+                      <span className="font-mono" style={{ fontWeight: 700 }}>
+                        {CalcEngine.formatBRL(p.preco_unitario)}/{p.tipo_calculo}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
           {/* Quantidade */}
-          <div style={{ width: '90px' }}>
-            <label className="form-label">Qtd Pçs:</label>
+          <div className="form-group">
+            <label className="form-label" id="fast-qtd-label">Qtd Peças:</label>
             <input 
               type="number" 
+              id="fast-qtd-input" 
               className="form-input font-mono" 
               min="1" 
+              step="1" 
               value={fastQtd}
               onChange={e => setFastQtd(Math.max(1, parseInt(e.target.value) || 1))}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); } }}
             />
           </div>
 
-          {/* Largura (se ML) */}
-          {selectedProduct?.tipo_calculo === 'ML' && (
-            <div style={{ width: '105px' }}>
-              <label className="form-label">Largura (cm):</label>
-              <input 
-                type="number" 
-                className="form-input font-mono" 
-                step="0.5"
-                placeholder="Ex: 12"
-                value={fastLargura}
-                onChange={e => setFastLargura(e.target.value)}
-              />
-            </div>
-          )}
+          {/* Largura da Madeira (cm) */}
+          <div className="form-group">
+            <label className="form-label" id="fast-largura-label">Largura (cm):</label>
+            <input 
+              type="number" 
+              id="fast-largura-input" 
+              className="form-input font-mono" 
+              min="0.5" 
+              step="0.5" 
+              placeholder="Ex: 15"
+              value={fastLargura}
+              onChange={e => setFastLargura(e.target.value)}
+              disabled={selectedProduct && selectedProduct.tipo_calculo !== 'ML'}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); } }}
+            />
+          </div>
 
-          {/* Comprimento (se ML) */}
-          {selectedProduct?.tipo_calculo === 'ML' && (
-            <div style={{ width: '105px' }}>
-              <label className="form-label">Compr. (m):</label>
-              <input 
-                type="number" 
-                className="form-input font-mono" 
-                step="0.5"
-                placeholder="Ex: 4.5"
-                value={fastComprimento}
-                onChange={e => setFastComprimento(e.target.value)}
-              />
-            </div>
-          )}
+          {/* Comprimento */}
+          <div className="form-group">
+            <label className="form-label" id="fast-comp-label">Comprimento (m):</label>
+            <input 
+              type="number" 
+              id="fast-comprimento-input" 
+              className="form-input font-mono" 
+              min="0.1" 
+              step="0.1" 
+              placeholder="Ex: 3.0"
+              value={fastComprimento}
+              onChange={e => setFastComprimento(e.target.value)}
+              disabled={selectedProduct && selectedProduct.tipo_calculo !== 'ML'}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); } }}
+            />
+          </div>
+
+          {/* Preço Unitário */}
+          <div className="form-group">
+            <label className="form-label">Preço Unit. (R$):</label>
+            <input 
+              type="number" 
+              id="fast-preco-input" 
+              className="form-input font-mono" 
+              step="0.50" 
+              value={fastPreco}
+              onChange={e => setFastPreco(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); } }}
+            />
+          </div>
 
           {/* Subtotal Preview */}
-          <div style={{ width: '130px' }}>
+          <div className="form-group">
             <label className="form-label">Subtotal:</label>
-            <div className="form-input font-mono" style={{ backgroundColor: 'var(--bg-hover)', fontWeight: 700, color: 'var(--primary-green)' }}>
+            <div 
+              id="fast-subtotal-preview" 
+              className="form-input font-mono" 
+              style={{ backgroundColor: 'var(--bg-surface-subtle)', fontWeight: 700, color: 'var(--brand-primary-text)', lineHeight: '20px' }}
+            >
               {CalcEngine.formatBRL(fastSubtotalPreview)}
             </div>
           </div>
 
           {/* Botão Adicionar */}
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <div className="form-group">
             <button 
               type="button" 
               className="btn btn-primary" 
+              id="fast-add-btn" 
+              style={{ width: '100%', height: '38px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               onClick={handleAddItem}
-              style={{ height: '36px', fontWeight: 700, padding: '0 16px', display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <span>+ Adicionar</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Adicionar</span>
             </button>
           </div>
-        </div>
-
-        {/* KITS EXPRESSOS DE TELHADO */}
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)' }}>Kits Prontos de Telhado:</span>
-          <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleAddKitTelhado(40, 'Garapeira')}>
-            🏠 Telhado 40m² (Garapeira)
-          </button>
-          <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleAddKitTelhado(70, 'Peroba')}>
-            🏠 Telhado 70m² (Peroba)
-          </button>
-          <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleAddKitTelhado(120, 'Garapeira')}>
-            🏠 Telhado 120m² Completo
-          </button>
         </div>
       </div>
 
@@ -673,7 +695,7 @@ export const BalcaoTab = () => {
               {order.itens.length === 0 ? (
                 <tr>
                   <td colSpan="12" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                    Nenhum item adicionado ainda. Utilize a barra rápida acima ou selecione um dos Kits Prontos.
+                    Nenhum item adicionado ainda. Utilize a barra rápida acima para adicionar produtos.
                   </td>
                 </tr>
               ) : (
@@ -689,9 +711,15 @@ export const BalcaoTab = () => {
                         {estoqueAtual !== null && (
                           <div style={{ fontSize: '10.5px', marginTop: '2px' }}>
                             {estoqueAtual <= 0 ? (
-                              <span style={{ color: '#DC2626', fontWeight: 700 }}>⚠️ Zerado em estoque</span>
+                              <span style={{ color: '#DC2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <svg viewBox="0 0 24 24" width="11" height="11" stroke="#DC2626" fill="none" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                Zerado em estoque
+                              </span>
                             ) : it.quantidade > estoqueAtual ? (
-                              <span style={{ color: '#D97706', fontWeight: 700 }}>⚠️ Qtd ({it.quantidade}) &gt; Estoque ({estoqueAtual})</span>
+                              <span style={{ color: '#D97706', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <svg viewBox="0 0 24 24" width="11" height="11" stroke="#D97706" fill="none" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                Qtd ({it.quantidade}) &gt; Estoque ({estoqueAtual})
+                              </span>
                             ) : (
                               <span style={{ color: 'var(--text-muted)' }}>Estoque: {estoqueAtual} un</span>
                             )}
@@ -952,9 +980,10 @@ export const BalcaoTab = () => {
             type="button" 
             className="btn btn-lg" 
             onClick={handleFinalizarBalcao}
-            style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#FFFFFF', fontWeight: 700, border: 'none' }}
+            style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#FFFFFF', fontWeight: 700, border: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
           >
-            ⚡ Finalizar Venda Balcão (Pago & Entregue Já)
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>Finalizar Venda Balcão (Pago & Entregue Já)</span>
           </button>
           <button type="button" className="btn btn-primary btn-lg" onClick={handleAprovarVenda}>
             Aprovar Venda (Enviar p/ Pátio)
@@ -965,11 +994,13 @@ export const BalcaoTab = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" className="btn btn-secondary" onClick={() => handleImprimir('CLIENTE')}>
-            🖨️ Imprimir Orçamento (A5)
+          <button type="button" className="btn btn-secondary" onClick={() => handleImprimir('CLIENTE')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            <span>Imprimir Orçamento (A5)</span>
           </button>
-          <button type="button" className="btn btn-secondary" onClick={() => handleImprimir('PATIO')}>
-            📋 Romaneio Pátio
+          <button type="button" className="btn btn-secondary" onClick={() => handleImprimir('PATIO')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+            <span>Romaneio Pátio</span>
           </button>
         </div>
       </div>

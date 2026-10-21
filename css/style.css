@@ -516,7 +516,7 @@ body {
   }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .form-grid-client-header {
     grid-template-columns: 1fr;
   }
@@ -538,7 +538,7 @@ body {
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 640px) {
   .form-grid-client-sub {
     grid-template-columns: 1fr;
   }
@@ -764,6 +764,15 @@ body {
   }
   .fast-insert-grid > :nth-child(7) {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 520px) {
+  .fast-insert-grid {
+    grid-template-columns: 1fr;
+  }
+  .fast-insert-grid > * {
+    grid-column: 1 / -1 !important;
   }
 }
 

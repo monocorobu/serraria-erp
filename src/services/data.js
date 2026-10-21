@@ -2176,7 +2176,7 @@ const DocMascara = {
         tipo: 'CPF',
         completo,
         valido,
-        texto: valido ? '✓ CPF Válido' : (completo ? 'CPF (11 dígitos)' : `CPF (${d.length}/11)`),
+        texto: valido ? 'CPF Válido' : (completo ? 'CPF (11 dígitos)' : `CPF (${d.length}/11)`),
         classe: valido ? 'badge-valido' : 'badge-cpf'
       };
     } else {
@@ -2186,7 +2186,7 @@ const DocMascara = {
         tipo: 'CNPJ',
         completo,
         valido,
-        texto: valido ? '✓ CNPJ Válido' : (completo ? 'CNPJ (14 dígitos)' : `CNPJ (${d.length}/14)`),
+        texto: valido ? 'CNPJ Válido' : (completo ? 'CNPJ (14 dígitos)' : `CNPJ (${d.length}/14)`),
         classe: valido ? 'badge-valido' : 'badge-cnpj'
       };
     }

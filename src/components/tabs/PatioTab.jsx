@@ -96,31 +96,33 @@ export const PatioTab = () => {
                           {p.cliente?.nome || 'Cliente Balcão'}
                         </div>
 
-                        <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                          📍 {p.cliente?.bairro || p.resumo_financeiro?.bairro_frete || 'Retirada no Pátio'}
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                          <span>{p.cliente?.bairro || p.resumo_financeiro?.bairro_frete || 'Retirada no Pátio'}</span>
                         </div>
 
                         {/* AVISOS DE COBRANÇA OU PLAINA */}
                         {temSaldo ? (
                           <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', fontSize: '11px', fontWeight: 700, padding: '3px 6px', borderRadius: '3px', marginBottom: '6px' }}>
-                            ⚠️ Cobrar na entrega: {CalcEngine.formatBRL(saldo)}
+                            Cobrar na entrega: {CalcEngine.formatBRL(saldo)}
                           </div>
                         ) : (
                           <div style={{ backgroundColor: '#ECFDF5', color: '#047857', fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', marginBottom: '6px' }}>
-                            ✓ 100% Quitado
+                            100% Quitado
                           </div>
                         )}
 
                         {temPlaina && (
                           <div style={{ backgroundColor: '#EFF6FF', color: '#1E40AF', fontSize: '11px', fontWeight: 700, padding: '3px 6px', borderRadius: '3px', marginBottom: '8px' }}>
-                            🪵 Requer Plaina / Beneficiamento
+                            Requer Plaina / Beneficiamento
                           </div>
                         )}
 
                         <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', borderTop: '1px solid #F1F5F9', paddingTop: '6px', marginBottom: '8px' }}>
                           <strong>Carga:</strong> {p.resumo_fisico?.total_pecas || p.itens?.length || 0} pçs | {CalcEngine.formatKg(p.resumo_fisico?.peso_total_kg || 0)}
-                          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            🚚 {p.resumo_fisico?.veiculo_sugerido?.split('-')[0] || 'Utilitário'}
+                          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                            <span>{p.resumo_fisico?.veiculo_sugerido?.split('-')[0] || 'Utilitário'}</span>
                           </div>
                         </div>
 
@@ -157,7 +159,7 @@ export const PatioTab = () => {
                             onClick={() => openPrintModal(p, 'PATIO')}
                             title="Imprimir Romaneio de Pátio (Sem Preços)"
                           >
-                            📋 Romaneio
+                            Romaneio
                           </button>
 
                           <div style={{ display: 'flex', gap: '4px' }}>
@@ -168,7 +170,7 @@ export const PatioTab = () => {
                                 style={{ fontSize: '10.5px', padding: '3px 8px' }}
                                 onClick={() => handleMoverEtapa(p.id, temPlaina ? 'CORTE_PLAINA' : 'CARREGAMENTO')}
                               >
-                                {temPlaina ? 'Para Plaina ➔' : 'Para Carga ➔'}
+                                {temPlaina ? 'Para Plaina →' : 'Para Carga →'}
                               </button>
                             )}
                             {col.id === 'CORTE_PLAINA' && (
@@ -178,7 +180,7 @@ export const PatioTab = () => {
                                 style={{ fontSize: '10.5px', padding: '3px 8px' }}
                                 onClick={() => handleMoverEtapa(p.id, 'CARREGAMENTO')}
                               >
-                                Pronto Carga ➔
+                                Pronto Carga →
                               </button>
                             )}
                             {col.id === 'CARREGAMENTO' && (
@@ -188,7 +190,7 @@ export const PatioTab = () => {
                                 style={{ fontSize: '10.5px', padding: '3px 8px', backgroundColor: '#059669', color: '#FFFFFF', fontWeight: 700 }}
                                 onClick={() => handleMoverEtapa(p.id, 'ENTREGUE')}
                               >
-                                ✓ Entregar
+                                Concluir Entrega
                               </button>
                             )}
                           </div>

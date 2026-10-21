@@ -150,7 +150,10 @@ export const PainelTab = () => {
         {/* RANKING MAIS VENDIDOS */}
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">🏆 Madeiras & Produtos Mais Vendidos</span>
+            <span className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              <span>Madeiras & Produtos Mais Vendidos</span>
+            </span>
           </div>
           <div className="table-responsive">
             <table className="dense-table" style={{ width: '100%' }}>
@@ -181,7 +184,10 @@ export const PainelTab = () => {
         {/* TOP CLIENTES */}
         <div className="panel">
           <div className="panel-header">
-            <span className="panel-title">👥 Principais Compradores</span>
+            <span className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span>Principais Compradores</span>
+            </span>
           </div>
           <div className="table-responsive">
             <table className="dense-table" style={{ width: '100%' }}>

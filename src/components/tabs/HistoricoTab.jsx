@@ -64,8 +64,8 @@ export const HistoricoTab = () => {
     let texto = `Olá *${nome}*, tudo bem?\n`;
     texto += `Aqui é da *${nomeEmpresa}* (Caçapava - SP).\n\n`;
     texto += `Gostaria de saber se você conseguiu analisar a nossa proposta do *Orçamento #${num}*:\n`;
-    texto += `💵 *À Vista (Pix/Dinheiro):* ${total}\n`;
-    texto += `💳 *Preço Bruto (A Prazo/Cartão):* ${totalBruto}\n\n`;
+    texto += `• *À Vista (Pix/Dinheiro):* ${total}\n`;
+    texto += `• *Preço Bruto (A Prazo/Cartão):* ${totalBruto}\n\n`;
     texto += `Temos os lotes de madeira selecionados no pátio prontos para corte e carregamento. Consegue nos dar um retorno para programarmos esta semana? Obrigado!`;
 
     const url = `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(texto)}`;
