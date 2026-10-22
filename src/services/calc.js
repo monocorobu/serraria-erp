@@ -34,6 +34,14 @@ export const CalcEngine = {
     return 20.0;
   },
 
+  setPercentualPrecoBruto(pct) {
+    if (typeof DB !== 'undefined' && DB.getConfig) {
+      const cfg = DB.getConfig();
+      cfg.percentual_preco_bruto = parseFloat(pct) || 20.0;
+      DB.salvarConfig(cfg);
+    }
+  },
+
   calcularPrecoBruto(valorAVista, percentual = null) {
     const pct = percentual !== null ? parseFloat(percentual) : this.getPercentualPrecoBruto();
     const valor = parseFloat(valorAVista) || 0;

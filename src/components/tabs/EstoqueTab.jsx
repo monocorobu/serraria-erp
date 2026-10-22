@@ -8,6 +8,7 @@ export const EstoqueTab = () => {
   const { 
     products, 
     updateProduct, 
+    deleteProduct,
     adjustStock, 
     showToast, 
     config, 
@@ -49,6 +50,30 @@ export const EstoqueTab = () => {
     product: null,
     novoSaldo: 0
   });
+
+  // Modal de Confirmação para Excluir Produto
+  const [modalExcluir, setModalExcluir] = useState({
+    isOpen: false,
+    product: null
+  });
+
+  // Normalização de texto para validação de unicidade de nome
+  const normalizarNome = (str) => {
+    return (str || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
+  };
+
+  // Verifica produto duplicado em tempo real enquanto o usuário digita
+  const produtoDuplicado = useMemo(() => {
+    const nomeDigitado = (formProduto.nome || '').trim();
+    if (!nomeDigitado) return null;
+    const norm = normalizarNome(nomeDigitado);
+    return products.find(p => p.id !== formProduto.id && normalizarNome(p.nome) === norm) || null;
+  }, [formProduto.nome, formProduto.id, products]);
 
   const pctBruto = config.percentual_preco_bruto !== undefined ? config.percentual_preco_bruto : CalcEngine.getPercentualPrecoBruto();
 
@@ -175,14 +200,21 @@ export const EstoqueTab = () => {
   // Salvar produto
   const handleSalvarProduto = (e) => {
     e.preventDefault();
-    if (!formProduto.nome || !formProduto.codigo) {
+    const nomeLimpo = (formProduto.nome || '').trim();
+    if (!nomeLimpo || !formProduto.codigo) {
       showToast('Preencha pelo menos o código e o nome do produto.', 'warning');
+      return;
+    }
+
+    if (produtoDuplicado) {
+      showToast(`Não é permitido cadastrar produtos com o mesmo nome! Já existe o produto "${produtoDuplicado.nome}" (Código: ${produtoDuplicado.codigo}).`, 'warning');
       return;
     }
 
     const savedProd = {
       ...formProduto,
       id: formProduto.id || ('prod_' + Date.now()),
+      nome: nomeLimpo,
       categorias: formProduto.categorias.length > 0 ? formProduto.categorias : ['Geral'],
       categoria: formProduto.categorias[0] || 'Geral',
       preco_unitario: Math.max(0, parseFloat(formProduto.preco_unitario) || 0),
@@ -193,8 +225,30 @@ export const EstoqueTab = () => {
       comprimento_padrao_m: parseFloat(formProduto.comprimento_padrao_m) || 0
     };
 
-    updateProduct(savedProd);
-    setModalProduto({ isOpen: false, isEdit: false });
+    const res = updateProduct(savedProd);
+    if (res) {
+      setModalProduto({ isOpen: false, isEdit: false });
+    }
+  };
+
+  // Solicitar exclusão com modal de confirmação
+  const handleSolicitarExcluir = (prod) => {
+    setModalExcluir({
+      isOpen: true,
+      product: prod
+    });
+  };
+
+  // Confirmar exclusão do produto
+  const handleConfirmarExcluir = () => {
+    if (!modalExcluir.product) return;
+    const p = modalExcluir.product;
+    deleteProduct(p.id);
+    showToast(`Produto "${p.nome}" (${p.codigo}) foi apagado do estoque com sucesso.`, 'info');
+    setModalExcluir({ isOpen: false, product: null });
+    if (modalProduto.isOpen && formProduto.id === p.id) {
+      setModalProduto({ isOpen: false, isEdit: false });
+    }
   };
 
   // Confirmar ajuste físico de estoque
@@ -294,7 +348,7 @@ export const EstoqueTab = () => {
                 <th style={{ width: '115px' }} className="align-right">Preço Bruto (+{pctBruto}%)</th>
                 <th style={{ width: '110px' }} className="align-center">Saldo Atual</th>
                 <th style={{ width: '90px' }} className="align-center">Status</th>
-                <th style={{ width: '130px' }} className="align-center">Ações</th>
+                <th style={{ width: '180px' }} className="align-center">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -386,6 +440,30 @@ export const EstoqueTab = () => {
                           >
                             Saldo
                           </button>
+                          <button 
+                            type="button"
+                            className="btn btn-sm" 
+                            style={{ 
+                              fontSize: '11px', 
+                              padding: '2px 7px', 
+                              background: '#FEE2E2', 
+                              color: '#DC2626', 
+                              border: '1px solid #FCA5A5',
+                              fontWeight: 600,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => handleSolicitarExcluir(p)}
+                            title={`Apagar ${p.nome} do estoque`}
+                          >
+                            <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2.2">
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            <span>Apagar</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -435,7 +513,14 @@ export const EstoqueTab = () => {
                       required
                       value={formProduto.nome}
                       onChange={e => setFormProduto(prev => ({ ...prev, nome: e.target.value }))}
+                      style={produtoDuplicado ? { borderColor: '#DC2626', backgroundColor: '#FEF2F2' } : {}}
                     />
+                    {produtoDuplicado && (
+                      <div style={{ color: '#DC2626', fontSize: '11px', marginTop: '4px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" strokeWidth="2.4"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        <span>Já existe um produto com este nome: <strong>"{produtoDuplicado.nome}"</strong> ({produtoDuplicado.codigo})</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -615,17 +700,59 @@ export const EstoqueTab = () => {
                 </div>
               </div>
 
-              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-secondary" 
-                  onClick={() => setModalProduto({ isOpen: false, isEdit: false })}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-primary" style={{ fontWeight: 700 }}>
-                  {modalProduto.isEdit ? 'Salvar Alterações' : 'Cadastrar Produto'}
-                </button>
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                <div>
+                  {modalProduto.isEdit && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      style={{
+                        background: '#FEE2E2',
+                        color: '#DC2626',
+                        border: '1px solid #FCA5A5',
+                        fontWeight: 600,
+                        fontSize: '11.5px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => {
+                        const prod = products.find(p => p.id === formProduto.id) || formProduto;
+                        handleSolicitarExcluir(prod);
+                      }}
+                      title="Excluir este produto do catálogo"
+                    >
+                      <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" strokeWidth="2.2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                      <span>Excluir Produto</span>
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => setModalProduto({ isOpen: false, isEdit: false })}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary" 
+                    style={{ 
+                      fontWeight: 700, 
+                      opacity: produtoDuplicado ? 0.6 : 1, 
+                      cursor: produtoDuplicado ? 'not-allowed' : 'pointer' 
+                    }}
+                    disabled={!!produtoDuplicado}
+                  >
+                    {modalProduto.isEdit ? 'Salvar Alterações' : 'Cadastrar Produto'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -661,6 +788,75 @@ export const EstoqueTab = () => {
             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button className="btn btn-secondary" onClick={() => setModalAjuste({ isOpen: false, product: null, novoSaldo: 0 })}>Cancelar</button>
               <button className="btn btn-primary" onClick={handleConfirmarAjuste}>Confirmar Ajuste</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIRMAÇÃO PARA EXCLUIR PRODUTO */}
+      {modalExcluir.isOpen && (
+        <div className="modal-overlay active" style={{ display: 'flex' }} onClick={() => setModalExcluir({ isOpen: false, product: null })}>
+          <div className="modal-container" style={{ maxWidth: '440px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header" style={{ borderBottomColor: '#FEE2E2' }}>
+              <span className="modal-title" style={{ color: '#DC2626', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" strokeWidth="2.2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                Excluir Produto do Estoque
+              </span>
+              <button className="modal-close" onClick={() => setModalExcluir({ isOpen: false, product: null })}>&times;</button>
+            </div>
+            <div className="modal-body" style={{ padding: '16px 20px' }}>
+              <p style={{ fontSize: '13px', marginBottom: '12px', color: 'var(--text-primary)' }}>
+                Tem certeza que deseja apagar o produto abaixo do catálogo?
+              </p>
+              <div style={{ background: '#F8FAFC', border: '1.5px solid #E2E8F0', borderRadius: '6px', padding: '10px 14px', marginBottom: '14px' }}>
+                <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-primary)' }}>
+                  {modalExcluir.product?.nome}
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  <span>Código: <strong className="font-mono">{modalExcluir.product?.codigo}</strong></span>
+                  <span>Saldo: <strong className="font-mono">{modalExcluir.product?.estoque_atual} un</strong></span>
+                  <span>Preço: <strong className="font-mono">{CalcEngine.formatBRL(modalExcluir.product?.preco_unitario || 0)}</strong></span>
+                </div>
+              </div>
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '6px', padding: '8px 12px', fontSize: '11.5px', color: '#991B1B' }}>
+                ⚠️ <strong>Atenção:</strong> Este item será removido do catálogo e não aparecerá mais para busca rápida no balcão de vendas nem no inventário.
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', background: '#F8FAFC' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setModalExcluir({ isOpen: false, product: null })}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="btn"
+                style={{
+                  background: '#DC2626',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  fontWeight: 700,
+                  padding: '0 16px',
+                  height: '36px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+                onClick={handleConfirmarExcluir}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2.2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Sim, Apagar Produto
+              </button>
             </div>
           </div>
         </div>

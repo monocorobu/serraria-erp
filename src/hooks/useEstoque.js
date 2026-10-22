@@ -12,6 +12,10 @@ export function useEstoque(showToast) {
   // Salvar ou atualizar produto no catálogo
   const saveProduct = useCallback((prod) => {
     const saved = DB.salvarProduto(prod);
+    if (!saved) {
+      if (showToast) showToast('Não é permitido cadastrar produtos duplicados com o mesmo nome!', 'warning');
+      return null;
+    }
     setProducts(DB.getProdutos());
     ApiClient.saveProduto(saved).catch(() => {});
     if (showToast) showToast('Produto salvo com sucesso!', 'success');

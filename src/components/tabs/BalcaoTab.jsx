@@ -94,7 +94,8 @@ export const BalcaoTab = () => {
     setEditingOrderId,
     orders,
     employees,
-    currentUser
+    currentUser,
+    generateWhatsAppText
   } = useApp();
 
   const [mostrarCarpinteiro, setMostrarCarpinteiro] = useState(false);
@@ -573,13 +574,13 @@ export const BalcaoTab = () => {
 
   // Autorização do gerente para desconto
   const handleAutorizarDesconto = () => {
-    const senhaEsperada = CalcEngine.getSenhaGerente();
-    if (senhaGerenteInput === senhaEsperada) {
+    const senhaEsperada = String(config.senha_gerente || CalcEngine.getSenhaGerente() || '1234').trim();
+    if (String(senhaGerenteInput).trim() === senhaEsperada) {
       setOrder(prev => ({ ...prev, desconto_autorizado: true }));
       setSenhaGerenteInput('');
-      showToast('Desconto autorizado pelo gerente!', 'success');
+      showToast('Desconto autorizado pelo gerente com sucesso!', 'success');
     } else {
-      showToast('Senha do gerente incorreta.', 'error');
+      showToast('Senha do gerente incorreta. Verifique a senha configurada na Central do Gerente.', 'error');
     }
   };
 
@@ -689,6 +690,12 @@ export const BalcaoTab = () => {
   const buildCompleteOrder = (statusFinal = 'ORCAMENTO') => {
     if (!order.itens.length) {
       showToast('Adicione pelo menos 1 item antes de prosseguir.', 'warning');
+      return null;
+    }
+
+    // Trava de segurança: impede salvar pedido com desconto acima do teto sem liberação do gerente
+    if (totais.requer_autorizacao && !order.desconto_autorizado) {
+      showToast(`O desconto concedido (${totais.desconto_percentual.toFixed(1)}%) ultrapassa o limite livre de ${config.desconto_maximo_livre || 5}% e exige a senha do gerente para liberação!`, 'warning');
       return null;
     }
 
@@ -837,6 +844,42 @@ export const BalcaoTab = () => {
     openPrintModal(pedido, modo);
   };
 
+  const handleEnviarWhatsApp = () => {
+    if (!order.itens || order.itens.length === 0) {
+      showToast('Adicione pelo menos 1 item ao orçamento antes de enviar pelo WhatsApp.', 'warning');
+      return;
+    }
+
+    const pedido = buildCompleteOrder(order.status || 'ORCAMENTO');
+    if (!pedido) return; // Se bloqueado por trava de desconto, buildCompleteOrder retorna null
+
+    // Salva o orçamento no sistema para garantir o número de registro
+    saveOrder(pedido);
+
+    let rawTel = (order.cliente?.telefone || '').replace(/\D/g, '');
+    let phoneParam = '';
+    if (rawTel.length >= 10) {
+      phoneParam = rawTel.startsWith('55') && rawTel.length >= 12 ? rawTel : '55' + rawTel;
+    }
+
+    const texto = generateWhatsAppText 
+      ? generateWhatsAppText(pedido, config?.percentual_preco_bruto || 20)
+      : '';
+
+    const url = phoneParam 
+      ? `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(texto)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+
+    window.open(url, '_blank');
+
+    if (phoneParam) {
+      const nomeCliente = order.cliente?.nome ? ` para ${order.cliente.nome}` : '';
+      showToast(`Abrindo WhatsApp${nomeCliente} (${order.cliente.telefone})...`, 'info');
+    } else {
+      showToast('Abrindo WhatsApp (selecione o contato). Dica: preencha o Telefone no campo do cliente para envio direto.', 'info');
+    }
+  };
+
   return (
     <div className="balcao-full-layout">
       {/* 1. PAINEL DE IDENTIFICAÇÃO DO CLIENTE & OBRA (LARGURA TOTAL) */}
@@ -939,13 +982,42 @@ export const BalcaoTab = () => {
 
           <div className="form-group">
             <label className="form-label">Telefone / WhatsApp:</label>
-            <input
-              type="text"
-              className="form-input font-mono"
-              placeholder="(12) 99000-0000"
-              value={order.cliente.telefone}
-              onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, telefone: DocMascara.formatarTelefone(e.target.value) } }))}
-            />
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <input
+                type="text"
+                className="form-input font-mono"
+                placeholder="(12) 99000-0000"
+                value={order.cliente.telefone}
+                onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, telefone: DocMascara.formatarTelefone(e.target.value) } }))}
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={handleEnviarWhatsApp}
+                title="Enviar Orçamento para o WhatsApp deste número"
+                style={{
+                  background: '#25D366',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  padding: '0 8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '11px',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.067-1.137-.074-.75-.239-1.637-.775-2.502-1.64-.866-.865-1.401-1.752-1.64-2.502-.141-.443-.119-.825-.074-1.137.05-.333.419-1.026.824-1.17.133-.048.28-.023.38.077l.707 1.258c.08.143.064.321-.038.448l-.348.435c-.073.092-.09.219-.043.328.232.536.634 1.055 1.157 1.492.525.438 1.096.732 1.655.859.112.025.228-.014.298-.102l.418-.523c.106-.133.288-.179.441-.112l1.373.606c.148.065.234.22.204.378zM12 2C6.477 2 2 6.477 2 12c0 1.891.523 3.662 1.434 5.177L2 22l4.982-1.309A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" />
+                </svg>
+                <span>WhatsApp</span>
+              </button>
+            </div>
           </div>
 
           <div className="form-group">
@@ -1727,7 +1799,7 @@ export const BalcaoTab = () => {
                   className="form-select"
                   style={{ height: '28px', padding: '2px 4px', fontSize: '11px', width: '50px' }}
                   value={order.desconto_tipo}
-                  onChange={e => setOrder(prev => ({ ...prev, desconto_tipo: e.target.value }))}
+                  onChange={e => setOrder(prev => ({ ...prev, desconto_tipo: e.target.value, desconto_autorizado: false }))}
                 >
                   <option value="VALOR">R$</option>
                   <option value="PCT">%</option>
@@ -1737,24 +1809,48 @@ export const BalcaoTab = () => {
                   className="form-input font-mono"
                   style={{ height: '28px', padding: '2px 6px', width: '75px', textAlign: 'right' }}
                   value={order.desconto_valor}
-                  onChange={e => setOrder(prev => ({ ...prev, desconto_valor: parseFloat(e.target.value) || 0 }))}
+                  onChange={e => setOrder(prev => ({ ...prev, desconto_valor: parseFloat(e.target.value) || 0, desconto_autorizado: false }))}
                 />
               </div>
             </div>
 
-            {/* Trava de Desconto */}
+            {/* Trava de Desconto com Senha do Gerente */}
             {totais.requer_autorizacao && !order.desconto_autorizado && (
-              <div style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center' }}>
-                <input
-                  type="password"
-                  className="form-input font-mono"
-                  placeholder="Senha Gerente"
-                  style={{ height: '24px', flex: 1, fontSize: '11px' }}
-                  value={senhaGerenteInput}
-                  onChange={e => setSenhaGerenteInput(e.target.value)}
-                />
-                <button type="button" className="btn btn-sm btn-primary" onClick={handleAutorizarDesconto} style={{ height: '24px', padding: '0 6px', fontSize: '10.5px' }}>
-                  OK
+              <div style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', padding: '6px 8px', borderRadius: '4px', fontSize: '11px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ color: '#92400E', fontWeight: 700, fontSize: '10.5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <span>🔒 Desconto &gt; {config.desconto_maximo_livre || 5}% exige liberação:</span>
+                </div>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <input
+                    type="password"
+                    className="form-input font-mono"
+                    placeholder="Senha Gerente..."
+                    style={{ height: '26px', flex: 1, fontSize: '11.5px' }}
+                    value={senhaGerenteInput}
+                    onChange={e => setSenhaGerenteInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAutorizarDesconto();
+                      }
+                    }}
+                  />
+                  <button type="button" className="btn btn-sm btn-primary" onClick={handleAutorizarDesconto} style={{ height: '26px', padding: '0 8px', fontSize: '11px', fontWeight: 700 }}>
+                    Liberar
+                  </button>
+                </div>
+              </div>
+            )}
+            {totais.requer_autorizacao && order.desconto_autorizado && (
+              <div style={{ backgroundColor: '#ECFDF5', border: '1px solid #10B981', padding: '3px 8px', borderRadius: '4px', fontSize: '10.5px', color: '#047857', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>✓ Desconto Liberado pelo Gerente</span>
+                <button
+                  type="button"
+                  onClick={() => setOrder(prev => ({ ...prev, desconto_autorizado: false }))}
+                  style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', fontSize: '12px', padding: 0 }}
+                  title="Revogar liberação"
+                >
+                  &times;
                 </button>
               </div>
             )}
@@ -2054,15 +2150,47 @@ export const BalcaoTab = () => {
               <span>Salvar como Pago</span>
             </button>
 
-            {/* Botão Salvar Orçamento */}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={handleSalvarOrcamento}
-              style={{ fontWeight: 600, fontSize: '12.5px', height: '36px', width: '100%' }}
-            >
-              Salvar como Orçamento
-            </button>
+            {/* Linha com Salvar Orçamento e Enviar WhatsApp */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleSalvarOrcamento}
+                style={{ fontWeight: 600, fontSize: '11.5px', height: '36px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                title="Salvar apenas como orçamento pendente"
+              >
+                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span>Salvar Orç.</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn"
+                onClick={handleEnviarWhatsApp}
+                style={{
+                  background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  border: 'none',
+                  borderRadius: '4px',
+                  height: '36px',
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(37,211,102,0.25)'
+                }}
+                title="Enviar Orçamento direto para o WhatsApp do cliente"
+              >
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.067-1.137-.074-.75-.239-1.637-.775-2.502-1.64-.866-.865-1.401-1.752-1.64-2.502-.141-.443-.119-.825-.074-1.137.05-.333.419-1.026.824-1.17.133-.048.28-.023.38.077l.707 1.258c.08.143.064.321-.038.448l-.348.435c-.073.092-.09.219-.043.328.232.536.634 1.055 1.157 1.492.525.438 1.096.732 1.655.859.112.025.228-.014.298-.102l.418-.523c.106-.133.288-.179.441-.112l1.373.606c.148.065.234.22.204.378zM12 2C6.477 2 2 6.477 2 12c0 1.891.523 3.662 1.434 5.177L2 22l4.982-1.309A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" />
+                </svg>
+                <span>WhatsApp</span>
+              </button>
+            </div>
 
             {/* Linha de Impressão */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>

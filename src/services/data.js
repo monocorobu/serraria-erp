@@ -1721,7 +1721,7 @@ const SEED_PEDIDOS = [
 const DB = {
   get(key, defaultValue = []) {
     try {
-      if (typeof window === 'undefined' || typeof localStorage === 'undefined') return defaultValue;
+      if (typeof localStorage === 'undefined') return defaultValue;
       const data = localStorage.getItem(key);
       return data ? JSON.parse(data) : defaultValue;
     } catch (e) {
@@ -1732,7 +1732,7 @@ const DB = {
 
   set(key, value) {
     try {
-      if (typeof window === 'undefined' || typeof localStorage === 'undefined') return true;
+      if (typeof localStorage === 'undefined') return true;
       localStorage.setItem(key, JSON.stringify(value));
       return true;
     } catch (e) {
@@ -1744,7 +1744,7 @@ const DB = {
   init() {
     // Inicia seed se não existir ou se faltar campo estoque_atual
     const prodsSalvos = this.get(STORAGE_KEYS.PRODUTOS, null);
-    if (!prodsSalvos || prodsSalvos.length < 50 || prodsSalvos.some(p => p.estoque_atual === undefined)) {
+    if (!prodsSalvos || !Array.isArray(prodsSalvos) || prodsSalvos.some(p => p.estoque_atual === undefined)) {
       this.set(STORAGE_KEYS.PRODUTOS, SEED_PRODUTOS);
     }
     if (!localStorage.getItem(STORAGE_KEYS.CLIENTES)) {
@@ -2046,13 +2046,13 @@ const DB = {
   // Helpers específicos
   getProdutos() {
     let prods = this.get(STORAGE_KEYS.PRODUTOS, null);
-    if (!prods || !Array.isArray(prods) || prods.length < 50) {
+    if (!prods || !Array.isArray(prods)) {
       const v3 = this.get('serraria_produtos_v3', null);
       const v2 = this.get('serraria_produtos_v2', null);
       const v1 = this.get('serraria_produtos_v1', null);
-      if (Array.isArray(v3) && v3.length >= 50) prods = v3;
-      else if (Array.isArray(v2) && v2.length >= 50) prods = v2;
-      else if (Array.isArray(v1) && v1.length >= 50) prods = v1;
+      if (Array.isArray(v3) && v3.length > 0) prods = v3;
+      else if (Array.isArray(v2) && v2.length > 0) prods = v2;
+      else if (Array.isArray(v1) && v1.length > 0) prods = v1;
       else prods = JSON.parse(JSON.stringify(SEED_PRODUTOS));
 
       this.set(STORAGE_KEYS.PRODUTOS, prods);
@@ -2114,8 +2114,27 @@ const DB = {
     return `MAT-${max + 1}`;
   },
 
+  verificarNomeProdutoDuplicado(nome, idIgnorado = '') {
+    const list = this.getProdutos();
+    const normalizar = (str) => (str || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+    const nomeNorm = normalizar(nome);
+    if (!nomeNorm) return null;
+    return list.find(p => p.id !== idIgnorado && normalizar(p.nome) === nomeNorm) || null;
+  },
+
   salvarProduto(prod) {
     const list = this.getProdutos();
+
+    // Impede itens duplicados com o mesmo nome
+    const normalizar = (str) => (str || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+    const nomeNorm = normalizar(prod.nome);
+    if (nomeNorm) {
+      const duplicado = list.find(p => p.id !== prod.id && normalizar(p.nome) === nomeNorm);
+      if (duplicado) {
+        console.warn(`Tentativa de salvar produto duplicado: "${prod.nome}" já existente com id ${duplicado.id}`);
+        return null;
+      }
+    }
 
     // Normaliza multi-categorias
     if (!Array.isArray(prod.categorias)) {
@@ -2142,7 +2161,6 @@ const DB = {
     this.set(STORAGE_KEYS.PRODUTOS, list);
     return prod;
   },
-
 
   excluirProduto(prodId) {
     const list = this.getProdutos().filter(p => p.id !== prodId);

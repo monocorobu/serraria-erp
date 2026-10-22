@@ -21,7 +21,9 @@ export function usePrecoBruto(showToast) {
 
     const updatedConfig = { ...config, percentual_preco_bruto: val };
     DB.salvarConfig(updatedConfig);
-    CalcEngine.setPercentualPrecoBruto(val);
+    if (CalcEngine && typeof CalcEngine.setPercentualPrecoBruto === 'function') {
+      CalcEngine.setPercentualPrecoBruto(val);
+    }
     setConfig(updatedConfig);
 
     // Sincroniza com rota de API do banco
@@ -50,11 +52,52 @@ export function usePrecoBruto(showToast) {
     return parcelas;
   }, []);
 
+  // Salvar configurações gerais da madeireira (senha do gerente, travas, taxas, dados da empresa)
+  const updateConfig = useCallback((novaConfig) => {
+    if (typeof novaConfig === 'number' || (typeof novaConfig === 'string' && !isNaN(Number(novaConfig)))) {
+      return updatePercentual(novaConfig);
+    }
+
+    if (!novaConfig || typeof novaConfig !== 'object') {
+      return false;
+    }
+
+    const updated = {
+      ...config,
+      ...novaConfig
+    };
+
+    if (updated.percentual_preco_bruto !== undefined) {
+      const pct = parseFloat(updated.percentual_preco_bruto) || 20.0;
+      updated.percentual_preco_bruto = pct;
+      if (CalcEngine && typeof CalcEngine.setPercentualPrecoBruto === 'function') {
+        CalcEngine.setPercentualPrecoBruto(pct);
+      }
+    }
+    if (updated.desconto_maximo_livre !== undefined) {
+      updated.desconto_maximo_livre = parseFloat(updated.desconto_maximo_livre) || 5.0;
+    }
+    if (updated.percentual_taxa_debito !== undefined) {
+      updated.percentual_taxa_debito = parseFloat(updated.percentual_taxa_debito) || 2.5;
+    }
+
+    DB.salvarConfig(updated);
+    setConfig(updated);
+
+    ApiClient.saveConfig(updated).catch(() => {});
+
+    if (showToast) {
+      showToast('Configurações e senha do gerente salvas com sucesso!', 'success');
+    }
+    return true;
+  }, [config, updatePercentual, showToast]);
+
   return {
     config,
     setConfig,
     percentual,
     updatePercentual,
+    updateConfig,
     calcularBruto,
     simularParcelamento
   };

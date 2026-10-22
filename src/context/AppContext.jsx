@@ -106,8 +106,48 @@ export const AppProvider = ({ children }) => {
     setEmployees(DB.getFuncionarios());
     setCategorias(DB.getCategorias());
     precoBrutoHook.setConfig(DB.getConfig());
+    setUsers(DB.getUsuarios());
     showToast('Dados restaurados com sucesso!', 'success');
   }, [ordersHook, estoqueHook, clientesHook, precoBrutoHook, showToast]);
+
+  // Gestão de Funcionários / Equipe
+  const [users, setUsers] = useState(() => DB.getUsuarios());
+
+  const saveEmployee = useCallback((emp) => {
+    const saved = DB.salvarFuncionario(emp);
+    setEmployees(DB.getFuncionarios());
+    showToast(`Funcionário "${saved.nome}" salvo com sucesso!`, 'success');
+    return saved;
+  }, [showToast]);
+
+  const deleteEmployee = useCallback((id) => {
+    DB.excluirFuncionario(id);
+    setEmployees(DB.getFuncionarios());
+    showToast('Funcionário removido da equipe.', 'info');
+  }, [showToast]);
+
+  // Gestão de Contas de Acesso (Usuários do Sistema)
+  const saveUser = useCallback((usr) => {
+    const saved = DB.salvarUsuario(usr);
+    setUsers(DB.getUsuarios());
+    showToast(`Conta de acesso "${saved.username}" salva com sucesso!`, 'success');
+    return saved;
+  }, [showToast]);
+
+  const deleteUser = useCallback((id) => {
+    DB.excluirUsuario(id);
+    setUsers(DB.getUsuarios());
+    showToast('Conta de acesso removida.', 'info');
+  }, [showToast]);
+
+  const refreshAll = useCallback(() => {
+    setEmployees(DB.getFuncionarios());
+    clientesHook.setCarpenters(DB.getCarpinteiros());
+    clientesHook.refreshClients();
+    ordersHook.setOrders(DB.getPedidos());
+    estoqueHook.setProducts(DB.getProdutos());
+    setUsers(DB.getUsuarios());
+  }, [clientesHook, ordersHook, estoqueHook]);
 
   // Sincronizar funcionários e carpinteiros (comissões) após salvar/cancelar pedidos
   const handleSaveOrderWrapper = useCallback((pedido) => {
@@ -150,9 +190,9 @@ export const AppProvider = ({ children }) => {
 
     // Preço Bruto & Parâmetros (usePrecoBruto)
     config: precoBrutoHook.config,
-    updateConfig: precoBrutoHook.updatePercentual,
+    updateConfig: precoBrutoHook.updateConfig,
     percentualPrecoBruto: precoBrutoHook.percentual,
-    updatePercentualPrecoBruto: precoBrutoHook.updatePercentual,
+    updatePercentualPrecoBruto: precoBrutoHook.updateConfig,
     calcularPrecoBruto: precoBrutoHook.calcularBruto,
     simularParcelamento: precoBrutoHook.simularParcelamento,
 
@@ -173,9 +213,18 @@ export const AppProvider = ({ children }) => {
     login: authHook.login,
     isAdmin: authHook.isAdmin,
 
+    // Equipe & Contas de Acesso
+    employees,
+    setEmployees,
+    saveEmployee,
+    deleteEmployee,
+    users,
+    setUsers,
+    saveUser,
+    deleteUser,
+
     // Auxiliares
     bairros,
-    employees,
     categorias,
     setCategorias,
     salvarCategoria,
@@ -188,6 +237,7 @@ export const AppProvider = ({ children }) => {
     openPrintModal,
     closePrintModal,
     togglePrintMode,
+    refreshAll,
     resetDemo
   };
 
