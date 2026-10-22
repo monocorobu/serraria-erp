@@ -289,7 +289,7 @@ body {
 .top-header {
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-light);
-  padding: 12px 24px;
+  padding: 8px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -435,6 +435,12 @@ body {
 /* ÁREA DE CONTEÚDO */
 .content-area {
   padding: 20px 24px;
+  flex: 1;
+}
+
+/* Área de trabalho do Balcão em largura total e design fluido */
+.content-area-balcao {
+  padding: 12px 20px 16px 20px;
   flex: 1;
 }
 
@@ -1372,6 +1378,189 @@ body {
   background-color: #FEE2E2;
   color: #991B1B;
   border: 1px solid #FECACA;
+}
+
+/* ==========================================================================
+   LAYOUT PROFISSIONAL BALCÃO DE VENDAS - LARGURA TOTAL & PAINEL DE CAIXA
+   Design Amplo, Confortável, Letras Claras e Sem Coluna Apertada na Direita
+   ========================================================================== */
+
+.balcao-full-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+/* 1. PAINEL DE CLIENTE & OBRA (LARGURA TOTAL, ESPAÇOSO E ELEGANTE) */
+.balcao-client-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 12px 18px;
+}
+
+.balcao-client-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.balcao-client-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.balcao-client-card-title svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--brand-primary);
+  fill: none;
+  stroke-width: 2.2;
+}
+
+.balcao-client-row-1 {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1.2fr 1.4fr;
+  gap: 12px;
+}
+
+.balcao-client-row-2 {
+  display: grid;
+  grid-template-columns: 2fr 1.2fr 1fr 1.4fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+@media (max-width: 900px) {
+  .balcao-client-row-1,
+  .balcao-client-row-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 2. BARRA DE INSERÇÃO RÁPIDA (LARGURA TOTAL) */
+.balcao-insert-card {
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 12px 18px;
+}
+
+.balcao-insert-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 3.2fr) 90px 100px 105px 115px 125px 135px;
+  gap: 10px;
+  align-items: end;
+}
+
+@media (max-width: 1200px) {
+  .balcao-insert-grid {
+    grid-template-columns: 2fr 90px 95px 100px 110px 115px 130px;
+  }
+}
+
+/* 3. GRADE DE ITENS DO ORÇAMENTO (LARGURA TOTAL, CONFORTÁVEL) */
+.balcao-items-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.balcao-items-card-header {
+  padding: 10px 18px;
+  background-color: #FAFAFA;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.balcao-items-card-body {
+  max-height: 290px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.balcao-items-card-body::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.balcao-items-card-body::-webkit-scrollbar-thumb {
+  background-color: #CBD5E1;
+  border-radius: 4px;
+}
+
+.balcao-items-card-body .dense-table th {
+  position: sticky;
+  top: 0;
+  background-color: #F8FAFC;
+  z-index: 5;
+  box-shadow: 0 1px 0 var(--border-medium);
+  padding: 9px 12px;
+  font-size: 11px;
+}
+
+.balcao-items-card-body .dense-table td {
+  padding: 8px 12px;
+  font-size: 12.5px;
+}
+
+/* 4. PAINEL DE FECHAMENTO HORIZONTAL (4 BLOCOS BALANCEADOS LADO A LADO) */
+.balcao-footer-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1.15fr 1.35fr 0.95fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+@media (max-width: 1280px) {
+  .balcao-footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .balcao-footer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.balcao-footer-block {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.balcao-footer-block-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* RODAPÉ FINANCEIRO */
@@ -2804,6 +2993,130 @@ body {
   .summary-row.grand-total {
     font-size: 16px;
   }
+}
+
+/* ==========================================================================
+   MULTI-CATEGORIAS & REAJUSTE COLETIVO DE PREÇOS
+   ========================================================================== */
+
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #ECFDF5;
+  color: #047857;
+  border: 1px solid #A7F3D0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2.5px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.category-chip-remove {
+  background: none;
+  border: none;
+  color: #047857;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.65;
+  transition: all 0.1s ease;
+}
+
+.category-chip-remove:hover {
+  opacity: 1;
+  color: #DC2626;
+}
+
+.category-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  border: 1px solid var(--border-medium);
+  background-color: #FFFFFF;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.category-pill-btn:hover {
+  border-color: var(--brand-primary);
+  color: var(--text-primary);
+  background-color: #F8FAFC;
+}
+
+.category-pill-btn.active {
+  background-color: #059669;
+  border-color: #047857;
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.3);
+}
+
+.reajuste-type-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-medium);
+  background-color: #FFFFFF;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.reajuste-type-btn:hover {
+  background-color: #F8FAFC;
+}
+
+.reajuste-type-btn.active-acrescimo {
+  background: linear-gradient(180deg, #ECFDF5, #D1FAE5);
+  border-color: #059669;
+  color: #047857;
+  box-shadow: 0 0 0 1px #059669, 0 1px 3px rgba(5, 150, 105, 0.2);
+}
+
+.reajuste-type-btn.active-desconto {
+  background: linear-gradient(180deg, #FEF2F2, #FEE2E2);
+  border-color: #DC2626;
+  color: #B91C1C;
+  box-shadow: 0 0 0 1px #DC2626, 0 1px 3px rgba(220, 38, 38, 0.2);
+}
+
+.reajuste-preset-btn {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-medium);
+  background-color: #FFFFFF;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.reajuste-preset-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--brand-primary);
 }
 
 

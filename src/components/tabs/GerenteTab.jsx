@@ -13,6 +13,7 @@ export const GerenteTab = () => {
     senha_gerente: config.senha_gerente || '1234',
     desconto_maximo_livre: config.desconto_maximo_livre !== undefined ? config.desconto_maximo_livre : 5.0,
     percentual_preco_bruto: config.percentual_preco_bruto !== undefined ? config.percentual_preco_bruto : 20.0,
+    percentual_taxa_debito: config.percentual_taxa_debito !== undefined ? config.percentual_taxa_debito : 2.5,
     taxa_plaina_padrao_ml: config.taxa_plaina_padrao_ml || 3.50,
     taxa_plaina_padrao_m2: config.taxa_plaina_padrao_m2 || 8.00,
     meta_faturamento_mensal: config.meta_faturamento_mensal || 150000,
@@ -43,6 +44,7 @@ export const GerenteTab = () => {
       ...paramsForm,
       desconto_maximo_livre: parseFloat(paramsForm.desconto_maximo_livre) || 5.0,
       percentual_preco_bruto: parseFloat(paramsForm.percentual_preco_bruto) || 20.0,
+      percentual_taxa_debito: parseFloat(paramsForm.percentual_taxa_debito) || 2.5,
       taxa_plaina_padrao_ml: parseFloat(paramsForm.taxa_plaina_padrao_ml) || 3.50,
       taxa_plaina_padrao_m2: parseFloat(paramsForm.taxa_plaina_padrao_m2) || 8.00,
       meta_faturamento_mensal: parseFloat(paramsForm.meta_faturamento_mensal) || 150000
@@ -170,6 +172,46 @@ export const GerenteTab = () => {
                     onChange={e => setParamsForm(prev => ({ ...prev, desconto_maximo_livre: e.target.value }))}
                   />
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Descontos até este percentual são aplicados sem pedir senha.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* PAINEL DE TAXAS DE CARTÃO E PRECIFICAÇÃO */}
+          <div className="panel" style={{ marginBottom: '16px' }}>
+            <div className="panel-header">
+              <span className="panel-title">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                Precificação & Taxas de Cartão (Débito e A Prazo)
+              </span>
+            </div>
+            <div className="panel-body">
+              <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 600 }}>Taxa no Débito / Cartão à Vista (%):</label>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    className="form-input font-mono" 
+                    value={paramsForm.percentual_taxa_debito}
+                    onChange={e => setParamsForm(prev => ({ ...prev, percentual_taxa_debito: e.target.value }))}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Taxa da maquininha/banco para pagamento no débito ou 1x no cartão (Padrão: <code>2.5%</code>).
+                  </span>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 600 }}>Acréscimo Preço Bruto / A Prazo (%):</label>
+                  <input 
+                    type="number" 
+                    step="0.5" 
+                    className="form-input font-mono" 
+                    value={paramsForm.percentual_preco_bruto}
+                    onChange={e => setParamsForm(prev => ({ ...prev, percentual_preco_bruto: e.target.value }))}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Acréscimo comercial para vendas a prazo ou parceladas no crédito (Padrão: <code>20.0%</code>).
+                  </span>
                 </div>
               </div>
             </div>

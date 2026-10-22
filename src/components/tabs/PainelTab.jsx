@@ -25,23 +25,28 @@ export const PainelTab = () => {
 
   const kpis = useMemo(() => {
     let faturamento = 0;
-    let saldoPendente = 0;
+    let orcamentosTotal = 0;
+    let orcamentosCount = 0;
+    let vendasPagasCount = 0;
     let entreguesCount = 0;
 
     filteredOrders.forEach(p => {
       const tot = p.resumo_financeiro?.valor_total || 0;
-      const sal = p.resumo_financeiro?.saldo_a_receber || 0;
-      faturamento += tot;
-      saldoPendente += sal;
-      if (p.status === 'ENTREGUE' || p.finalizado_balcao) entreguesCount++;
+      if (p.status === 'ORCAMENTO') {
+        orcamentosTotal += tot;
+        orcamentosCount++;
+      } else {
+        faturamento += tot;
+        vendasPagasCount++;
+        if (p.status === 'ENTREGUE' || p.finalizado_balcao) entreguesCount++;
+      }
     });
 
-    const totalPedidos = filteredOrders.length;
-    const ticketMedio = totalPedidos > 0 ? faturamento / totalPedidos : 0;
+    const ticketMedio = vendasPagasCount > 0 ? faturamento / vendasPagasCount : 0;
     const meta = config.meta_faturamento_mensal || 150000;
     const pctMeta = meta > 0 ? Math.min(100, Math.round((faturamento / meta) * 100)) : 0;
 
-    return { faturamento, saldoPendente, entreguesCount, totalPedidos, ticketMedio, meta, pctMeta };
+    return { faturamento, orcamentosTotal, orcamentosCount, vendasPagasCount, entreguesCount, totalPedidos: filteredOrders.length, ticketMedio, meta, pctMeta };
   }, [filteredOrders, config]);
 
   // Ranking de Produtos Mais Vendidos
@@ -70,6 +75,21 @@ export const PainelTab = () => {
       if (!map[cli]) map[cli] = { nome: cli, total: 0, pedidos: 0 };
       map[cli].total += p.resumo_financeiro?.valor_total || 0;
       map[cli].pedidos++;
+    });
+    return Object.values(map).sort((a, b) => b.total - a.total).slice(0, 5);
+  }, [filteredOrders]);
+
+  // Ranking de Vendas por Vendedor e Comissões Geradas
+  const topVendedores = useMemo(() => {
+    const map = {};
+    filteredOrders.forEach(p => {
+      if (p.status !== 'ORCAMENTO') {
+        const vNome = p.vendedor_nome || p.vendedor?.nome || 'Balcão';
+        if (!map[vNome]) map[vNome] = { nome: vNome, total: 0, pedidos: 0, comissao: 0 };
+        map[vNome].total += p.resumo_financeiro?.valor_total || 0;
+        map[vNome].pedidos++;
+        map[vNome].comissao += p.comissao_vendedor_valor || 0;
+      }
     });
     return Object.values(map).sort((a, b) => b.total - a.total).slice(0, 5);
   }, [filteredOrders]);
@@ -123,17 +143,19 @@ export const PainelTab = () => {
         </div>
 
         <div className="kpi-card" style={{ padding: '14px', borderRadius: 'var(--radius-md)', backgroundColor: '#FFFFFF', border: '1.5px solid var(--border-medium)' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Pedidos Entregues / Quitados</div>
+          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Vendas Pagas / Entregues</div>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#15803D', marginTop: '4px' }}>
-            {kpis.entreguesCount} / {kpis.totalPedidos}
+            {kpis.vendasPagasCount} vendas
           </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{kpis.entreguesCount} já entregues</div>
         </div>
 
         <div className="kpi-card" style={{ padding: '14px', borderRadius: 'var(--radius-md)', backgroundColor: '#FFFFFF', border: '1.5px solid var(--border-medium)' }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: '#92400E' }}>Saldo a Receber Pendente</div>
-          <div style={{ fontSize: '20px', fontWeight: 800, color: '#B45309', marginTop: '4px' }}>
-            {CalcEngine.formatBRL(kpis.saldoPendente)}
+          <div style={{ fontSize: '11px', fontWeight: 700, color: '#1E40AF' }}>Orçamentos em Aberto</div>
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#2563EB', marginTop: '4px' }}>
+            {CalcEngine.formatBRL(kpis.orcamentosTotal)}
           </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>{kpis.orcamentosCount} orçamentos ativos</div>
         </div>
 
         <div className="kpi-card" style={{ padding: '14px', borderRadius: 'var(--radius-md)', backgroundColor: '#FFFFFF', border: '1.5px solid var(--border-medium)' }}>
@@ -145,8 +167,8 @@ export const PainelTab = () => {
         </div>
       </div>
 
-      {/* GRIDS DE ANÁLISE (MAIS VENDIDOS & TOP CLIENTES) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: '16px' }}>
+      {/* GRIDS DE ANÁLISE (MAIS VENDIDOS, TOP CLIENTES & EQUIPE DE VENDAS) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
         {/* RANKING MAIS VENDIDOS */}
         <div className="panel">
           <div className="panel-header">
@@ -159,23 +181,29 @@ export const PainelTab = () => {
             <table className="dense-table" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th style={{ width: '70px' }}>Cód.</th>
+                  <th style={{ width: '65px' }}>Cód.</th>
                   <th>Descrição</th>
-                  <th style={{ width: '80px' }} className="align-center">Peças</th>
-                  <th style={{ width: '110px' }} className="align-right">Faturamento</th>
+                  <th style={{ width: '60px' }} className="align-center">Peças</th>
+                  <th style={{ width: '100px' }} className="align-right">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {topProdutos.map(it => (
-                  <tr key={it.codigo || it.descricao}>
-                    <td className="font-mono" style={{ fontWeight: 700, color: 'var(--primary-green)' }}>{it.codigo}</td>
-                    <td><strong>{it.descricao}</strong></td>
-                    <td className="align-center font-mono">{it.qtdPecas}</td>
-                    <td className="align-right font-mono" style={{ fontWeight: 800, color: '#047857' }}>
-                      {CalcEngine.formatBRL(it.total)}
-                    </td>
+                {topProdutos.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>Nenhuma venda registrada</td>
                   </tr>
-                ))}
+                ) : (
+                  topProdutos.map(it => (
+                    <tr key={it.codigo || it.descricao}>
+                      <td className="font-mono" style={{ fontWeight: 700, color: 'var(--primary-green)' }}>{it.codigo}</td>
+                      <td><strong>{it.descricao}</strong></td>
+                      <td className="align-center font-mono">{it.qtdPecas}</td>
+                      <td className="align-right font-mono" style={{ fontWeight: 800, color: '#047857' }}>
+                        {CalcEngine.formatBRL(it.total)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -194,20 +222,68 @@ export const PainelTab = () => {
               <thead>
                 <tr>
                   <th>Cliente</th>
-                  <th style={{ width: '60px' }} className="align-center">Ped.</th>
-                  <th style={{ width: '110px' }} className="align-right">Total</th>
+                  <th style={{ width: '55px' }} className="align-center">Ped.</th>
+                  <th style={{ width: '100px' }} className="align-right">Total</th>
                 </tr>
               </thead>
               <tbody>
-                {topClientes.map(c => (
-                  <tr key={c.nome}>
-                    <td><strong>{c.nome}</strong></td>
-                    <td className="align-center font-mono">{c.pedidos}</td>
-                    <td className="align-right font-mono" style={{ fontWeight: 800, color: '#1E40AF' }}>
-                      {CalcEngine.formatBRL(c.total)}
-                    </td>
+                {topClientes.length === 0 ? (
+                  <tr>
+                    <td colSpan="3" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>Nenhuma compra no período</td>
                   </tr>
-                ))}
+                ) : (
+                  topClientes.map(c => (
+                    <tr key={c.nome}>
+                      <td><strong>{c.nome}</strong></td>
+                      <td className="align-center font-mono">{c.pedidos}</td>
+                      <td className="align-right font-mono" style={{ fontWeight: 800, color: '#1E40AF' }}>
+                        {CalcEngine.formatBRL(c.total)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* RANKING VENDEDORES & COMISSÕES */}
+        <div className="panel">
+          <div className="panel-header">
+            <span className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+              <span>Vendas & Comissões por Vendedor</span>
+            </span>
+          </div>
+          <div className="table-responsive">
+            <table className="dense-table" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Vendedor</th>
+                  <th style={{ width: '50px' }} className="align-center">Vd.</th>
+                  <th style={{ width: '90px' }} className="align-right">Total</th>
+                  <th style={{ width: '90px' }} className="align-right">Comissão</th>
+                </tr>
+              </thead>
+              <tbody>
+                {topVendedores.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>Nenhuma venda no período</td>
+                  </tr>
+                ) : (
+                  topVendedores.map(v => (
+                    <tr key={v.nome}>
+                      <td><strong>{v.nome}</strong></td>
+                      <td className="align-center font-mono">{v.pedidos}</td>
+                      <td className="align-right font-mono" style={{ fontWeight: 700 }}>
+                        {CalcEngine.formatBRL(v.total)}
+                      </td>
+                      <td className="align-right font-mono" style={{ fontWeight: 800, color: '#047857' }}>
+                        {CalcEngine.formatBRL(v.comissao)}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

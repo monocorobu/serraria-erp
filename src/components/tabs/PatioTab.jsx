@@ -32,9 +32,9 @@ export const PatioTab = () => {
     }
   };
 
-  // Filtra pedidos relevantes para o pátio (aprovados ou entregues)
+  // Filtra pedidos relevantes para o pátio (pagos, aprovados ou entregues)
   const patioOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'APROVADO' || o.etapa_patio === 'ENTREGUE' || o.status === 'ENTREGUE');
+    return orders.filter(o => o.status === 'PAGO' || o.status === 'APROVADO' || o.etapa_patio === 'ENTREGUE' || o.status === 'ENTREGUE');
   }, [orders]);
 
   const getEtapaNome = (etapa) => {
@@ -89,9 +89,9 @@ export const PatioTab = () => {
       atualizado.data_entrega = new Date().toISOString();
       showToast(`Pedido #${p.numero} marcado como entregue!`, 'success');
     } else {
-      // Se estava ENTREGUE e voltou para CARREGAMENTO ou etapa anterior, reabre como APROVADO
+      // Se estava ENTREGUE e voltou para CARREGAMENTO ou etapa anterior, reabre como PAGO
       if (p.status === 'ENTREGUE' || p.etapa_patio === 'ENTREGUE') {
-        atualizado.status = 'APROVADO';
+        atualizado.status = 'PAGO';
         delete atualizado.data_entrega;
       }
       showToast(`Pedido #${p.numero} movido para ${getEtapaNome(novaEtapa)}`, 'info');
@@ -203,16 +203,10 @@ export const PatioTab = () => {
                           <span>{p.cliente?.bairro || p.resumo_financeiro?.bairro_frete || 'Retirada no Pátio'}</span>
                         </div>
 
-                        {/* AVISOS DE COBRANÇA OU PLAINA */}
-                        {temSaldo ? (
-                          <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', fontSize: '11px', fontWeight: 700, padding: '3px 6px', borderRadius: '3px', marginBottom: '6px' }}>
-                            Cobrar na entrega: {CalcEngine.formatBRL(saldo)}
-                          </div>
-                        ) : (
-                          <div style={{ backgroundColor: '#ECFDF5', color: '#047857', fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', marginBottom: '6px' }}>
-                            100% Quitado
-                          </div>
-                        )}
+                        {/* STATUS DE PAGAMENTO */}
+                        <div style={{ backgroundColor: '#ECFDF5', color: '#047857', fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', marginBottom: '6px' }}>
+                          100% Pago ({p.forma_pagamento || p.resumo_financeiro?.forma_pagamento || 'Pix'})
+                        </div>
 
                         {temPlaina && (
                           <div style={{ backgroundColor: '#EFF6FF', color: '#1E40AF', fontSize: '11px', fontWeight: 700, padding: '3px 6px', borderRadius: '3px', marginBottom: '8px' }}>
@@ -378,17 +372,11 @@ export const PatioTab = () => {
             </div>
 
             <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto', padding: '16px' }}>
-              {/* Alerta de cobrança na entrega */}
-              {((selectedRomaneioOrder.resumo_financeiro?.saldo_a_receber || 0) > 0) ? (
-                <div style={{ backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', padding: '10px 14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '12.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  <span>Atenção Motorista: Cobrar {CalcEngine.formatBRL(selectedRomaneioOrder.resumo_financeiro.saldo_a_receber)} no ato do descarregamento!</span>
-                </div>
-              ) : (
-                <div style={{ backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7', padding: '8px 14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '12px', fontWeight: 600 }}>
-                  Pedido 100% quitado e liberado para entrega.
-                </div>
-              )}
+              {/* Status do pedido 100% pago */}
+              <div style={{ backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7', padding: '10px 14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>Pedido 100% pago ({selectedRomaneioOrder.forma_pagamento || selectedRomaneioOrder.resumo_financeiro?.forma_pagamento || 'Pix'}) — Liberado para entrega e descarregamento.</span>
+              </div>
 
               {/* Dados da Carga e Destino */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', backgroundColor: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '11.5px' }}>

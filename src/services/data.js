@@ -13,8 +13,25 @@ const STORAGE_KEYS = {
   FUNCIONARIOS: 'serraria_funcionarios_v1',
   PAGAMENTOS_COMISSAO: 'serraria_pagamentos_comissao_v1',
   AUDITORIA_DESCONTOS: 'serraria_auditoria_descontos_v1',
-  USUARIOS: 'serraria_usuarios_v1'
+  USUARIOS: 'serraria_usuarios_v1',
+  CATEGORIAS: 'serraria_categorias_v1'
 };
+
+const SEED_CATEGORIAS = [
+  'Construção & Alvenaria',
+  'Elétrica & Iluminação',
+  'EPIs, Cordas & Diversos',
+  'Ferramentas & Acessórios',
+  'Ferragens & Cercas',
+  'Fixação & Pregos',
+  'Forros & Acabamentos',
+  'Hidráulica & Conexões',
+  'Madeiras & Esquadrias',
+  'Telhas & Coberturas',
+  'Tintas & Química',
+  'Utilidades Gerais'
+];
+
 
 const SEED_PRODUTOS = [
   {"id":"prod_1","codigo":"1-001","nome":"ABRAÇADEIRA 3,5X200MM (UNID) 100","categoria":"Ferragens & Cercas","especie":"Aço Galvanizado","tipo_calculo":"UN","unidade_medida":"UN","preco_unitario":0.25,"taxa_plaina_padrao":0,"estoque_atual":45,"estoque_minimo":10,"ativo":true},
@@ -1192,6 +1209,7 @@ const SEED_CONFIG = {
   taxa_plaina_padrao_m2: 8.00,
   meta_faturamento_mensal: 150000.00,
   percentual_preco_bruto: 20.0,
+  percentual_taxa_debito: 2.5,
   nome_madeireira: 'Serraria e Madeireira Bom Jesus',
   cnpj_madeireira: '16.482.988/0001-02',
   telefone_madeireira: '(12) 99603-3793',
@@ -1406,7 +1424,7 @@ const SEED_PEDIDOS = [
       valor_total: 5840.00,
       forma_pagamento: 'Pix',
       valor_sinal: 0.00,
-      saldo_a_receber: 5840.00
+      saldo_a_receber: 0.00
     },
     checklist_patio: [],
     observacoes_venda: 'Aguardando confirmação do telhadista para fechar compra.'
@@ -1485,8 +1503,8 @@ const SEED_PEDIDOS = [
       desconto_autorizado: true,
       valor_total: 8920.00,
       forma_pagamento: 'Pix',
-      valor_sinal: 4000.00,
-      saldo_a_receber: 4920.00 // Cobrar na entrega!
+      valor_sinal: 8920.00,
+      saldo_a_receber: 0.00
     },
     checklist_patio: [
       { item_id: 'item_1022_1', descricao: 'VIGA EUCALIPTO 5X15 (12 pcs x 5.0m) - APARELHAR', cortado: false, carregado: false, requer_plaina: true },
@@ -1604,8 +1622,8 @@ const SEED_PEDIDOS = [
       desconto_autorizado: true,
       valor_total: 3450.00,
       forma_pagamento: 'Dinheiro',
-      valor_sinal: 1000.00,
-      saldo_a_receber: 2450.00 // Cobrar no ato do descarregamento!
+      valor_sinal: 3450.00,
+      saldo_a_receber: 0.00
     },
     checklist_patio: [
       { item_id: 'item_1023_1', descricao: 'Tábua Pinus 2.5x20 (40 pcs x 3.0m)', cortado: true, carregado: true, requer_plaina: false },
@@ -1757,6 +1775,9 @@ const DB = {
     if (!localStorage.getItem(STORAGE_KEYS.USUARIOS)) {
       this.set(STORAGE_KEYS.USUARIOS, SEED_USUARIOS);
     }
+    if (!localStorage.getItem(STORAGE_KEYS.CATEGORIAS)) {
+      this.getCategorias();
+    }
   },
 
   resetDemo() {
@@ -1770,7 +1791,148 @@ const DB = {
     this.set(STORAGE_KEYS.PAGAMENTOS_COMISSAO, SEED_PAGAMENTOS_COMISSAO);
     this.set(STORAGE_KEYS.AUDITORIA_DESCONTOS, SEED_AUDITORIA_DESCONTOS);
     this.set(STORAGE_KEYS.USUARIOS, SEED_USUARIOS);
+    this.set(STORAGE_KEYS.CATEGORIAS, SEED_CATEGORIAS);
   },
+
+  // Helpers de Categorias de Produtos (Multi-categoria)
+  getCategorias() {
+    let cats = this.get(STORAGE_KEYS.CATEGORIAS, null);
+    if (!cats || !Array.isArray(cats) || cats.length === 0) {
+      const set = new Set(SEED_CATEGORIAS);
+      const prods = this.get(STORAGE_KEYS.PRODUTOS, SEED_PRODUTOS);
+      if (Array.isArray(prods)) {
+        prods.forEach(p => {
+          if (Array.isArray(p.categorias)) {
+            p.categorias.forEach(c => { if (c && String(c).trim()) set.add(String(c).trim()); });
+          } else if (p.categoria && String(p.categoria).trim()) {
+            set.add(String(p.categoria).trim());
+          }
+        });
+      }
+      cats = Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      this.set(STORAGE_KEYS.CATEGORIAS, cats);
+    }
+    return cats;
+  },
+
+  salvarCategoria(nome) {
+    if (!nome || typeof nome !== 'string') return this.getCategorias();
+    const limpo = nome.trim();
+    if (!limpo) return this.getCategorias();
+
+    const cats = this.getCategorias();
+    const jaExiste = cats.some(c => c.toLowerCase() === limpo.toLowerCase());
+    if (!jaExiste) {
+      cats.push(limpo);
+      cats.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      this.set(STORAGE_KEYS.CATEGORIAS, cats);
+    }
+    return cats;
+  },
+
+  excluirCategoria(nome) {
+    if (!nome) return this.getCategorias();
+    const limpo = String(nome).trim().toLowerCase();
+    let cats = this.getCategorias().filter(c => c.toLowerCase() !== limpo);
+    this.set(STORAGE_KEYS.CATEGORIAS, cats);
+
+    // Remove a categoria dos produtos associados
+    const prods = this.getProdutos();
+    let alterado = false;
+    prods.forEach(p => {
+      if (Array.isArray(p.categorias)) {
+        const antes = p.categorias.length;
+        p.categorias = p.categorias.filter(c => c.toLowerCase() !== limpo);
+        if (p.categorias.length !== antes) {
+          p.categoria = p.categorias[0] || '';
+          alterado = true;
+        }
+      } else if (p.categoria && p.categoria.toLowerCase() === limpo) {
+        p.categoria = '';
+        p.categorias = [];
+        alterado = true;
+      }
+    });
+    if (alterado) {
+      this.set(STORAGE_KEYS.PRODUTOS, prods);
+    }
+    return cats;
+  },
+
+  renomearCategoria(antigoNome, novoNome) {
+    if (!antigoNome || !novoNome) return this.getCategorias();
+    const aLimpo = String(antigoNome).trim();
+    const nLimpo = String(novoNome).trim();
+    if (!aLimpo || !nLimpo || aLimpo.toLowerCase() === nLimpo.toLowerCase()) return this.getCategorias();
+
+    let cats = this.getCategorias().map(c => c.toLowerCase() === aLimpo.toLowerCase() ? nLimpo : c);
+    const unique = Array.from(new Set(cats)).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    this.set(STORAGE_KEYS.CATEGORIAS, unique);
+
+    const prods = this.getProdutos();
+    let alterado = false;
+    prods.forEach(p => {
+      if (Array.isArray(p.categorias)) {
+        let mudou = false;
+        p.categorias = p.categorias.map(c => {
+          if (c.toLowerCase() === aLimpo.toLowerCase()) {
+            mudou = true;
+            return nLimpo;
+          }
+          return c;
+        });
+        if (mudou) {
+          p.categoria = p.categorias[0] || '';
+          alterado = true;
+        }
+      } else if (p.categoria && p.categoria.toLowerCase() === aLimpo.toLowerCase()) {
+        p.categoria = nLimpo;
+        p.categorias = [nLimpo];
+        alterado = true;
+      }
+    });
+    if (alterado) {
+      this.set(STORAGE_KEYS.PRODUTOS, prods);
+    }
+    return unique;
+  },
+
+  aplicarReajustePrecos({ tipo = 'ACRESCIMO', percentual = 0, alvo = 'TODOS' }) {
+    const pct = Math.abs(parseFloat(percentual)) || 0;
+    if (pct <= 0) return { success: false, message: 'Percentual inválido para reajuste.' };
+    if (tipo === 'DESCONTO' && pct >= 100) {
+      return { success: false, message: 'O desconto não pode ser de 100% ou mais.' };
+    }
+
+    const fator = tipo === 'ACRESCIMO' ? (1 + (pct / 100)) : (1 - (pct / 100));
+    const prods = this.getProdutos();
+    let count = 0;
+
+    const updated = prods.map(p => {
+      let match = false;
+      if (alvo === 'TODOS') {
+        match = true;
+      } else if (alvo.startsWith('CAT:')) {
+        const catTarget = alvo.slice(4);
+        const pCats = Array.isArray(p.categorias) ? p.categorias : (p.categoria ? [p.categoria] : []);
+        match = pCats.includes(catTarget);
+      } else if (alvo.startsWith('ESP:')) {
+        const espTarget = alvo.slice(4);
+        match = p.especie === espTarget;
+      }
+
+      if (!match) return p;
+
+      count++;
+      const precoAntigo = parseFloat(p.preco_unitario) || 0;
+      const novoPreco = Math.max(0.01, parseFloat((precoAntigo * fator).toFixed(2)));
+      return { ...p, preco_unitario: novoPreco };
+    });
+
+    this.set(STORAGE_KEYS.PRODUTOS, updated);
+    return { success: true, count, updated, fator, percentual: pct, tipo, alvo };
+  },
+
 
   // Helpers de Usuários e Autenticação
   getUsuarios() {
@@ -1822,6 +1984,9 @@ const DB = {
     const cfg = this.get(STORAGE_KEYS.CONFIG, SEED_CONFIG);
     if (cfg && cfg.percentual_preco_bruto === undefined) {
       cfg.percentual_preco_bruto = 20.0;
+    }
+    if (cfg && cfg.percentual_taxa_debito === undefined) {
+      cfg.percentual_taxa_debito = 2.5;
     }
     return cfg;
   },
@@ -1915,6 +2080,14 @@ const DB = {
         p.ativo = true;
         alterado = true;
       }
+      if (!Array.isArray(p.categorias)) {
+        p.categorias = p.categoria ? [p.categoria] : [];
+        alterado = true;
+      }
+      if (!p.categoria && p.categorias.length > 0) {
+        p.categoria = p.categorias[0];
+        alterado = true;
+      }
     });
     if (alterado) {
       this.set(STORAGE_KEYS.PRODUTOS, prods);
@@ -1943,6 +2116,22 @@ const DB = {
 
   salvarProduto(prod) {
     const list = this.getProdutos();
+
+    // Normaliza multi-categorias
+    if (!Array.isArray(prod.categorias)) {
+      prod.categorias = prod.categoria ? [prod.categoria] : [];
+    }
+    prod.categoria = prod.categorias[0] || '';
+
+    // Auto-cadastra categorias novas no catálogo de categorias
+    if (prod.categorias.length > 0) {
+      prod.categorias.forEach(cat => {
+        if (cat && typeof cat === 'string') {
+          this.salvarCategoria(cat);
+        }
+      });
+    }
+
     const idx = list.findIndex(p => p.id === prod.id);
     if (idx >= 0) {
       list[idx] = Object.assign({}, list[idx], prod);
@@ -1953,6 +2142,7 @@ const DB = {
     this.set(STORAGE_KEYS.PRODUTOS, list);
     return prod;
   },
+
 
   excluirProduto(prodId) {
     const list = this.getProdutos().filter(p => p.id !== prodId);
@@ -2038,6 +2228,84 @@ const DB = {
       (pedido.id && p.id === pedido.id) || 
       (pedido.numero && p.numero === pedido.numero)
     );
+
+    const pedidoAnterior = index >= 0 ? pedidos[index] : null;
+
+    // Processamento de comissões em vendas concluídas
+    const isConcluido = pedido.status === 'PAGO' || pedido.status === 'APROVADO' || pedido.status === 'ENTREGUE';
+    const jaCreditado = pedidoAnterior ? Boolean(pedidoAnterior.comissao_creditada) : false;
+    const valorVenda = parseFloat(pedido.resumo_financeiro?.valor_total || pedido.valor_total || 0);
+
+    if (isConcluido && !jaCreditado && valorVenda > 0) {
+      // 1. Creditar comissão do VENDEDOR
+      if (pedido.vendedor_id) {
+        const funcs = this.getFuncionarios();
+        const f = funcs.find(item => item.id === pedido.vendedor_id);
+        if (f) {
+          const pct = f.comissao_pct !== undefined ? f.comissao_pct : 2.0;
+          const valorComissao = parseFloat(((valorVenda * pct) / 100).toFixed(2));
+          
+          f.vendas_mes = parseFloat(((parseFloat(f.vendas_mes) || 0) + valorVenda).toFixed(2));
+          f.comissao_acumulada = parseFloat(((parseFloat(f.comissao_acumulada) || 0) + valorComissao).toFixed(2));
+          f.saldo_comissao = Math.max(0, parseFloat(((parseFloat(f.comissao_acumulada) || 0) - (parseFloat(f.comissao_paga) || 0)).toFixed(2)));
+          
+          this.set(STORAGE_KEYS.FUNCIONARIOS, funcs);
+
+          pedido.comissao_vendedor_id = f.id;
+          pedido.comissao_vendedor_nome = f.nome;
+          pedido.comissao_vendedor_pct = pct;
+          pedido.comissao_vendedor_valor = valorComissao;
+        }
+      }
+
+      // 2. Creditar comissão do CARPINTEIRO (se houver parceiro indicado)
+      if (pedido.carpinteiro_id) {
+        const carps = this.getCarpinteiros();
+        const c = carps.find(item => item.id === pedido.carpinteiro_id);
+        if (c) {
+          const pctCarp = c.comissao_padrao_pct !== undefined ? c.comissao_padrao_pct : (c.comissao_pct || 3.0);
+          const valorComissaoCarp = parseFloat(((valorVenda * pctCarp) / 100).toFixed(2));
+          
+          c.comissao_acumulada = parseFloat(((parseFloat(c.comissao_acumulada) || 0) + valorComissaoCarp).toFixed(2));
+          c.saldo_a_pagar = Math.max(0, parseFloat(((parseFloat(c.comissao_acumulada) || 0) - (parseFloat(c.comissao_paga) || 0)).toFixed(2)));
+          
+          this.set(STORAGE_KEYS.CARPINTEIROS, carps);
+
+          pedido.comissao_carpinteiro_id = c.id;
+          pedido.comissao_carpinteiro_nome = c.nome;
+          pedido.comissao_carpinteiro_pct = pctCarp;
+          pedido.comissao_carpinteiro_valor = valorComissaoCarp;
+        }
+      }
+
+      pedido.comissao_creditada = true;
+    } else if (pedido.status === 'CANCELADO' && jaCreditado) {
+      // Estorno de comissões em caso de cancelamento
+      if (pedido.comissao_vendedor_id) {
+        const funcs = this.getFuncionarios();
+        const f = funcs.find(item => item.id === pedido.comissao_vendedor_id);
+        if (f) {
+          const valorComissao = parseFloat(pedido.comissao_vendedor_valor) || 0;
+          f.vendas_mes = Math.max(0, parseFloat(((parseFloat(f.vendas_mes) || 0) - valorVenda).toFixed(2)));
+          f.comissao_acumulada = Math.max(0, parseFloat(((parseFloat(f.comissao_acumulada) || 0) - valorComissao).toFixed(2)));
+          f.saldo_comissao = Math.max(0, parseFloat(((parseFloat(f.comissao_acumulada) || 0) - (parseFloat(f.comissao_paga) || 0)).toFixed(2)));
+          this.set(STORAGE_KEYS.FUNCIONARIOS, funcs);
+        }
+      }
+
+      if (pedido.comissao_carpinteiro_id) {
+        const carps = this.getCarpinteiros();
+        const c = carps.find(item => item.id === pedido.comissao_carpinteiro_id);
+        if (c) {
+          const valorCarp = parseFloat(pedido.comissao_carpinteiro_valor) || 0;
+          c.comissao_acumulada = Math.max(0, parseFloat(((parseFloat(c.comissao_acumulada) || 0) - valorCarp).toFixed(2)));
+          c.saldo_a_pagar = Math.max(0, parseFloat(((parseFloat(c.comissao_acumulada) || 0) - (parseFloat(c.comissao_paga) || 0)).toFixed(2)));
+          this.set(STORAGE_KEYS.CARPINTEIROS, carps);
+        }
+      }
+
+      pedido.comissao_creditada = false;
+    }
 
     if (index >= 0) {
       // Atualiza o orçamento existente em cima do anterior (sem duplicar)
@@ -2278,4 +2546,4 @@ if (typeof window !== 'undefined') {
 
 
 
-export { DB, DocMascara, STORAGE_KEYS, SEED_PRODUTOS, SEED_BAIRROS, SEED_CLIENTES, SEED_CARPINTEIROS, SEED_PEDIDOS, SEED_FUNCIONARIOS, SEED_CONFIG, SEED_PAGAMENTOS_COMISSAO, SEED_AUDITORIA_DESCONTOS, SEED_USUARIOS };
+export { DB, DocMascara, STORAGE_KEYS, SEED_PRODUTOS, SEED_CATEGORIAS, SEED_BAIRROS, SEED_CLIENTES, SEED_CARPINTEIROS, SEED_PEDIDOS, SEED_FUNCIONARIOS, SEED_CONFIG, SEED_PAGAMENTOS_COMISSAO, SEED_AUDITORIA_DESCONTOS, SEED_USUARIOS };

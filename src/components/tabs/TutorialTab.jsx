@@ -99,7 +99,7 @@ export default function TutorialTab({ onCarregarExemplo }) {
                   Busque a madeira pelo nome ou código. Escolha a quantidade de peças e o comprimento (ex: 3.0m, 4.0m).
                 </p>
                 <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', padding: '6px 10px', borderRadius: 4, fontSize: '11.5px', color: '#0369A1' }}>
-                  <strong>Plaina:</strong> Se o cliente quiser madeira lisa, selecione <strong>Aparelhada (+Plaina)</strong>. O sistema calcula a taxa de plaina e o pátio já recebe o aviso.
+                  <strong>Plaina:</strong> Marque a caixinha de <strong>Plaina</strong> nos itens que serão aparelhados para avisar o pátio. No fechamento, insira a porcentagem (%) de acréscimo da plaina.
                 </div>
               </div>
 

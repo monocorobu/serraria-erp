@@ -57,6 +57,44 @@ export const AppProvider = ({ children }) => {
     }));
   }, []);
 
+  const [categorias, setCategorias] = useState(() => DB.getCategorias());
+
+  const salvarCategoria = useCallback((nome) => {
+    const updated = DB.salvarCategoria(nome);
+    setCategorias([...updated]);
+    showToast(`Categoria "${nome.trim()}" salva com sucesso!`, 'success');
+    return updated;
+  }, [showToast]);
+
+  const excluirCategoria = useCallback((nome) => {
+    const updated = DB.excluirCategoria(nome);
+    setCategorias([...updated]);
+    estoqueHook.setProducts(DB.getProdutos());
+    showToast(`Categoria "${nome}" removida.`, 'info');
+    return updated;
+  }, [estoqueHook, showToast]);
+
+  const renomearCategoria = useCallback((antigo, novo) => {
+    const updated = DB.renomearCategoria(antigo, novo);
+    setCategorias([...updated]);
+    estoqueHook.setProducts(DB.getProdutos());
+    showToast(`Categoria renomeada para "${novo}".`, 'success');
+    return updated;
+  }, [estoqueHook, showToast]);
+
+  const aplicarReajustePrecos = useCallback(({ tipo, percentual, alvo }) => {
+    const res = DB.aplicarReajustePrecos({ tipo, percentual, alvo });
+    if (res.success) {
+      estoqueHook.setProducts([...res.updated]);
+      const sinal = res.tipo === 'ACRESCIMO' ? '+' : '-';
+      showToast(`Reajuste de ${sinal}${res.percentual}% aplicado a ${res.count} produtos!`, 'success');
+      return res;
+    } else {
+      showToast(res.message || 'Erro ao aplicar reajuste.', 'warning');
+      return res;
+    }
+  }, [estoqueHook, showToast]);
+
   // Restaurar dados originais de demonstração
   const resetDemo = useCallback(() => {
     DB.resetDemo();
@@ -66,9 +104,24 @@ export const AppProvider = ({ children }) => {
     clientesHook.setCarpenters(DB.getCarpinteiros());
     setBairros(DB.getBairros());
     setEmployees(DB.getFuncionarios());
+    setCategorias(DB.getCategorias());
     precoBrutoHook.setConfig(DB.getConfig());
     showToast('Dados restaurados com sucesso!', 'success');
   }, [ordersHook, estoqueHook, clientesHook, precoBrutoHook, showToast]);
+
+  // Sincronizar funcionários e carpinteiros (comissões) após salvar/cancelar pedidos
+  const handleSaveOrderWrapper = useCallback((pedido) => {
+    const saved = ordersHook.saveOrder(pedido);
+    setEmployees(DB.getFuncionarios());
+    clientesHook.setCarpenters(DB.getCarpinteiros());
+    return saved;
+  }, [ordersHook, clientesHook]);
+
+  const handleCancelOrderWrapper = useCallback((pedidoId) => {
+    ordersHook.cancelOrder(pedidoId);
+    setEmployees(DB.getFuncionarios());
+    clientesHook.setCarpenters(DB.getCarpinteiros());
+  }, [ordersHook, clientesHook]);
 
   const value = {
     // Navegação
@@ -78,8 +131,8 @@ export const AppProvider = ({ children }) => {
     // Pedidos (useOrders)
     orders: ordersHook.orders,
     setOrders: ordersHook.setOrders,
-    saveOrder: ordersHook.saveOrder,
-    cancelOrder: ordersHook.cancelOrder,
+    saveOrder: handleSaveOrderWrapper,
+    cancelOrder: handleCancelOrderWrapper,
     duplicateOrder: ordersHook.duplicateOrder,
     editingOrderId: ordersHook.editingOrderId,
     setEditingOrderId: ordersHook.setEditingOrderId,
@@ -123,6 +176,12 @@ export const AppProvider = ({ children }) => {
     // Auxiliares
     bairros,
     employees,
+    categorias,
+    setCategorias,
+    salvarCategoria,
+    excluirCategoria,
+    renomearCategoria,
+    aplicarReajustePrecos,
     toasts,
     showToast,
     printModal,

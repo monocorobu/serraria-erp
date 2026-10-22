@@ -67,7 +67,7 @@ export default function App() {
           onOpenAuth={() => setIsAuthModalOpen(true)} 
         />
 
-        <div className="content-area">
+        <div className={`content-area ${activeTab === 'balcao' ? 'content-area-balcao' : ''}`}>
           {activeTab === 'balcao' && <BalcaoTab />}
           {activeTab === 'historico' && <HistoricoTab />}
           {activeTab === 'patio' && <PatioTab />}

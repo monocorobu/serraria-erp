@@ -39,9 +39,7 @@ export function useCaixa(orders) {
       Pix: 0,
       Dinheiro: 0,
       'Cartão Débito': 0,
-      'Cartão Crédito': 0,
-      Boleto: 0,
-      'A Prazo (Faturado)': 0
+      'Cartão Crédito': 0
     };
 
     const produtosVendidosMap = {};
@@ -56,11 +54,19 @@ export function useCaixa(orders) {
       pesoTotalKg += (p.resumo_fisico?.peso_total_kg || 0);
 
       // Caixa por forma de pagamento
-      const forma = p.forma_pagamento || p.resumo_financeiro?.forma_pagamento || 'Pix';
-      if (caixaPorForma[forma] !== undefined) {
-        caixaPorForma[forma] += valor;
+      if (p.resumo_financeiro?.pagamentos_detalhe && p.resumo_financeiro.pagamentos_detalhe.length > 0) {
+        p.resumo_financeiro.pagamentos_detalhe.forEach(pg => {
+          let forma = pg.tipo || 'Pix';
+          if (forma.includes('Débito')) forma = 'Cartão Débito';
+          else if (forma.includes('Crédito')) forma = 'Cartão Crédito';
+          const val = parseFloat(pg.valor) || 0;
+          caixaPorForma[forma] = (caixaPorForma[forma] || 0) + val;
+        });
       } else {
-        caixaPorForma[forma] = valor;
+        let forma = p.forma_pagamento || p.resumo_financeiro?.forma_pagamento || 'Pix';
+        if (forma.includes('Débito')) forma = 'Cartão Débito';
+        else if (forma.includes('Crédito')) forma = 'Cartão Crédito';
+        caixaPorForma[forma] = (caixaPorForma[forma] || 0) + valor;
       }
 
       // Ranking de produtos

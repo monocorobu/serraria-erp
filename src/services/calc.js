@@ -41,6 +41,24 @@ export const CalcEngine = {
     return parseFloat((valor * (1 + finalPct / 100)).toFixed(2));
   },
 
+  getPercentualTaxaDebito() {
+    if (typeof DB !== 'undefined' && DB.getConfig) {
+      const cfg = DB.getConfig();
+      if (cfg && cfg.percentual_taxa_debito !== undefined) {
+        const val = parseFloat(cfg.percentual_taxa_debito);
+        return isNaN(val) ? 2.5 : val;
+      }
+    }
+    return 2.5;
+  },
+
+  calcularPrecoDebito(valorAVista, percentual = null) {
+    const pct = percentual !== null ? parseFloat(percentual) : this.getPercentualTaxaDebito();
+    const valor = parseFloat(valorAVista) || 0;
+    const finalPct = isNaN(pct) ? 2.5 : pct;
+    return parseFloat((valor * (1 + finalPct / 100)).toFixed(2));
+  },
+
   calcularItem(item, produto) {
     const tipo = (produto && produto.tipo_calculo) || item.tipo_calculo || 'ML';
     const qtd = Math.max(0, parseFloat(item.quantidade) || 0);
@@ -87,9 +105,8 @@ export const CalcEngine = {
     if (tipo === 'ML') {
       metragemTotal = qtd * comp;
       subtotalPuro = metragemTotal * precoUnit;
-      if (querAparelhar) {
-        taxaPlaina = metragemTotal * (this.DEFAULT_TAXA_PLAINA_ML || 3.50);
-      }
+      // Taxa de plaina não é mais automática por item, é calculada via % no fechamento
+      taxaPlaina = 0;
       if (larguraCm > 0 && espessuraCm > 0) {
         volumeM3 = (espessuraCm / 100) * (larguraCm / 100) * comp * qtd;
         pesoKg = volumeM3 * densidade;
@@ -99,9 +116,7 @@ export const CalcEngine = {
     } else if (tipo === 'M2') {
       metragemTotal = qtd;
       subtotalPuro = metragemTotal * precoUnit;
-      if (querAparelhar) {
-        taxaPlaina = metragemTotal * (this.DEFAULT_TAXA_PLAINA_M2 || 8.00);
-      }
+      taxaPlaina = 0;
       const espM = (espessuraCm > 0 ? espessuraCm : 2.0) / 100;
       volumeM3 = metragemTotal * espM;
       pesoKg = volumeM3 * densidade;
@@ -117,18 +132,19 @@ export const CalcEngine = {
       pesoKg = qtd * pesoUnit;
     }
 
-    const subtotalFinal = subtotalPuro + taxaPlaina;
+    const subtotalFinal = subtotalPuro;
 
     return {
       tipo_calculo: tipo,
       metragem_total: parseFloat(metragemTotal.toFixed(2)),
       subtotal_puro: parseFloat(subtotalPuro.toFixed(2)),
-      taxa_plaina: parseFloat(taxaPlaina.toFixed(2)),
+      taxa_plaina: 0,
       subtotal: parseFloat(subtotalFinal.toFixed(2)),
       volume_m3: parseFloat(volumeM3.toFixed(3)),
       peso_kg: parseFloat(pesoKg.toFixed(1)),
       espessura_cm: espessuraCm,
-      largura_cm: larguraCm
+      largura_cm: larguraCm,
+      aparelhar: querAparelhar
     };
   },
 
@@ -160,20 +176,45 @@ export const CalcEngine = {
     }
   },
 
-  calcularTotaisOrcamento(itens = [], freteValor = 0, descontoValorOuPct = 0, tipoDesconto = 'VALOR', sinalPago = 0) {
+  calcularTotaisOrcamento(
+    itens = [], 
+    freteValor = 0, 
+    descontoValorOuPct = 0, 
+    tipoDesconto = 'VALOR', 
+    sinalPago = 0,
+    plainaPct = 0,
+    plainaBase = 'ITENS_PLAINA'
+  ) {
     let subtotalItensPuros = 0;
-    let totalTaxaPlaina = 0;
+    let subtotalItensPlaina = 0;
+    let qtdItensPlaina = 0;
     let totalPecas = 0;
     let totalVolumeM3 = 0;
     let totalPesoKg = 0;
 
     itens.forEach(item => {
       totalPecas += (parseFloat(item.quantidade) || 0);
-      subtotalItensPuros += (parseFloat(item.subtotal_puro) !== undefined ? parseFloat(item.subtotal_puro) : (item.subtotal - (item.taxa_plaina || 0)));
-      totalTaxaPlaina += (parseFloat(item.taxa_plaina) || 0);
+      const sub = parseFloat(item.subtotal_puro !== undefined ? item.subtotal_puro : item.subtotal) || 0;
+      subtotalItensPuros += sub;
+      if (item.aparelhar) {
+        subtotalItensPlaina += sub;
+        qtdItensPlaina += 1;
+      }
       totalVolumeM3 += (parseFloat(item.volume_m3) || 0);
       totalPesoKg += (parseFloat(item.peso_kg) || 0);
     });
+
+    const pctPlaina = Math.max(0, parseFloat(plainaPct) || 0);
+    
+    // A taxa de plaina SOMENTE é adicionada se houver pelo menos 1 caixa de plaina marcada!
+    // Do contrário, não tem plaina (valor é estritamente 0).
+    let totalTaxaPlaina = 0;
+    let basePlaina = 0;
+
+    if (qtdItensPlaina > 0 && pctPlaina > 0) {
+      basePlaina = subtotalItensPlaina;
+      totalTaxaPlaina = (basePlaina * pctPlaina) / 100;
+    }
 
     const subtotalBruto = subtotalItensPuros + totalTaxaPlaina;
     const frete = Math.max(0, parseFloat(freteValor) || 0);
@@ -199,8 +240,15 @@ export const CalcEngine = {
     const percentualBruto = this.getPercentualPrecoBruto();
     const valorTotalBruto = this.calcularPrecoBruto(valorTotal, percentualBruto);
 
+    const percentualDebito = this.getPercentualTaxaDebito();
+    const valorTotalDebito = this.calcularPrecoDebito(valorTotal, percentualDebito);
+
     return {
       subtotal_itens_puros: parseFloat(subtotalItensPuros.toFixed(2)),
+      subtotal_itens_plaina: parseFloat(subtotalItensPlaina.toFixed(2)),
+      qtd_itens_plaina: qtdItensPlaina,
+      base_plaina: parseFloat(basePlaina.toFixed(2)),
+      plaina_percentual: pctPlaina,
       taxa_aparelhamento: parseFloat(totalTaxaPlaina.toFixed(2)),
       subtotal_com_plaina: parseFloat(subtotalBruto.toFixed(2)),
       valor_frete: parseFloat(frete.toFixed(2)),
@@ -210,6 +258,8 @@ export const CalcEngine = {
       valor_total: parseFloat(valorTotal.toFixed(2)),
       percentual_bruto: percentualBruto,
       valor_total_bruto: parseFloat(valorTotalBruto.toFixed(2)),
+      percentual_debito: percentualDebito,
+      valor_total_debito: parseFloat(valorTotalDebito.toFixed(2)),
       valor_sinal: parseFloat(sinal.toFixed(2)),
       saldo_a_receber: parseFloat(saldoReceber.toFixed(2)),
       total_pecas: Math.round(totalPecas),

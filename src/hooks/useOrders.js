@@ -34,15 +34,13 @@ export function useOrders(showToast, onOrderSaved) {
   // Excluir ou cancelar pedido
   const cancelOrder = useCallback((pedidoId) => {
     const list = DB.getPedidos();
-    const updated = list.map(p => {
-      if (p.id === pedidoId) {
-        return { ...p, status: 'CANCELADO' };
-      }
-      return p;
-    });
-    DB.set(DB.STORAGE_KEYS?.PEDIDOS || 'serraria_pedidos_v1', updated);
-    setOrders(updated);
-    if (showToast) showToast('Pedido cancelado com sucesso.', 'info');
+    const found = list.find(p => p.id === pedidoId);
+    if (found) {
+      const cancelled = { ...found, status: 'CANCELADO' };
+      DB.salvarPedido(cancelled);
+      setOrders(DB.getPedidos());
+      if (showToast) showToast(`Pedido #${found.numero} cancelado com sucesso.`, 'info');
+    }
   }, [showToast]);
 
   // Duplicar orçamento com opção de substituição de espécie de madeira
@@ -68,16 +66,22 @@ export function useOrders(showToast, onOrderSaved) {
         novo.resumo_financeiro?.valor_frete || 0,
         novo.resumo_financeiro?.desconto_valor || 0,
         novo.resumo_financeiro?.desconto_tipo || 'VALOR',
-        0
+        0,
+        novo.resumo_financeiro?.plaina_pct || 0,
+        novo.resumo_financeiro?.plaina_base || 'ITENS_PLAINA'
       );
       if (novo.resumo_financeiro) {
         novo.resumo_financeiro.subtotal_itens_puros = t.subtotal_itens_puros;
+        novo.resumo_financeiro.subtotal_itens_plaina = t.subtotal_itens_plaina;
         novo.resumo_financeiro.taxa_aparelhamento = t.taxa_aparelhamento;
+        novo.resumo_financeiro.plaina_pct = t.plaina_percentual;
         novo.resumo_financeiro.subtotal_com_plaina = t.subtotal_com_plaina;
         novo.resumo_financeiro.valor_total = t.valor_total;
         novo.resumo_financeiro.percentual_bruto = t.percentual_bruto;
         novo.resumo_financeiro.valor_total_bruto = t.valor_total_bruto;
-        novo.resumo_financeiro.saldo_a_receber = t.valor_total;
+        novo.resumo_financeiro.percentual_debito = t.percentual_debito;
+        novo.resumo_financeiro.valor_total_debito = t.valor_total_debito;
+        novo.resumo_financeiro.saldo_a_receber = 0;
         novo.resumo_financeiro.valor_sinal = 0;
       }
     }
@@ -87,7 +91,7 @@ export function useOrders(showToast, onOrderSaved) {
     return novo;
   }, [saveOrder, showToast]);
 
-  // Gerador de mensagem formatada para WhatsApp com Duplo Preço
+  // Gerador de mensagem formatada para WhatsApp com Preços À Vista, Débito e Bruto
   const generateWhatsAppText = useCallback((p, percentualBruto = 20) => {
     const nome = p.cliente?.nome || 'Cliente';
     const num = p.numero;
@@ -99,15 +103,27 @@ export function useOrders(showToast, onOrderSaved) {
       p.resumo_financeiro?.valor_total_bruto || 
       CalcEngine.calcularPrecoBruto(p.resumo_financeiro?.valor_total || 0, pctBruto)
     );
+    const pctDebito = p.resumo_financeiro?.percentual_debito !== undefined 
+      ? p.resumo_financeiro.percentual_debito 
+      : CalcEngine.getPercentualTaxaDebito();
+    const totalDebito = CalcEngine.formatBRL(
+      p.resumo_financeiro?.valor_total_debito || 
+      CalcEngine.calcularPrecoDebito(p.resumo_financeiro?.valor_total || 0, pctDebito)
+    );
 
     let texto = `*SERRARIA BOM JESUS — Proposta Comercial #${num}*\n`;
     texto += `Olá, *${nome}*! Segue a cotação do seu madeiramento:\n\n`;
 
     if (p.itens && p.itens.length > 0) {
       p.itens.forEach((it, idx) => {
-        const plainaTag = it.aparelhado ? ' (Aparelhado)' : '';
+        const plainaTag = it.aparelhar ? ' (Aparelhar)' : '';
         texto += `${idx + 1}. ${it.quantidade}x ${it.descricao}${plainaTag} — ${CalcEngine.formatBRL(it.subtotal)}\n`;
       });
+    }
+
+    if ((p.resumo_financeiro?.taxa_aparelhamento || 0) > 0) {
+      const pctTexto = p.resumo_financeiro?.plaina_pct ? ` (${p.resumo_financeiro.plaina_pct}%)` : '';
+      texto += `\n*Acréscimo Plaina${pctTexto}:* ${CalcEngine.formatBRL(p.resumo_financeiro.taxa_aparelhamento)}`;
     }
 
     const frete = (p.resumo_financeiro?.valor_frete || 0) > 0 
@@ -117,6 +133,7 @@ export function useOrders(showToast, onOrderSaved) {
 
     texto += `\n*VALORES DA PROPOSTA:*`;
     texto += `\n• *À VISTA (Pix / Dinheiro):* ${total}`;
+    texto += `\n• *NO DÉBITO / CARTÃO:* ${totalDebito}`;
     texto += `\n• *PREÇO BRUTO (A Prazo / Cartão em até 12x):* ${totalBruto}`;
     texto += `\n\n_Proposta válida por 7 dias. Madeiras selecionadas com garantia de bitola e qualidade!_\n`;
     texto += `Serraria Bom Jesus • Caçapava - SP • Contato: (12) 3653-2000`;

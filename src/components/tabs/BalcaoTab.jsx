@@ -3,21 +3,110 @@ import { useApp } from '../../context/AppContext';
 import { CalcEngine } from '../../services/calc.js';
 import { DocMascara, DB } from '../../services/data.js';
 
+// Componente que destaca as letras e termos que batem com a pesquisa
+const HighlightText = ({ text, query }) => {
+  if (!text) return null;
+  if (!query || typeof query !== 'string' || !query.trim()) return <>{text}</>;
+
+  const removeAccents = (str) =>
+    (str || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+
+  const words = query
+    .trim()
+    .split(/\s+/)
+    .map(w => removeAccents(w))
+    .filter(w => w.length > 0);
+
+  if (words.length === 0) return <>{text}</>;
+
+  const normText = removeAccents(text);
+  const mask = new Array(text.length).fill(false);
+
+  words.forEach(word => {
+    let startIdx = 0;
+    while ((startIdx = normText.indexOf(word, startIdx)) !== -1) {
+      const endIdx = Math.min(startIdx + word.length, text.length);
+      for (let i = startIdx; i < endIdx; i++) {
+        mask[i] = true;
+      }
+      startIdx += word.length;
+    }
+  });
+
+  const parts = [];
+  let currentChunk = '';
+  let currentIsHighlight = mask[0] || false;
+
+  for (let i = 0; i < text.length; i++) {
+    if (mask[i] === currentIsHighlight) {
+      currentChunk += text[i];
+    } else {
+      if (currentChunk) {
+        parts.push({ text: currentChunk, highlight: currentIsHighlight });
+      }
+      currentChunk = text[i];
+      currentIsHighlight = mask[i];
+    }
+  }
+  if (currentChunk) {
+    parts.push({ text: currentChunk, highlight: currentIsHighlight });
+  }
+
+  return (
+    <>
+      {parts.map((p, idx) =>
+        p.highlight ? (
+          <mark
+            key={idx}
+            style={{
+              backgroundColor: '#FEF08A',
+              color: '#854D0E',
+              padding: '0 2px',
+              borderRadius: '2px',
+              fontWeight: 700
+            }}
+          >
+            {p.text}
+          </mark>
+        ) : (
+          <span key={idx}>{p.text}</span>
+        )
+      )}
+    </>
+  );
+};
+
 export const BalcaoTab = () => {
-  const { 
-    products, 
-    bairros, 
-    carpenters, 
-    clients, 
+  const {
+    products,
+    bairros,
+    carpenters,
+    clients,
     saveClient,
-    config, 
-    saveOrder, 
-    showToast, 
+    config,
+    saveOrder,
+    showToast,
     openPrintModal,
     editingOrderId,
     setEditingOrderId,
-    orders
+    orders,
+    employees,
+    currentUser
   } = useApp();
+
+  const [mostrarCarpinteiro, setMostrarCarpinteiro] = useState(false);
+  const [expandirDadosEntrega, setExpandirDadosEntrega] = useState(true);
+
+  // Vendedor padrão ativo (prioriza o usuário logado se for funcionário, ou primeiro vendedor)
+  const defaultSeller = useMemo(() => {
+    if (!employees || employees.length === 0) return null;
+    return employees.find(e => e.id === currentUser?.funcionario_id || e.nome === currentUser?.nome) ||
+      employees.find(e => (e.cargo || '').toLowerCase().includes('vendedor')) ||
+      employees[0] || null;
+  }, [employees, currentUser]);
 
   // Orçamento Atual em Edição
   const [order, setOrder] = useState(() => ({
@@ -27,6 +116,8 @@ export const BalcaoTab = () => {
     validade_dias: 7,
     status: 'ORCAMENTO',
     etapa_patio: 'NAO_ENVIADO',
+    vendedor_id: '',
+    vendedor_nome: '',
     cliente: {
       id: '',
       nome: '',
@@ -42,13 +133,31 @@ export const BalcaoTab = () => {
     itens: [],
     frete_valor: 0,
     bairro_frete: '',
+    plaina_pct: 0,
+    plaina_base: 'ITENS_PLAINA',
     desconto_tipo: 'VALOR',
     desconto_valor: 0,
     desconto_autorizado: false,
     forma_pagamento: 'Pix',
+    cartao_parcelas: 1,
+    pagamento_dividido: false,
+    pagamentos: [
+      { id: 'pag_1', tipo: 'Pix', valor: 0, parcelas: 1 }
+    ],
     valor_sinal: 0,
     observacoes: ''
   }));
+
+  // Define vendedor inicial quando a lista de funcionários estiver pronta
+  useEffect(() => {
+    if (!order.vendedor_id && defaultSeller) {
+      setOrder(prev => ({
+        ...prev,
+        vendedor_id: defaultSeller.id,
+        vendedor_nome: defaultSeller.nome
+      }));
+    }
+  }, [defaultSeller, order.vendedor_id]);
 
   // Se veio do histórico para editar
   useEffect(() => {
@@ -57,19 +166,28 @@ export const BalcaoTab = () => {
       if (found) {
         setOrder({
           ...JSON.parse(JSON.stringify(found)),
+          vendedor_id: found.vendedor_id || found.comissao_vendedor_id || (defaultSeller ? defaultSeller.id : ''),
+          vendedor_nome: found.vendedor_nome || found.comissao_vendedor_nome || (defaultSeller ? defaultSeller.nome : ''),
           frete_valor: found.resumo_financeiro?.valor_frete || 0,
           bairro_frete: found.resumo_financeiro?.bairro_frete || '',
+          plaina_pct: found.plaina_pct ?? found.resumo_financeiro?.plaina_pct ?? 0,
+          plaina_base: found.plaina_base ?? found.resumo_financeiro?.plaina_base ?? 'ITENS_PLAINA',
           desconto_tipo: found.resumo_financeiro?.desconto_tipo || 'VALOR',
           desconto_valor: found.resumo_financeiro?.desconto_valor || 0,
           desconto_autorizado: found.resumo_financeiro?.desconto_autorizado || false,
-          forma_pagamento: found.resumo_financeiro?.forma_pagamento || 'Pix',
+          forma_pagamento: found.resumo_financeiro?.forma_pagamento || found.forma_pagamento || 'Pix',
+          cartao_parcelas: found.resumo_financeiro?.cartao_parcelas || found.cartao_parcelas || 1,
+          pagamento_dividido: Boolean(found.resumo_financeiro?.pagamento_dividido || found.pagamento_dividido),
+          pagamentos: (found.resumo_financeiro?.pagamentos_detalhe && found.resumo_financeiro.pagamentos_detalhe.length > 0)
+            ? found.resumo_financeiro.pagamentos_detalhe.map((pg, idx) => ({ id: `pag_${idx + 1}`, tipo: pg.tipo || 'Pix', valor: pg.valor || 0, parcelas: pg.parcelas || 1 }))
+            : (found.pagamentos || [{ id: 'pag_1', tipo: found.forma_pagamento || 'Pix', valor: found.resumo_financeiro?.valor_total || 0, parcelas: found.cartao_parcelas || 1 }]),
           valor_sinal: found.resumo_financeiro?.valor_sinal || 0,
           observacoes: found.observacoes_venda || ''
         });
         showToast(`Editando Pedido #${found.numero}`, 'info');
       }
     }
-  }, [editingOrderId, orders, showToast]);
+  }, [editingOrderId, orders, defaultSeller, showToast]);
 
   // Listener para evento de novo orçamento
   useEffect(() => {
@@ -82,6 +200,8 @@ export const BalcaoTab = () => {
         validade_dias: 7,
         status: 'ORCAMENTO',
         etapa_patio: 'NAO_ENVIADO',
+        vendedor_id: defaultSeller ? defaultSeller.id : '',
+        vendedor_nome: defaultSeller ? defaultSeller.nome : '',
         cliente: {
           id: '',
           nome: '',
@@ -97,28 +217,54 @@ export const BalcaoTab = () => {
         itens: [],
         frete_valor: 0,
         bairro_frete: '',
+        plaina_pct: 0,
+        plaina_base: 'ITENS_PLAINA',
         desconto_tipo: 'VALOR',
         desconto_valor: 0,
         desconto_autorizado: false,
         forma_pagamento: 'Pix',
+        cartao_parcelas: 1,
+        pagamento_dividido: false,
+        pagamentos: [
+          { id: 'pag_1', tipo: 'Pix', valor: 0, parcelas: 1 }
+        ],
         valor_sinal: 0,
         observacoes: ''
       });
+      setMostrarCarpinteiro(false);
     };
 
     window.addEventListener('serraria:novo_orcamento', handleNovo);
     return () => window.removeEventListener('serraria:novo_orcamento', handleNovo);
-  }, [setEditingOrderId]);
+  }, [defaultSeller, setEditingOrderId]);
 
   // Estado da Barra Rápida de Inserção de Produto
   const [fastProductSearch, setFastProductSearch] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [activeProductIndex, setActiveProductIndex] = useState(0);
   const [fastQtd, setFastQtd] = useState(1);
   const [fastLargura, setFastLargura] = useState('');
   const [fastComprimento, setFastComprimento] = useState('');
   const [fastPreco, setFastPreco] = useState('0.00');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [senhaGerenteInput, setSenhaGerenteInput] = useState('');
+  const productComboboxRef = useRef(null);
+  const fastProductSearchInputRef = useRef(null);
+  const fastQtdInputRef = useRef(null);
+  const fastLarguraInputRef = useRef(null);
+  const fastCompInputRef = useRef(null);
+  const fastPrecoInputRef = useRef(null);
+  const fastAddBtnRef = useRef(null);
+
+  // Foco com seleção automática para agilizar digitação contínua
+  const focusInput = (ref) => {
+    if (ref && ref.current) {
+      ref.current.focus();
+      if (typeof ref.current.select === 'function') {
+        ref.current.select();
+      }
+    }
+  };
 
   // Autocomplete e busca de clientes cadastrados
   const [isClientDropdownOpen, setIsClientDropdownOpen] = useState(false);
@@ -132,8 +278,6 @@ export const BalcaoTab = () => {
       .replace(/[\u0300-\u036f]/g, '')
       .trim();
   };
-
-
 
   // Filtragem de clientes em tempo real (busca inteligente por nome, telefone, documento ou bairro)
   const matchingClients = useMemo(() => {
@@ -152,13 +296,14 @@ export const BalcaoTab = () => {
     }).slice(0, 8);
   }, [order.cliente?.nome, clients]);
 
-
-
-  // Fechar dropdown de clientes ao clicar fora
+  // Fechar dropdowns de clientes e produtos ao clicar fora
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (clientAutocompleteRef.current && !clientAutocompleteRef.current.contains(e.target)) {
         setIsClientDropdownOpen(false);
+      }
+      if (productComboboxRef.current && !productComboboxRef.current.contains(e.target)) {
+        setIsDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -200,26 +345,76 @@ export const BalcaoTab = () => {
     showToast(`Cliente selecionado: ${c.nome}`);
   };
 
-  // Sugestões de produtos filtrados
+  // Sugestões de produtos filtrados com busca multi-termos sem acentos e priorização de prefixo
   const produtosFiltrados = useMemo(() => {
-    if (!fastProductSearch.trim()) return products.slice(0, 20);
-    const termo = fastProductSearch.toLowerCase();
-    return products.filter(p => 
-      p.nome.toLowerCase().includes(termo) || 
-      p.codigo.toLowerCase().includes(termo) ||
-      (p.especie && p.especie.toLowerCase().includes(termo))
-    ).slice(0, 20);
-  }, [fastProductSearch, products]);
+    const rawTerm = fastProductSearch.trim();
+    if (!rawTerm) return products.slice(0, 35);
+
+    const removeAccents = (str) =>
+      (str || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+    // Se o texto é exatamente o produto selecionado, mostra catálogo padrão
+    if (selectedProduct && `${selectedProduct.codigo} - ${selectedProduct.nome}` === rawTerm) {
+      return products.slice(0, 35);
+    }
+
+    const searchTokens = rawTerm
+      .split(/\s+/)
+      .map(t => removeAccents(t))
+      .filter(Boolean);
+
+    if (searchTokens.length === 0) return products.slice(0, 35);
+
+    return products
+      .filter(p => {
+        const pCats = Array.isArray(p.categorias) ? p.categorias : (p.categoria ? [p.categoria] : []);
+        const targetStr = removeAccents(
+          `${p.codigo || ''} ${p.nome || ''} ${p.especie || ''} ${pCats.join(' ')} ${p.tipo_calculo || ''} ${p.descricao || ''}`
+        );
+
+        // Todos os termos digitados devem estar presentes
+        return searchTokens.every(token => targetStr.includes(token));
+      })
+      .sort((a, b) => {
+        const aCode = removeAccents(a.codigo);
+        const bCode = removeAccents(b.codigo);
+        const aNome = removeAccents(a.nome);
+        const bNome = removeAccents(b.nome);
+        const firstToken = searchTokens[0];
+
+        // 1. Prioridade para código começando com o termo
+        const aCodeStarts = aCode.startsWith(firstToken);
+        const bCodeStarts = bCode.startsWith(firstToken);
+        if (aCodeStarts && !bCodeStarts) return -1;
+        if (!aCodeStarts && bCodeStarts) return 1;
+
+        // 2. Prioridade para nome começando com o termo
+        const aNomeStarts = aNome.startsWith(firstToken);
+        const bNomeStarts = bNome.startsWith(firstToken);
+        if (aNomeStarts && !bNomeStarts) return -1;
+        if (!aNomeStarts && bNomeStarts) return 1;
+
+        return 0;
+      })
+      .slice(0, 40);
+  }, [fastProductSearch, products, selectedProduct]);
+
+  // Identifica se o produto selecionado exige medidas de corte (ML)
+  const isMadeiraLinear = Boolean(selectedProduct && selectedProduct.tipo_calculo === 'ML');
 
   // Preview de subtotal na barra rápida
   const fastSubtotalPreview = useMemo(() => {
     if (!selectedProduct) return 0;
     const preco = parseFloat(fastPreco) || selectedProduct.preco_unitario || 0;
+    const isML = selectedProduct.tipo_calculo === 'ML';
     const tempItem = {
       quantidade: fastQtd,
-      largura_cm: parseFloat(fastLargura) || selectedProduct.largura_cm || 0,
-      comprimento_m: parseFloat(fastComprimento) || selectedProduct.comprimento_padrao_m || 0,
-      tipo_calculo: selectedProduct.tipo_calculo,
+      largura_cm: isML ? (parseFloat(fastLargura) || selectedProduct.largura_cm || 0) : 0,
+      comprimento_m: isML ? (parseFloat(fastComprimento) || selectedProduct.comprimento_padrao_m || 0) : 0,
+      tipo_calculo: selectedProduct.tipo_calculo || 'UN',
       valor_unitario: preco,
       aparelhar: false
     };
@@ -237,16 +432,58 @@ export const BalcaoTab = () => {
       setFastLargura(prod.largura_cm || '');
       setFastComprimento(prod.comprimento_padrao_m || 3.0);
     } else {
-      setFastLargura('');
-      setFastComprimento('');
+      setFastLargura('-');
+      setFastComprimento('-');
     }
+
+    // Foco automático e conversa fluida: pula direto para a Quantidade
+    setTimeout(() => {
+      if (fastQtdInputRef.current) {
+        fastQtdInputRef.current.focus();
+        fastQtdInputRef.current.select();
+      }
+    }, 60);
+  };
+
+  // Adicionar item avulso que não está no catálogo
+  const handleAdicionarItemAvulso = (nomeItem) => {
+    const nomeLimpo = (nomeItem || fastProductSearch || '').trim();
+    if (!nomeLimpo) {
+      showToast('Digite a descrição do produto a adicionar.', 'warning');
+      return;
+    }
+    const itemCustom = {
+      id: 'custom_' + Date.now(),
+      codigo: 'AVULSO',
+      nome: nomeLimpo,
+      preco_unitario: 0,
+      tipo_calculo: 'UN',
+      estoque_atual: 999
+    };
+    setSelectedProduct(itemCustom);
+    setFastProductSearch(nomeLimpo);
+    setFastPreco('0.00');
+    setFastLargura('-');
+    setFastComprimento('-');
+    setIsDropdownOpen(false);
+    setTimeout(() => {
+      if (fastPrecoInputRef.current) {
+        fastPrecoInputRef.current.focus();
+        fastPrecoInputRef.current.select();
+      }
+    }, 60);
+    showToast(`"${nomeLimpo}" selecionado como item avulso. Informe o preço unitário e a quantidade.`, 'info');
   };
 
   // Adicionar item ao pedido
   const handleAddItem = (e) => {
     if (e) e.preventDefault();
     if (!selectedProduct) {
-      showToast('Selecione um produto da lista antes de adicionar.', 'warning');
+      if (fastProductSearch.trim()) {
+        handleAdicionarItemAvulso(fastProductSearch);
+        return;
+      }
+      showToast('Selecione ou digite um produto antes de adicionar.', 'warning');
       return;
     }
 
@@ -256,20 +493,21 @@ export const BalcaoTab = () => {
       return;
     }
 
-    const comp = parseFloat(fastComprimento) || selectedProduct.comprimento_padrao_m || 0;
-    const larg = parseFloat(fastLargura) || selectedProduct.largura_cm || 0;
+    const isML = selectedProduct.tipo_calculo === 'ML';
+    const comp = isML ? (parseFloat(fastComprimento) || selectedProduct.comprimento_padrao_m || 0) : 0;
+    const larg = isML ? (parseFloat(fastLargura) || selectedProduct.largura_cm || 0) : 0;
 
     const itemObj = {
       id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
       produto_id: selectedProduct.id,
-      codigo: selectedProduct.codigo,
+      codigo: selectedProduct.codigo || 'AVULSO',
       descricao: selectedProduct.nome,
       largura_cm: larg,
       acabamento: 'BRUTA',
       aparelhar: false,
-      tipo_calculo: selectedProduct.tipo_calculo,
+      tipo_calculo: selectedProduct.tipo_calculo || 'UN',
       quantidade: qtd,
-      comprimento_m: selectedProduct.tipo_calculo === 'ML' ? comp : 0,
+      comprimento_m: comp,
       valor_unitario: parseFloat(fastPreco) || selectedProduct.preco_unitario || 0
     };
 
@@ -290,6 +528,11 @@ export const BalcaoTab = () => {
     setFastLargura('');
     setFastComprimento('');
     setFastPreco('0.00');
+
+    // Retorna o foco para a busca de produto para digitar o próximo item
+    setTimeout(() => {
+      focusInput(fastProductSearchInputRef);
+    }, 60);
   };
 
   // Atualizar item inline (tabela)
@@ -322,9 +565,11 @@ export const BalcaoTab = () => {
       order.frete_valor,
       order.desconto_valor,
       order.desconto_tipo,
-      order.valor_sinal
+      0,
+      order.plaina_pct,
+      order.plaina_base
     );
-  }, [order.itens, order.frete_valor, order.desconto_valor, order.desconto_tipo, order.valor_sinal]);
+  }, [order.itens, order.frete_valor, order.desconto_valor, order.desconto_tipo, order.plaina_pct, order.plaina_base]);
 
   // Autorização do gerente para desconto
   const handleAutorizarDesconto = () => {
@@ -338,18 +583,107 @@ export const BalcaoTab = () => {
     }
   };
 
-  // Botões de pagamento rápido
-  const handlePagarTotal = () => {
-    setOrder(prev => ({ ...prev, valor_sinal: totais.valor_total }));
+  // Funções de gerenciamento de pagamentos múltiplos / divididos
+  const handleTogglePagamentoDividido = (dividido) => {
+    setOrder(prev => {
+      if (!dividido) {
+        return {
+          ...prev,
+          pagamento_dividido: false
+        };
+      }
+      let currentPags = prev.pagamentos && prev.pagamentos.length >= 2 ? prev.pagamentos : null;
+      if (!currentPags) {
+        const valTotal = totais.valor_total || 0;
+        const metade = parseFloat((valTotal / 2).toFixed(2));
+        const resto = parseFloat((valTotal - metade).toFixed(2));
+        currentPags = [
+          { id: 'pag_1', tipo: 'Pix', valor: metade, parcelas: 1 },
+          { id: 'pag_2', tipo: 'Cartão de Crédito', valor: resto, parcelas: 1 }
+        ];
+      }
+      return {
+        ...prev,
+        pagamento_dividido: true,
+        pagamentos: currentPags
+      };
+    });
   };
 
-  const handlePagarMetade = () => {
-    setOrder(prev => ({ ...prev, valor_sinal: parseFloat((totais.valor_total / 2).toFixed(2)) }));
+  const handleUpdatePaymentLine = (id, field, value) => {
+    setOrder(prev => {
+      const updatedPags = (prev.pagamentos || []).map(pg => {
+        if (pg.id !== id) return pg;
+        if (field === 'valor') {
+          return { ...pg, valor: Math.max(0, parseFloat(value) || 0) };
+        }
+        if (field === 'parcelas') {
+          return { ...pg, parcelas: Math.min(5, Math.max(1, parseInt(value) || 1)) };
+        }
+        if (field === 'tipo') {
+          return {
+            ...pg,
+            tipo: value,
+            parcelas: value === 'Cartão de Crédito' ? (pg.parcelas || 1) : 1
+          };
+        }
+        return { ...pg, [field]: value };
+      });
+      return { ...prev, pagamentos: updatedPags };
+    });
   };
 
-  const handleZerarPagamento = () => {
-    setOrder(prev => ({ ...prev, valor_sinal: 0 }));
+  const handleAddPaymentLine = () => {
+    setOrder(prev => {
+      const currentPags = prev.pagamentos || [];
+      const currentTotal = currentPags.reduce((acc, p) => acc + (parseFloat(p.valor) || 0), 0);
+      const restante = Math.max(0, parseFloat((totais.valor_total - currentTotal).toFixed(2)));
+      const nextId = `pag_${Date.now()}`;
+      const existingTypes = currentPags.map(p => p.tipo);
+      const possibleTypes = ['Pix', 'Cartão de Crédito', 'Dinheiro', 'Cartão de Débito'];
+      const suggestedType = possibleTypes.find(t => !existingTypes.includes(t)) || 'Cartão de Crédito';
+      return {
+        ...prev,
+        pagamentos: [
+          ...currentPags,
+          { id: nextId, tipo: suggestedType, valor: restante, parcelas: 1 }
+        ]
+      };
+    });
   };
+
+  const handleRemovePaymentLine = (id) => {
+    setOrder(prev => {
+      if ((prev.pagamentos || []).length <= 1) return prev;
+      return {
+        ...prev,
+        pagamentos: prev.pagamentos.filter(p => p.id !== id)
+      };
+    });
+  };
+
+  const handleAutofillRemaining = (id) => {
+    setOrder(prev => {
+      const currentPags = prev.pagamentos || [];
+      const othersTotal = currentPags
+        .filter(p => p.id !== id)
+        .reduce((acc, p) => acc + (parseFloat(p.valor) || 0), 0);
+      const rest = Math.max(0, parseFloat((totais.valor_total - othersTotal).toFixed(2)));
+      return {
+        ...prev,
+        pagamentos: currentPags.map(p => p.id === id ? { ...p, valor: rest } : p)
+      };
+    });
+  };
+
+  const totalPagamentosAlocado = useMemo(() => {
+    if (!order.pagamento_dividido) return totais.valor_total;
+    return (order.pagamentos || []).reduce((acc, p) => acc + (parseFloat(p.valor) || 0), 0);
+  }, [order.pagamento_dividido, order.pagamentos, totais.valor_total]);
+
+  const diferencaAlocacao = useMemo(() => {
+    return parseFloat((totais.valor_total - totalPagamentosAlocado).toFixed(2));
+  }, [totais.valor_total, totalPagamentosAlocado]);
 
   // Montar objeto de pedido completo para salvar / imprimir
   const buildCompleteOrder = (statusFinal = 'ORCAMENTO') => {
@@ -376,9 +710,65 @@ export const BalcaoTab = () => {
       veiculo_sugerido: totais.veiculo_sugerido
     };
 
+    const isPago = statusFinal === 'PAGO' || statusFinal === 'APROVADO';
+
+    // Atribuição e cálculo da comissão do Vendedor Responsável
+    const vendedor = employees.find(e => e.id === orderCopy.vendedor_id) || defaultSeller;
+    const comissaoPct = vendedor?.comissao_pct !== undefined ? vendedor.comissao_pct : 2.0;
+    const valorComissao = parseFloat(((totais.valor_total * comissaoPct) / 100).toFixed(2));
+
+    orderCopy.vendedor_id = vendedor ? vendedor.id : '';
+    orderCopy.vendedor_nome = vendedor ? vendedor.nome : 'Vendedor de Balcão';
+    orderCopy.comissao_vendedor_pct = comissaoPct;
+    orderCopy.comissao_vendedor_valor = valorComissao;
+    orderCopy.plaina_pct = order.plaina_pct || 0;
+    orderCopy.plaina_base = order.plaina_base || 'ITENS_PLAINA';
+
+    // Montagem da forma de pagamento e detalhe de parcelas/divisões
+    let formaPagamentoFinal = order.forma_pagamento || 'Pix';
+    let pagamentosDetalhe = [];
+
+    if (order.pagamento_dividido && order.pagamentos && order.pagamentos.length > 0) {
+      pagamentosDetalhe = order.pagamentos
+        .filter(pg => (parseFloat(pg.valor) || 0) > 0)
+        .map(pg => ({
+          tipo: pg.tipo,
+          valor: parseFloat(pg.valor) || 0,
+          parcelas: pg.tipo === 'Cartão de Crédito' ? Math.min(5, Math.max(1, parseInt(pg.parcelas) || 1)) : 1
+        }));
+
+      if (pagamentosDetalhe.length > 0) {
+        formaPagamentoFinal = pagamentosDetalhe
+          .map(pg => {
+            const parcStr = pg.tipo === 'Cartão de Crédito' && pg.parcelas > 1 ? ` (${pg.parcelas}x)` : '';
+            return `${pg.tipo}${parcStr}: ${CalcEngine.formatBRL(pg.valor)}`;
+          })
+          .join(' + ');
+      }
+    } else {
+      const parc = order.forma_pagamento === 'Cartão de Crédito' ? Math.min(5, Math.max(1, parseInt(order.cartao_parcelas) || 1)) : 1;
+      const parcStr = order.forma_pagamento === 'Cartão de Crédito' && parc > 1 ? ` (${parc}x)` : '';
+      formaPagamentoFinal = `${order.forma_pagamento}${parcStr}`;
+      pagamentosDetalhe = [
+        {
+          tipo: order.forma_pagamento,
+          valor: totais.valor_total,
+          parcelas: parc
+        }
+      ];
+    }
+
+    orderCopy.forma_pagamento = formaPagamentoFinal;
+    orderCopy.cartao_parcelas = order.cartao_parcelas || 1;
+    orderCopy.pagamento_dividido = Boolean(order.pagamento_dividido);
+    orderCopy.pagamentos = pagamentosDetalhe;
+
     orderCopy.resumo_financeiro = {
       subtotal_itens_puros: totais.subtotal_itens_puros,
+      subtotal_itens_plaina: totais.subtotal_itens_plaina,
       taxa_aparelhamento: totais.taxa_aparelhamento,
+      plaina_pct: order.plaina_pct || 0,
+      plaina_base: order.plaina_base || 'ITENS_PLAINA',
       subtotal_com_plaina: totais.subtotal_com_plaina,
       valor_frete: totais.valor_frete,
       bairro_frete: order.bairro_frete,
@@ -389,12 +779,19 @@ export const BalcaoTab = () => {
       valor_total: totais.valor_total,
       percentual_bruto: totais.percentual_bruto,
       valor_total_bruto: totais.valor_total_bruto,
-      forma_pagamento: order.forma_pagamento,
-      valor_sinal: totais.valor_sinal,
-      saldo_a_receber: totais.saldo_a_receber
+      percentual_debito: totais.percentual_debito,
+      valor_total_debito: totais.valor_total_debito,
+      forma_pagamento: formaPagamentoFinal,
+      pagamento_dividido: Boolean(order.pagamento_dividido),
+      pagamentos_detalhe: pagamentosDetalhe,
+      cartao_parcelas: order.cartao_parcelas || 1,
+      valor_sinal: isPago ? totais.valor_total : 0,
+      saldo_a_receber: 0,
+      comissao_vendedor_pct: comissaoPct,
+      comissao_vendedor_valor: valorComissao
     };
 
-    if (statusFinal === 'APROVADO') {
+    if (isPago) {
       const temPlaina = orderCopy.itens.some(i => i.aparelhar);
       orderCopy.etapa_patio = temPlaina ? 'CORTE_PLAINA' : 'SEPARACAO';
       orderCopy.checklist_patio = orderCopy.itens.map(it => ({
@@ -404,16 +801,26 @@ export const BalcaoTab = () => {
         carregado: false,
         requer_plaina: it.aparelhar
       }));
-    } else if (statusFinal === 'ENTREGUE') {
-      orderCopy.etapa_patio = 'ENTREGUE';
-      orderCopy.finalizado_balcao = true;
-      orderCopy.tipo_entrega = 'BALCAO_IMEDIATO';
-      orderCopy.data_entrega = new Date().toISOString();
-      orderCopy.resumo_financeiro.valor_sinal = orderCopy.resumo_financeiro.valor_total;
-      orderCopy.resumo_financeiro.saldo_a_receber = 0;
+    } else {
+      orderCopy.etapa_patio = 'NAO_ENVIADO';
     }
 
     return orderCopy;
+  };
+
+  const handleSalvarPago = () => {
+    if (order.pagamento_dividido && Math.abs(diferencaAlocacao) > 0.05) {
+      if (diferencaAlocacao > 0) {
+        showToast(`Atenção: Ainda falta distribuir ${CalcEngine.formatBRL(diferencaAlocacao)} nas formas de pagamento.`, 'warning');
+      } else {
+        showToast(`Atenção: O total distribuído ultrapassou o pedido em ${CalcEngine.formatBRL(Math.abs(diferencaAlocacao))}.`, 'warning');
+      }
+      return;
+    }
+    const pedido = buildCompleteOrder('PAGO');
+    if (!pedido) return;
+    saveOrder(pedido);
+    showToast(`Venda #${pedido.numero} salva como PAGA com sucesso!`, 'success');
   };
 
   const handleSalvarOrcamento = () => {
@@ -421,20 +828,6 @@ export const BalcaoTab = () => {
     if (!pedido) return;
     saveOrder(pedido);
     showToast(`Orçamento #${pedido.numero} salvo com sucesso!`, 'success');
-  };
-
-  const handleAprovarVenda = () => {
-    const pedido = buildCompleteOrder('APROVADO');
-    if (!pedido) return;
-    saveOrder(pedido);
-    showToast(`Venda #${pedido.numero} aprovada e enviada para o Pátio!`, 'success');
-  };
-
-  const handleFinalizarBalcao = () => {
-    const pedido = buildCompleteOrder('ENTREGUE');
-    if (!pedido) return;
-    saveOrder(pedido);
-    showToast(`Venda Balcão #${pedido.numero} 100% quitada e entregue!`, 'success');
   };
 
   const handleImprimir = (modo = 'CLIENTE') => {
@@ -445,112 +838,158 @@ export const BalcaoTab = () => {
   };
 
   return (
-    <div className="balcao-layout">
-      {/* CABEÇALHO DO CLIENTE & DADOS DA OBRA */}
-      <div className="panel" style={{ marginBottom: '14px', overflow: 'visible' }}>
-        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span className="panel-title">
-            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            Identificação do Cliente, Obra e Parceiro
-          </span>
-          <span className="badge-tag badge-bruta font-mono" style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px' }}>
-            ORÇAMENTO #{order.numero}
-          </span>
+    <div className="balcao-full-layout">
+      {/* 1. PAINEL DE IDENTIFICAÇÃO DO CLIENTE & OBRA (LARGURA TOTAL) */}
+      <div className="balcao-client-card" style={{ overflow: 'visible' }}>
+        <div className="balcao-client-card-header">
+          <div className="balcao-client-card-title">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+            <span>Identificação do Cliente, Obra e Vendedor</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setExpandirDadosEntrega(prev => !prev)}
+              style={{
+                background: '#F1F5F9',
+                border: '1px solid #CBD5E1',
+                borderRadius: '4px',
+                color: 'var(--text-secondary)',
+                fontSize: '11px',
+                padding: '3px 8px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              title="Mostrar ou ocultar campos de entrega e carpinteiro"
+            >
+              {expandirDadosEntrega ? '▲ Menos detalhes' : '▼ Local de Entrega & Parceiro'}
+            </button>
+            <span className="badge-tag badge-bruta font-mono" style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px' }}>
+              ORÇAMENTO #{order.numero}
+            </span>
+          </div>
         </div>
 
-
-
-        <div className="panel-body">
-          <div className="form-grid form-grid-client-header">
-            <div className="form-group autocomplete-wrapper" ref={clientAutocompleteRef}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label className="form-label" style={{ marginBottom: '4px' }}>Nome do Cliente:</label>
-                {order.cliente.id && (
-                  <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 600 }}>
-                    Cadastrado
-                  </span>
-                )}
-              </div>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Pesquisar por nome, telefone ou CPF..."
-                value={order.cliente.nome || ''}
-                autoComplete="off"
-                onChange={e => {
-                  const val = e.target.value;
-                  setOrder(prev => ({ 
-                    ...prev, 
-                    cliente: { 
-                      ...prev.cliente, 
-                      nome: val,
-                      id: prev.cliente.nome === val ? prev.cliente.id : ''
-                    } 
-                  }));
-                  setIsClientDropdownOpen(val.trim().length >= 1);
-                }}
-                onFocus={() => {
-                  if ((order.cliente.nome || '').trim().length >= 1) {
-                    setIsClientDropdownOpen(true);
-                  }
-                }}
-              />
-              {isClientDropdownOpen && (
-                <div className="autocomplete-dropdown" style={{ zIndex: 1000 }}>
-                  {matchingClients.length > 0 ? (
-                    matchingClients.map(c => (
-                      <div 
-                        key={c.id} 
-                        className="autocomplete-item"
-                        onClick={() => handleSelectClient(c)}
-                      >
-                        <div>
-                          <div className="autocomplete-item-name">{c.nome}</div>
-                          <div className="autocomplete-item-sub">
-                            {c.telefone || 'Sem telefone'} | {c.bairro || 'Sem bairro'} {c.documento ? `| Doc: ${c.documento}` : ''}
-                          </div>
-                        </div>
-                        <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 600 }}>
-                          Selecionar
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="autocomplete-item" style={{ color: 'var(--text-muted)', cursor: 'default' }}>
-                      <span>Nenhum cliente cadastrado com este nome. Os dados serão salvos automaticamente ao finalizar!</span>
-                    </div>
-                  )}
-                </div>
+        {/* LINHA 1: CLIENTE, TELEFONE, CPF/CNPJ, VENDEDOR */}
+        <div className="balcao-client-row-1">
+          <div className="form-group autocomplete-wrapper" ref={clientAutocompleteRef}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label className="form-label">Nome do Cliente:</label>
+              {order.cliente.id && (
+                <span style={{ fontSize: '10.5px', color: 'var(--brand-primary)', fontWeight: 700 }}>
+                  Cadastrado
+                </span>
               )}
             </div>
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Pesquisar por nome, telefone ou CPF..."
+              value={order.cliente.nome || ''}
+              autoComplete="off"
+              onChange={e => {
+                const val = e.target.value;
+                setOrder(prev => ({
+                  ...prev,
+                  cliente: {
+                    ...prev.cliente,
+                    nome: val,
+                    id: prev.cliente.nome === val ? prev.cliente.id : ''
+                  }
+                }));
+                setIsClientDropdownOpen(val.trim().length >= 1);
+              }}
+              onFocus={() => {
+                if ((order.cliente.nome || '').trim().length >= 1) {
+                  setIsClientDropdownOpen(true);
+                }
+              }}
+            />
+            {isClientDropdownOpen && (
+              <div className="autocomplete-dropdown" style={{ zIndex: 1000 }}>
+                {matchingClients.length > 0 ? (
+                  matchingClients.map(c => (
+                    <div
+                      key={c.id}
+                      className="autocomplete-item"
+                      onClick={() => handleSelectClient(c)}
+                    >
+                      <div>
+                        <div className="autocomplete-item-name">{c.nome}</div>
+                        <div className="autocomplete-item-sub">
+                          {c.telefone || 'Sem telefone'} | {c.bairro || 'Sem bairro'} {c.documento ? `| Doc: ${c.documento}` : ''}
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 600 }}>
+                        Selecionar
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="autocomplete-item" style={{ color: 'var(--text-muted)', cursor: 'default' }}>
+                    <span>Nenhum cliente cadastrado com este nome. Os dados serão salvos automaticamente ao finalizar!</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-            <div className="form-group">
-              <label className="form-label">Telefone / WhatsApp:</label>
-              <input 
-                type="text" 
-                className="form-input font-mono" 
-                placeholder="(12) 99000-0000"
-                value={order.cliente.telefone}
-                onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, telefone: DocMascara.formatarTelefone(e.target.value) } }))}
-              />
-            </div>
+          <div className="form-group">
+            <label className="form-label">Telefone / WhatsApp:</label>
+            <input
+              type="text"
+              className="form-input font-mono"
+              placeholder="(12) 99000-0000"
+              value={order.cliente.telefone}
+              onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, telefone: DocMascara.formatarTelefone(e.target.value) } }))}
+            />
+          </div>
 
-            <div className="form-group">
-              <label className="form-label">CPF / CNPJ:</label>
-              <input 
-                type="text" 
-                className="form-input font-mono" 
-                placeholder="Somente números"
-                value={order.cliente.documento}
-                onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, documento: DocMascara.formatar(e.target.value) } }))}
-              />
-            </div>
+          <div className="form-group">
+            <label className="form-label">CPF / CNPJ:</label>
+            <input
+              type="text"
+              className="form-input font-mono"
+              placeholder="Somente números"
+              value={order.cliente.documento}
+              onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, documento: DocMascara.formatar(e.target.value) } }))}
+            />
+          </div>
 
+          <div className="form-group">
+            <label className="form-label">Vendedor:</label>
+            <select
+              className="form-select"
+              value={order.vendedor_id || ''}
+              onChange={e => {
+                const emp = employees?.find(item => item.id === e.target.value);
+                setOrder(prev => ({
+                  ...prev,
+                  vendedor_id: e.target.value,
+                  vendedor_nome: emp ? emp.nome : ''
+                }));
+              }}
+            >
+              {employees?.map(f => (
+                <option key={f.id} value={f.id}>
+                  {f.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* LINHA 2: ENDEREÇO, BAIRRO, CIDADE, INSTRUÇÕES / CARPINTEIRO */}
+        {expandirDadosEntrega && (
+          <div className="balcao-client-row-2">
             <div className="form-group">
               <label className="form-label">Local de Entrega / Endereço:</label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 placeholder="Rua, Número, Lote ou Condomínio"
                 value={order.cliente.endereco_obra}
                 onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, endereco_obra: e.target.value } }))}
@@ -559,67 +998,112 @@ export const BalcaoTab = () => {
 
             <div className="form-group">
               <label className="form-label">Bairro:</label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 placeholder="Ex: Vila Galvão"
                 value={order.cliente.bairro}
                 onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, bairro: e.target.value } }))}
               />
             </div>
-          </div>
 
-          <div className="form-grid form-grid-client-sub">
             <div className="form-group">
               <label className="form-label">Cidade:</label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 value={order.cliente.cidade || 'Caçapava'}
                 onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, cidade: e.target.value } }))}
               />
             </div>
 
             <div className="form-group">
-              <label className="form-label">Indicação do Carpinteiro:</label>
-              <select 
-                className="form-select"
-                value={order.carpinteiro_id}
-                onChange={e => {
-                  const carp = carpenters.find(c => c.id === e.target.value);
-                  setOrder(prev => ({
-                    ...prev,
-                    carpinteiro_id: e.target.value,
-                    carpinteiro_nome: carp ? carp.nome : ''
-                  }));
-                }}
-              >
-                <option value="">Venda Direta (Sem Parceiro)</option>
-                {carpenters.map(c => (
-                  <option key={c.id} value={c.id}>{c.nome} ({c.especialidade || 'Mestre'})</option>
-                ))}
-              </select>
-            </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className="form-label">Entrega / Parceiro:</label>
+                {order.carpinteiro_id ? (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#F1F5F9', padding: '1px 6px', borderRadius: '4px', fontSize: '10.5px' }}>
+                    <span>Parceiro: <strong>{order.carpinteiro_nome}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => setOrder(prev => ({ ...prev, carpinteiro_id: '', carpinteiro_nome: '' }))}
+                      style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', padding: '0 2px', fontWeight: 800, fontSize: '11px', lineHeight: 1 }}
+                      title="Remover carpinteiro"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ) : (
+                  mostrarCarpinteiro ? (
+                    <button
+                      type="button"
+                      onClick={() => setMostrarCarpinteiro(false)}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '10.5px', cursor: 'pointer' }}
+                    >
+                      Cancelar
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setMostrarCarpinteiro(true)}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '10.5px', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      + Carpinteiro
+                    </button>
+                  )
+                )}
+              </div>
 
-            <div className="form-group">
-              <label className="form-label">Instruções para Entrega / Descarga:</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Ex: Acesso por estrada de terra; descarregar somente pela manhã"
+              {mostrarCarpinteiro && !order.carpinteiro_id && (
+                <div style={{ marginBottom: '4px', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <select
+                    className="form-select"
+                    style={{ fontSize: '11.5px', height: '30px', flex: 1, borderColor: '#CBD5E1' }}
+                    value={order.carpinteiro_id || ''}
+                    onChange={e => {
+                      const carp = carpenters.find(c => c.id === e.target.value);
+                      setOrder(prev => ({
+                        ...prev,
+                        carpinteiro_id: e.target.value,
+                        carpinteiro_nome: carp ? carp.nome : ''
+                      }));
+                      setMostrarCarpinteiro(false);
+                    }}
+                  >
+                    <option value="">Selecione o Carpinteiro / Parceiro...</option>
+                    {carpenters.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.nome} {c.especialidade ? `(${c.especialidade})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-secondary"
+                    onClick={() => setMostrarCarpinteiro(false)}
+                    style={{ height: '30px', padding: '0 8px', fontSize: '11px' }}
+                  >
+                    &times;
+                  </button>
+                </div>
+              )}
+
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Instruções para entrega e descarga..."
                 value={order.observacoes || ''}
                 onChange={e => setOrder(prev => ({ ...prev, observacoes: e.target.value }))}
               />
             </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* BLOCO 2: BARRA DE INSERÇÃO RÁPIDA ESTILO LINHA DE MONTAGEM + KITS */}
-      <div className="fast-insert-bar">
-        <div className="fast-insert-grid">
+      {/* 2. BARRA DE INSERÇÃO RÁPIDA (LARGURA TOTAL) */}
+      <div className="balcao-insert-card">
+        <div className="balcao-insert-grid">
           {/* Produto / Código (Combobox Inteligente) */}
-          <div className="form-group product-combobox-container" id="fast-product-combobox-container">
+          <div className="form-group product-combobox-container" id="fast-product-combobox-container" ref={productComboboxRef}>
             <label className="form-label" htmlFor="fast-produto-search">Madeira / Material:</label>
             <div className="product-combobox-input-wrap">
               <span className="combobox-search-icon" aria-hidden="true">
@@ -628,31 +1112,54 @@ export const BalcaoTab = () => {
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
               </span>
-              <input 
-                type="text" 
-                id="fast-produto-search" 
-                className="form-input product-combobox-input" 
-                placeholder="Selecione ou digite para buscar produto..." 
-                autoComplete="off" 
+              <input
+                type="text"
+                id="fast-produto-search"
+                ref={fastProductSearchInputRef}
+                className="form-input product-combobox-input"
+                placeholder="Selecione ou digite para buscar produto..."
+                autoComplete="off"
                 spellCheck="false"
                 value={fastProductSearch}
                 onFocus={() => setIsDropdownOpen(true)}
                 onChange={e => {
-                  setFastProductSearch(e.target.value);
+                  const val = e.target.value;
+                  setFastProductSearch(val);
+                  if (selectedProduct && `${selectedProduct.codigo} - ${selectedProduct.nome}` !== val) {
+                    setSelectedProduct(null);
+                    setFastPreco('0.00');
+                  }
                   setIsDropdownOpen(true);
+                  setActiveProductIndex(0);
                 }}
                 onKeyDown={e => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'ArrowDown') {
                     e.preventDefault();
-                    handleAddItem();
+                    setIsDropdownOpen(true);
+                    setActiveProductIndex(prev => Math.min(prev + 1, produtosFiltrados.length - 1));
+                  } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setIsDropdownOpen(true);
+                    setActiveProductIndex(prev => Math.max(prev - 1, 0));
+                  } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (isDropdownOpen && produtosFiltrados.length > 0 && produtosFiltrados[activeProductIndex]) {
+                      handleSelectFastProduct(produtosFiltrados[activeProductIndex]);
+                    } else if (selectedProduct) {
+                      focusInput(fastQtdInputRef);
+                    } else if (fastProductSearch.trim()) {
+                      handleAdicionarItemAvulso(fastProductSearch);
+                    }
+                  } else if (e.key === 'Escape') {
+                    setIsDropdownOpen(false);
                   }
                 }}
               />
               {fastProductSearch && (
-                <button 
-                  type="button" 
-                  className="combobox-clear-btn" 
-                  title="Limpar seleção" 
+                <button
+                  type="button"
+                  className="combobox-clear-btn"
+                  title="Limpar seleção"
                   tabIndex="-1"
                   onClick={() => {
                     setFastProductSearch('');
@@ -663,10 +1170,10 @@ export const BalcaoTab = () => {
                   &times;
                 </button>
               )}
-              <button 
-                type="button" 
-                className="combobox-toggle-btn" 
-                title="Abrir lista de produtos" 
+              <button
+                type="button"
+                className="combobox-toggle-btn"
+                title="Abrir lista de produtos"
                 tabIndex="-1"
                 onClick={() => setIsDropdownOpen(prev => !prev)}
               >
@@ -676,34 +1183,104 @@ export const BalcaoTab = () => {
               </button>
             </div>
 
-            {/* Dropdown Flutuante de Busca Inteligente */}
-            {isDropdownOpen && produtosFiltrados.length > 0 && (
-              <div id="fast-produto-dropdown" className="product-combobox-dropdown" style={{ display: 'block' }}>
+            {/* Dropdown Flutuante de Busca Inteligente com Realce de Letras e UX Alinhada */}
+            {isDropdownOpen && (
+              <div
+                id="fast-produto-dropdown"
+                className="product-combobox-dropdown"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  width: '100%',
+                  minWidth: 'min(580px, calc(100vw - 32px))',
+                  maxWidth: '850px'
+                }}
+              >
                 <div className="combobox-header">
                   <span id="fast-produto-status-text" className="combobox-status-text">
                     <span className="combobox-status-badge"></span>
-                    <span id="fast-produto-status-count">{produtosFiltrados.length} itens encontrados</span>
+                    <span id="fast-produto-status-count">
+                      {produtosFiltrados.length} {produtosFiltrados.length === 1 ? 'item encontrado' : 'itens encontrados'}
+                    </span>
                   </span>
                   <span className="combobox-kbd-hints">
-                    <kbd>↵ Enter</kbd> adicionar <kbd>Esc</kbd> fechar
+                    <kbd>↑</kbd> <kbd>↓</kbd> navegar <kbd>↵ Enter</kbd> selecionar <kbd>Esc</kbd> fechar
                   </span>
                 </div>
-                <div id="fast-produto-results" className="combobox-results-list" style={{ maxHeight: '240px', overflowY: 'auto' }}>
-                  {produtosFiltrados.map(p => (
-                    <div 
-                      key={p.id}
-                      className="combobox-item"
-                      onClick={() => handleSelectFastProduct(p)}
-                      style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}
-                    >
-                      <span>
-                        <strong className="font-mono" style={{ color: 'var(--brand-primary)' }}>{p.codigo}</strong> - {p.nome}
-                      </span>
-                      <span className="font-mono" style={{ fontWeight: 700 }}>
-                        {CalcEngine.formatBRL(p.preco_unitario)}/{p.tipo_calculo}
-                      </span>
+                <div id="fast-produto-results" className="combobox-results-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {produtosFiltrados.length === 0 ? (
+                    <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                        Nenhum produto cadastrado para "{fastProductSearch}"
+                      </div>
+                      <div style={{ fontSize: '11px', marginBottom: '12px' }}>
+                        Deseja adicionar este material como item avulso ao orçamento?
+                      </div>
+                      {fastProductSearch.trim() && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-primary"
+                          onClick={() => handleAdicionarItemAvulso(fastProductSearch)}
+                          style={{ fontSize: '11.5px', padding: '6px 14px', fontWeight: 700 }}
+                        >
+                          + Adicionar "{fastProductSearch}" ao Orçamento
+                        </button>
+                      )}
                     </div>
-                  ))}
+                  ) : (
+                    produtosFiltrados.map((p, idx) => {
+                      const pCats = Array.isArray(p.categorias) && p.categorias.length > 0 ? p.categorias : (p.categoria ? [p.categoria] : []);
+                      const isSelected = activeProductIndex === idx;
+                      return (
+                        <div
+                          key={p.id}
+                          className={`combobox-item ${isSelected ? 'active' : ''}`}
+                          onClick={() => handleSelectFastProduct(p)}
+                          onMouseEnter={() => setActiveProductIndex(idx)}
+                          style={{
+                            padding: '9px 12px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #F1F5F9',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <div className="combobox-item-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                            <div className="combobox-item-main" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                              <span className="combobox-item-code" style={{ padding: '2px 6px', borderRadius: '3px', fontWeight: 700, fontSize: '11px', flexShrink: 0 }}>
+                                <HighlightText text={p.codigo} query={fastProductSearch} />
+                              </span>
+                              <span className="combobox-item-name" style={{ fontWeight: 600, fontSize: '12.5px', color: 'var(--text-primary)' }}>
+                                <HighlightText text={p.nome} query={fastProductSearch} />
+                              </span>
+                              {pCats.length > 0 && (
+                                <span className="category-chip" style={{ fontSize: '9.5px', padding: '1px 6px', borderRadius: '4px', flexShrink: 0 }}>
+                                  <HighlightText text={pCats[0]} query={fastProductSearch} />
+                                </span>
+                              )}
+                            </div>
+                            <span className="combobox-item-price" style={{ fontFamily: 'var(--font-mono)', fontWeight: 800, fontSize: '13px', color: '#047857', whiteSpace: 'nowrap', marginLeft: '12px', flexShrink: 0 }}>
+                              {CalcEngine.formatBRL(p.preco_unitario)}
+                              <span style={{ fontSize: '10.5px', color: 'var(--text-secondary)', fontWeight: 600 }}>/{p.tipo_calculo}</span>
+                            </span>
+                          </div>
+
+                          {(p.especie || p.largura_cm > 0 || p.comprimento_padrao_m > 0 || p.tipo_calculo) && (
+                            <div className="combobox-item-bottom" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              {p.especie && <span>Madeira: <strong style={{ color: 'var(--text-secondary)' }}>{p.especie}</strong></span>}
+                              {p.largura_cm > 0 && <span>Largura: <strong style={{ color: 'var(--text-secondary)' }}>{p.largura_cm}cm</strong></span>}
+                              {p.comprimento_padrao_m > 0 && <span>Comprimento: <strong style={{ color: 'var(--text-secondary)' }}>{p.comprimento_padrao_m}m</strong></span>}
+                              <span style={{ color: p.tipo_calculo === 'ML' ? '#047857' : (p.tipo_calculo === 'M2' ? '#2563EB' : 'var(--text-muted)'), fontWeight: 500 }}>
+                                {p.tipo_calculo === 'ML' ? '• Metro Linear (ML)' : (p.tipo_calculo === 'M2' ? '• Metro Quadrado (M²)' : '• Peça Unitária')}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
@@ -712,72 +1289,108 @@ export const BalcaoTab = () => {
           {/* Quantidade */}
           <div className="form-group">
             <label className="form-label" id="fast-qtd-label">Qtd Peças:</label>
-            <input 
-              type="number" 
-              id="fast-qtd-input" 
-              className="form-input font-mono" 
-              min="1" 
-              step="1" 
+            <input
+              type="number"
+              id="fast-qtd-input"
+              ref={fastQtdInputRef}
+              className="form-input font-mono"
+              min="1"
+              step="1"
               value={fastQtd}
               onChange={e => setFastQtd(Math.max(1, parseInt(e.target.value) || 1))}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); } }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (isMadeiraLinear) {
+                    focusInput(fastLarguraInputRef);
+                  } else {
+                    focusInput(fastAddBtnRef);
+                  }
+                }
+              }}
             />
           </div>
 
           {/* Largura da Madeira (cm) */}
           <div className="form-group">
-            <label className="form-label" id="fast-largura-label">Largura (cm):</label>
-            <input 
-              type="number" 
-              id="fast-largura-input" 
-              className="form-input font-mono" 
-              min="0.5" 
-              step="0.5" 
-              placeholder="Ex: 15"
-              value={fastLargura}
-              onChange={e => setFastLargura(e.target.value)}
-              disabled={selectedProduct && selectedProduct.tipo_calculo !== 'ML'}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); } }}
+            <label className="form-label" id="fast-largura-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Largura:</span>
+              {!isMadeiraLinear && <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>(-)</span>}
+            </label>
+            <input
+              type={isMadeiraLinear ? "number" : "text"}
+              id="fast-largura-input"
+              ref={fastLarguraInputRef}
+              className="form-input font-mono"
+              min="0.5"
+              step="0.5"
+              placeholder={isMadeiraLinear ? "Ex: 15" : "-"}
+              value={isMadeiraLinear ? fastLargura : "-"}
+              onChange={e => { if (isMadeiraLinear) setFastLargura(e.target.value); }}
+              disabled={!isMadeiraLinear}
+              style={!isMadeiraLinear ? { textAlign: 'center', backgroundColor: '#F8FAFC', color: 'var(--text-muted)', fontWeight: 700, cursor: 'not-allowed' } : {}}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  focusInput(fastCompInputRef);
+                }
+              }}
             />
           </div>
 
           {/* Comprimento */}
           <div className="form-group">
-            <label className="form-label" id="fast-comp-label">Comprimento (m):</label>
-            <input 
-              type="number" 
-              id="fast-comprimento-input" 
-              className="form-input font-mono" 
-              min="0.1" 
-              step="0.1" 
-              placeholder="Ex: 3.0"
-              value={fastComprimento}
-              onChange={e => setFastComprimento(e.target.value)}
-              disabled={selectedProduct && selectedProduct.tipo_calculo !== 'ML'}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); } }}
+            <label className="form-label" id="fast-comp-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Comprimento:</span>
+              {!isMadeiraLinear && <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>(-)</span>}
+            </label>
+            <input
+              type={isMadeiraLinear ? "number" : "text"}
+              id="fast-comprimento-input"
+              ref={fastCompInputRef}
+              className="form-input font-mono"
+              min="0.1"
+              step="0.1"
+              placeholder={isMadeiraLinear ? "Ex: 3.0" : "-"}
+              value={isMadeiraLinear ? fastComprimento : "-"}
+              onChange={e => { if (isMadeiraLinear) setFastComprimento(e.target.value); }}
+              disabled={!isMadeiraLinear}
+              style={!isMadeiraLinear ? { textAlign: 'center', backgroundColor: '#F8FAFC', color: 'var(--text-muted)', fontWeight: 700, cursor: 'not-allowed' } : {}}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  focusInput(fastAddBtnRef);
+                }
+              }}
             />
           </div>
 
           {/* Preço Unitário */}
           <div className="form-group">
             <label className="form-label">Preço Unit. (R$):</label>
-            <input 
-              type="number" 
-              id="fast-preco-input" 
-              className="form-input font-mono" 
-              step="0.50" 
+            <input
+              type="number"
+              id="fast-preco-input"
+              ref={fastPrecoInputRef}
+              className="form-input font-mono"
+              step="0.50"
               value={fastPreco}
               onChange={e => setFastPreco(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); } }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  focusInput(fastAddBtnRef);
+                }
+              }}
             />
           </div>
 
           {/* Subtotal Preview */}
           <div className="form-group">
             <label className="form-label">Subtotal:</label>
-            <div 
-              id="fast-subtotal-preview" 
-              className="form-input font-mono" 
+            <div
+              id="fast-subtotal-preview"
+              className="form-input font-mono"
               style={{ backgroundColor: 'var(--bg-surface-subtle)', fontWeight: 700, color: 'var(--brand-primary-text)', lineHeight: '20px' }}
             >
               {CalcEngine.formatBRL(fastSubtotalPreview)}
@@ -786,12 +1399,19 @@ export const BalcaoTab = () => {
 
           {/* Botão Adicionar */}
           <div className="form-group">
-            <button 
-              type="button" 
-              className="btn btn-primary" 
-              id="fast-add-btn" 
+            <button
+              type="button"
+              className="btn btn-primary"
+              id="fast-add-btn"
+              ref={fastAddBtnRef}
               style={{ width: '100%', height: '38px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               onClick={handleAddItem}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleAddItem();
+                }
+              }}
             >
               <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.2">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -801,21 +1421,73 @@ export const BalcaoTab = () => {
             </button>
           </div>
         </div>
+
+        {/* FAIXA CONVERSACIONAL DE FEEDBACK E CONEXÃO ENTRE OS CAMPOS */}
+        {selectedProduct ? (
+          <div style={{
+            marginTop: '10px',
+            padding: '6px 12px',
+            backgroundColor: '#F8FAFC',
+            border: '1px solid #E2E8F0',
+            borderRadius: '6px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            fontSize: '11.5px',
+            color: 'var(--text-secondary)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{
+                fontWeight: 700,
+                backgroundColor: isMadeiraLinear ? '#ECFDF5' : '#EFF6FF',
+                color: isMadeiraLinear ? '#047857' : '#1D4ED8',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                {isMadeiraLinear ? '🌲 Madeira (ML)' : '📦 Item Unitário (UN)'}
+              </span>
+              <span>
+                {isMadeiraLinear
+                  ? `Cálculo por corte: ${fastLargura || '0'}cm largura × ${fastComprimento || '0'}m comprimento`
+                  : 'Item por peça/unidade. Largura e comprimento não se aplicam (-).'}
+              </span>
+            </div>
+            <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+              {fastQtd} {fastQtd === 1 ? 'peça' : 'peças'} × {CalcEngine.formatBRL(parseFloat(fastPreco) || 0)} = <span style={{ color: '#047857', fontSize: '12.5px' }}>{CalcEngine.formatBRL(fastSubtotalPreview)}</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            marginTop: '8px',
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span>💡 Dica: Peças unitárias (ferragens, abraçadeiras) deixam largura e comprimento como <strong>(-)</strong> automaticamente.</span>
+            <span>Pressione <kbd style={{ padding: '1px 4px', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '3px' }}>↵ Enter</kbd> para adicionar</span>
+          </div>
+        )}
       </div>
 
-      {/* TABELA DE ITENS DO ORÇAMENTO */}
-      <div className="panel" style={{ marginTop: '14px', marginBottom: '14px' }}>
-        <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span className="panel-title">
-            <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      {/* 3. GRADE DE ITENS DO ORÇAMENTO (LARGURA TOTAL) */}
+      <div className="balcao-items-card">
+        <div className="balcao-items-card-header">
+          <span className="panel-title" style={{ fontSize: '13px', margin: 0 }}>
+            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" strokeWidth="2.5"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
             Itens do Orçamento ({order.itens.length})
           </span>
           <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-            Edição direta na grade: altere peças, largura ou plaina e recalcule na hora
+            Edição direta na grade: altere peças, bitola ou plaina e recalcule na hora
           </span>
         </div>
 
-        <div className="table-responsive">
+        <div className="balcao-items-card-body">
           <table className="dense-table">
             <thead>
               <tr>
@@ -850,16 +1522,21 @@ export const BalcaoTab = () => {
                       <td className="font-mono" style={{ fontWeight: 600, color: 'var(--primary-green)' }}>{it.codigo}</td>
                       <td>
                         <strong>{it.descricao}</strong>
+                        {it.aparelhar && (
+                          <span className="badge-tag" style={{ marginLeft: '6px', fontSize: '9.5px', background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', padding: '1px 5px', fontWeight: 700, verticalAlign: 'middle' }}>
+                            Plainar
+                          </span>
+                        )}
                         {estoqueAtual !== null && (
                           <div style={{ fontSize: '10.5px', marginTop: '2px' }}>
                             {estoqueAtual <= 0 ? (
                               <span style={{ color: '#DC2626', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <svg viewBox="0 0 24 24" width="11" height="11" stroke="#DC2626" fill="none" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <svg viewBox="0 0 24 24" width="11" height="11" stroke="#DC2626" fill="none" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                                 Zerado em estoque
                               </span>
                             ) : it.quantidade > estoqueAtual ? (
                               <span style={{ color: '#D97706', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                <svg viewBox="0 0 24 24" width="11" height="11" stroke="#D97706" fill="none" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                <svg viewBox="0 0 24 24" width="11" height="11" stroke="#D97706" fill="none" strokeWidth="2.5"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                                 Qtd ({it.quantidade}) &gt; Estoque ({estoqueAtual})
                               </span>
                             ) : (
@@ -870,42 +1547,54 @@ export const BalcaoTab = () => {
                       </td>
                       <td className="align-center font-mono">{it.tipo_calculo}</td>
                       <td>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          className="table-input" 
-                          value={it.quantidade} 
-                          onChange={e => handleUpdateItemInline(it.id, 'quantidade', e.target.value)} 
+                        <input
+                          type="number"
+                          min="1"
+                          className="table-input"
+                          value={it.quantidade}
+                          onChange={e => handleUpdateItemInline(it.id, 'quantidade', e.target.value)}
                         />
                       </td>
                       <td className="align-center">
                         {it.tipo_calculo === 'ML' ? (
-                          <input 
-                            type="number" 
-                            step="0.5" 
-                            className="table-input" 
-                            value={it.largura_cm || ''} 
-                            onChange={e => handleUpdateItemInline(it.id, 'largura_cm', e.target.value)} 
+                          <input
+                            type="number"
+                            step="0.5"
+                            className="table-input"
+                            value={it.largura_cm || ''}
+                            onChange={e => handleUpdateItemInline(it.id, 'largura_cm', e.target.value)}
                           />
-                        ) : '-'}
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: '13px' }}>-</span>
+                        )}
                       </td>
                       <td className="align-center">
                         {it.tipo_calculo === 'ML' ? (
-                          <input 
-                            type="number" 
-                            step="0.5" 
-                            className="table-input" 
-                            value={it.comprimento_m || ''} 
-                            onChange={e => handleUpdateItemInline(it.id, 'comprimento_m', e.target.value)} 
+                          <input
+                            type="number"
+                            step="0.5"
+                            className="table-input"
+                            value={it.comprimento_m || ''}
+                            onChange={e => handleUpdateItemInline(it.id, 'comprimento_m', e.target.value)}
                           />
-                        ) : '-'}
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: '13px' }}>-</span>
+                        )}
                       </td>
                       <td className="align-center">
-                        <input 
-                          type="checkbox" 
-                          checked={Boolean(it.aparelhar)} 
-                          onChange={e => handleUpdateItemInline(it.id, 'aparelhar', e.target.checked)} 
-                        />
+                        {(it.tipo_calculo === 'ML' || it.tipo_calculo === 'M2') ? (
+                          <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', margin: 0 }}>
+                            <input
+                              type="checkbox"
+                              style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--brand-primary)' }}
+                              checked={Boolean(it.aparelhar)}
+                              onChange={e => handleUpdateItemInline(it.id, 'aparelhar', e.target.checked)}
+                              title={it.aparelhar ? 'Marcado para aparelhar / plainar' : 'Marcar para aparelhar / plainar'}
+                            />
+                          </label>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>-</span>
+                        )}
                       </td>
                       <td className="align-right font-mono">
                         {it.metragem_total} {it.tipo_calculo === 'ML' ? 'ML' : (it.tipo_calculo === 'M2' ? 'm²' : 'un')}
@@ -915,9 +1604,9 @@ export const BalcaoTab = () => {
                         {CalcEngine.formatBRL(it.subtotal)}
                       </td>
                       <td className="align-center">
-                        <button 
-                          className="btn-trash" 
-                          title="Remover Item" 
+                        <button
+                          className="btn-trash"
+                          title="Remover Item"
                           onClick={() => handleRemoveItem(it.id)}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}
                         >
@@ -933,218 +1622,475 @@ export const BalcaoTab = () => {
         </div>
       </div>
 
-      {/* BLOCO DE FECHAMENTO FINANCEIRO E DUAL PRICING */}
-      <div className="order-footer-grid">
-        <div className="summary-card highlight">
-          <div className="summary-title">
-            <span>Fechamento Financeiro</span>
-            <span>Moeda Corrente (BRL)</span>
+      {/* 4. PAINEL DE FECHAMENTO HORIZONTAL (4 BLOCOS BALANCEADOS LADO A LADO) */}
+      <div className="balcao-footer-grid">
+        {/* BLOCO 1: AJUSTES & ADICIONAIS */}
+        <div className="balcao-footer-block">
+          <div className="balcao-footer-block-title">
+            <span>1. Ajustes & Adicionais</span>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Cálculo Base</span>
           </div>
 
-          <div className="summary-row">
-            <span>Subtotal dos Itens:</span>
-            <span className="font-mono" style={{ fontWeight: 600 }}>{CalcEngine.formatBRL(totais.subtotal_itens_puros)}</span>
-          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Subtotal dos Itens */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Subtotal dos Itens:</span>
+              <span className="font-mono" style={{ fontWeight: 700, fontSize: '13.5px' }}>
+                {CalcEngine.formatBRL(totais.subtotal_itens_puros)}
+              </span>
+            </div>
 
-          <div className="summary-row">
-            <span>(+) Taxa de Plaina (Beneficiamento):</span>
-            <span className="font-mono" style={{ fontWeight: 600, color: 'var(--brand-primary)' }}>{CalcEngine.formatBRL(totais.taxa_aparelhamento)}</span>
-          </div>
+            {/* Plaina */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>(+) Plaina:</span>
+                {totais.qtd_itens_plaina === 0 && (
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    (Nenhum item)
+                  </span>
+                )}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ position: 'relative', width: '68px' }}>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    className="form-input font-mono"
+                    style={{
+                      height: '28px',
+                      padding: '2px 18px 2px 6px',
+                      textAlign: 'right',
+                      backgroundColor: totais.qtd_itens_plaina === 0 ? '#F8FAFC' : 'inherit',
+                      cursor: totais.qtd_itens_plaina === 0 ? 'not-allowed' : 'text',
+                      color: totais.qtd_itens_plaina === 0 ? 'var(--text-muted)' : 'inherit',
+                      border: (totais.qtd_itens_plaina > 0 && (!order.plaina_pct || order.plaina_pct === 0))
+                        ? '1.5px solid #EF4444'
+                        : undefined
+                    }}
+                    placeholder="0"
+                    disabled={totais.qtd_itens_plaina === 0}
+                    value={totais.qtd_itens_plaina === 0 ? '' : (order.plaina_pct === 0 ? '' : (order.plaina_pct ?? ''))}
+                    onChange={e => {
+                      const val = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                      setOrder(prev => ({ ...prev, plaina_pct: val }));
+                    }}
+                  />
+                  <span style={{ position: 'absolute', right: '5px', top: '5px', fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, pointerEvents: 'none' }}>
+                    %
+                  </span>
+                </div>
+                <span className="font-mono" style={{ fontWeight: 700, minWidth: '70px', textAlign: 'right', color: totais.taxa_aparelhamento > 0 ? '#047857' : 'var(--text-muted)' }}>
+                  {CalcEngine.formatBRL(totais.taxa_aparelhamento)}
+                </span>
+              </span>
+            </div>
 
-          <div className="summary-row" style={{ marginTop: '4px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>(+) Frete por Bairro:</span>
-              <select 
-                className="form-select" 
-                style={{ height: '28px', padding: '2px 8px', fontSize: '12px', width: '170px' }}
-                value={order.bairro_frete}
-                onChange={e => {
-                  const b = bairros.find(item => item.nome === e.target.value);
-                  setOrder(prev => ({
-                    ...prev,
-                    bairro_frete: e.target.value,
-                    frete_valor: b ? b.valor : prev.frete_valor
-                  }));
-                }}
-              >
-                <option value="">Selecione o Bairro...</option>
-                {bairros.map(b => (
-                  <option key={b.nome} value={b.nome}>{b.nome} ({CalcEngine.formatBRL(b.valor)})</option>
-                ))}
-              </select>
-            </span>
-            <span style={{ width: '100px' }}>
-              <input 
-                type="number" 
-                className="form-input font-mono" 
-                style={{ height: '28px', padding: '2px 8px' }}
-                value={order.frete_valor}
-                onChange={e => setOrder(prev => ({ ...prev, frete_valor: parseFloat(e.target.value) || 0 }))}
-              />
-            </span>
-          </div>
-
-          <div className="summary-row" style={{ marginTop: '4px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>(-) Desconto Comercial:</span>
-              <select 
-                className="form-select" 
-                style={{ height: '28px', padding: '2px 8px', fontSize: '12px', width: '75px' }}
-                value={order.desconto_tipo}
-                onChange={e => setOrder(prev => ({ ...prev, desconto_tipo: e.target.value }))}
-              >
-                <option value="VALOR">R$</option>
-                <option value="PCT">%</option>
-              </select>
-            </span>
-            <span style={{ width: '100px' }}>
-              <input 
-                type="number" 
-                className="form-input font-mono" 
-                style={{ height: '28px', padding: '2px 8px' }}
-                value={order.desconto_valor}
-                onChange={e => setOrder(prev => ({ ...prev, desconto_valor: parseFloat(e.target.value) || 0 }))}
-              />
-            </span>
-          </div>
-
-          {/* TRAVA DE SEGURANÇA DESCONTO > 5% */}
-          {totais.requer_autorizacao && !order.desconto_autorizado && (
-            <div style={{ backgroundColor: 'var(--warning-bg)', border: '1px solid var(--warning-border)', padding: '8px 12px', marginTop: '6px', borderRadius: 'var(--radius-md)', fontSize: '12px' }}>
-              <div style={{ fontWeight: 700, color: 'var(--warning-text)', marginBottom: '4px' }}>
-                Segurança: Desconto acima do teto exige senha do gerente.
+            {/* Frete */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px', gap: '6px' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>(+) Frete:</span>
+              <div style={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'flex-end' }}>
+                <select
+                  className="form-select"
+                  style={{ height: '28px', padding: '2px 6px', fontSize: '11.5px', maxWidth: '130px' }}
+                  value={order.bairro_frete}
+                  onChange={e => {
+                    const b = bairros.find(item => item.nome === e.target.value);
+                    setOrder(prev => ({
+                      ...prev,
+                      bairro_frete: e.target.value,
+                      frete_valor: b ? b.valor : prev.frete_valor
+                    }));
+                  }}
+                >
+                  <option value="">Selecione...</option>
+                  {bairros.map(b => (
+                    <option key={b.nome} value={b.nome}>{b.nome}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  className="form-input font-mono"
+                  style={{ height: '28px', padding: '2px 6px', width: '75px', textAlign: 'right' }}
+                  value={order.frete_valor}
+                  onChange={e => setOrder(prev => ({ ...prev, frete_valor: parseFloat(e.target.value) || 0 }))}
+                />
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input 
-                  type="password" 
-                  className="form-input font-mono" 
-                  placeholder="Senha (1234)" 
-                  style={{ height: '28px', width: '150px' }}
+            </div>
+
+            {/* Desconto */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px', gap: '6px' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>(-) Desconto:</span>
+              <div style={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'flex-end' }}>
+                <select
+                  className="form-select"
+                  style={{ height: '28px', padding: '2px 4px', fontSize: '11px', width: '50px' }}
+                  value={order.desconto_tipo}
+                  onChange={e => setOrder(prev => ({ ...prev, desconto_tipo: e.target.value }))}
+                >
+                  <option value="VALOR">R$</option>
+                  <option value="PCT">%</option>
+                </select>
+                <input
+                  type="number"
+                  className="form-input font-mono"
+                  style={{ height: '28px', padding: '2px 6px', width: '75px', textAlign: 'right' }}
+                  value={order.desconto_valor}
+                  onChange={e => setOrder(prev => ({ ...prev, desconto_valor: parseFloat(e.target.value) || 0 }))}
+                />
+              </div>
+            </div>
+
+            {/* Trava de Desconto */}
+            {totais.requer_autorizacao && !order.desconto_autorizado && (
+              <div style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <input
+                  type="password"
+                  className="form-input font-mono"
+                  placeholder="Senha Gerente"
+                  style={{ height: '24px', flex: 1, fontSize: '11px' }}
                   value={senhaGerenteInput}
                   onChange={e => setSenhaGerenteInput(e.target.value)}
                 />
-                <button type="button" className="btn btn-sm btn-primary" onClick={handleAutorizarDesconto}>
-                  Liberar Desconto
+                <button type="button" className="btn btn-sm btn-primary" onClick={handleAutorizarDesconto} style={{ height: '24px', padding: '0 6px', fontSize: '10.5px' }}>
+                  OK
                 </button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        </div>
 
-          {/* CONTAINER DE PREÇO DUPLO (VALOR À VISTA & PREÇO BRUTO COM % DO GERENTE) */}
-          <div className="summary-duo-container">
-            <div className="summary-row grand-total" style={{ margin: 0, padding: 0, border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#047857' }}>VALOR À VISTA:</span>
-                <span className="badge-tag" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #10B981', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>
-                  PIX / DINHEIRO
-                </span>
+        {/* BLOCO 2: RESUMO DOS PREÇOS (À VISTA, DÉBITO, PRAZO) */}
+        <div className="balcao-footer-block" style={{ background: '#FFFFFF' }}>
+          <div className="balcao-footer-block-title">
+            <span>2. Resumo de Preços</span>
+            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Tabela Oficial</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {/* Valor À Vista */}
+            <div style={{ padding: '8px 10px', background: '#ECFDF5', border: '1.5px solid #10B981', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>VALOR À VISTA:</div>
+                <div style={{ fontSize: '10px', color: '#065F46', fontWeight: 600 }}>PIX OU DINHEIRO</div>
               </div>
               <span className="font-mono" style={{ fontSize: '18px', fontWeight: 800, color: '#047857' }}>
                 {CalcEngine.formatBRL(totais.valor_total)}
               </span>
             </div>
 
-            <div className="summary-row" style={{ padding: '6px 10px', background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#1E40AF' }}>PREÇO BRUTO:</span>
-                <span className="badge-tag" style={{ background: '#DBEAFE', color: '#1E40AF', border: '1px solid #93C5FD', fontSize: '10px', padding: '1px 6px', fontWeight: 700 }}>
-                  A PRAZO (+{totais.percentual_bruto}%)
-                </span>
+            {/* No Débito */}
+            <div style={{ padding: '6px 10px', background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>NO DÉBITO:</div>
+                <div style={{ fontSize: '9.5px', color: '#B45309' }}>CARTÃO À VISTA</div>
               </div>
-              <span className="font-mono" style={{ fontSize: '15px', fontWeight: 800, color: '#1E40AF' }}>
-                {CalcEngine.formatBRL(totais.valor_total_bruto)}
+              <span className="font-mono" style={{ fontSize: '15px', fontWeight: 800, color: '#92400E' }}>
+                {CalcEngine.formatBRL(totais.valor_total_debito)}
               </span>
             </div>
+
+            {/* Preço Bruto / A Prazo */}
+            <div style={{ padding: '6px 10px', background: '#EFF6FF', border: '1px solid #93C5FD', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#1E40AF', textTransform: 'uppercase' }}>A PRAZO (ATÉ 5X):</div>
+                <div style={{ fontSize: '9.5px', color: '#2563EB' }}>CARTÃO CRÉDITO</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span className="font-mono" style={{ fontSize: '15px', fontWeight: 800, color: '#1E40AF' }}>
+                  {CalcEngine.formatBRL(totais.valor_total_bruto)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* BLOCO 3: FORMA DE PAGAMENTO & COBRANÇA */}
+        <div className="balcao-footer-block" style={{ background: '#FFFFFF' }}>
+          <div className="balcao-footer-block-title">
+            <span>3. Forma de Pagamento</span>
+            <div style={{ display: 'inline-flex', background: '#F1F5F9', borderRadius: '4px', padding: '1px', border: '1px solid #CBD5E1' }}>
+              <button
+                type="button"
+                onClick={() => handleTogglePagamentoDividido(false)}
+                style={{
+                  padding: '2px 8px',
+                  fontSize: '10.5px',
+                  fontWeight: !order.pagamento_dividido ? 700 : 500,
+                  background: !order.pagamento_dividido ? '#FFFFFF' : 'transparent',
+                  color: !order.pagamento_dividido ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                Única
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTogglePagamentoDividido(true)}
+                style={{
+                  padding: '2px 8px',
+                  fontSize: '10.5px',
+                  fontWeight: order.pagamento_dividido ? 700 : 500,
+                  background: order.pagamento_dividido ? '#FFFFFF' : 'transparent',
+                  color: order.pagamento_dividido ? 'var(--brand-primary)' : 'var(--text-secondary)',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                Dividir
+              </button>
+            </div>
           </div>
 
-          {/* CONDIÇÃO DE PAGAMENTO & ENTRADA */}
-          <div className="balcao-totals-split" style={{ marginTop: '10px' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Condição de Pagamento:</label>
-              <select 
-                className="form-select" 
-                style={{ height: '34px' }}
-                value={order.forma_pagamento}
-                onChange={e => setOrder(prev => ({ ...prev, forma_pagamento: e.target.value }))}
-              >
-                <option value="Pix">Pix (Instantâneo)</option>
-                <option value="Dinheiro">Dinheiro</option>
-                <option value="Cartão de Débito">Cartão de Débito</option>
-                <option value="Cartão de Crédito">Cartão de Crédito</option>
-                <option value="Boleto Bancário">Boleto Bancário</option>
-              </select>
-            </div>
+          {!order.pagamento_dividido ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: order.forma_pagamento === 'Cartão de Crédito' ? '1fr 110px' : '1fr', gap: '6px' }}>
+                <select
+                  className="form-select"
+                  style={{ height: '34px', fontWeight: 600, fontSize: '12.5px' }}
+                  value={order.forma_pagamento}
+                  onChange={e => {
+                    const novaForma = e.target.value;
+                    setOrder(prev => ({
+                      ...prev,
+                      forma_pagamento: novaForma,
+                      cartao_parcelas: novaForma === 'Cartão de Crédito' ? (prev.cartao_parcelas || 1) : 1
+                    }));
+                  }}
+                >
+                  <option value="Pix">Pix (À Vista)</option>
+                  <option value="Dinheiro">Dinheiro (À Vista)</option>
+                  <option value="Cartão de Débito">Cartão de Débito</option>
+                  <option value="Cartão de Crédito">Cartão de Crédito (até 5x)</option>
+                </select>
 
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <label className="form-label" style={{ marginBottom: 0 }}>Valor Pago / Entrada:</label>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <button type="button" className="btn btn-sm" onClick={handlePagarTotal} style={{ height: '22px', padding: '0 6px', fontSize: '10px', background: '#ECFDF5', border: '1px solid #10B981', color: '#047857', fontWeight: 700 }}>
-                    100% Total
-                  </button>
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={handlePagarMetade} style={{ height: '22px', padding: '0 6px', fontSize: '10px' }}>
-                    50%
-                  </button>
-                  <button type="button" className="btn btn-sm btn-secondary" onClick={handleZerarPagamento} style={{ height: '22px', padding: '0 6px', fontSize: '10px' }}>
-                    Zerar
-                  </button>
+                {order.forma_pagamento === 'Cartão de Crédito' && (
+                  <select
+                    className="form-select font-mono"
+                    style={{ height: '34px', fontWeight: 700, fontSize: '12px' }}
+                    value={order.cartao_parcelas || 1}
+                    onChange={e => setOrder(prev => ({ ...prev, cartao_parcelas: parseInt(e.target.value) || 1 }))}
+                    title="Parcelas no Cartão (Máximo 5x)"
+                  >
+                    <option value={1}>1x (À vista)</option>
+                    <option value={2}>2x</option>
+                    <option value={3}>3x</option>
+                    <option value={4}>4x</option>
+                    <option value={5}>5x (Máx)</option>
+                  </select>
+                )}
+              </div>
+
+              {/* Caixa Informativa */}
+              <div style={{ padding: '6px 10px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '12px' }}>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '3px', fontSize: '10px', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Cobrança no Balcão:
+                </div>
+                {order.forma_pagamento === 'Pix' && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>📱 Cobrar no <strong>Pix</strong>:</span>
+                    <strong className="font-mono" style={{ fontSize: '14px', color: '#047857' }}>{CalcEngine.formatBRL(totais.valor_total)}</strong>
+                  </div>
+                )}
+                {order.forma_pagamento === 'Dinheiro' && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>💵 Receber em <strong>Dinheiro</strong>:</span>
+                    <strong className="font-mono" style={{ fontSize: '14px', color: '#047857' }}>{CalcEngine.formatBRL(totais.valor_total)}</strong>
+                  </div>
+                )}
+                {order.forma_pagamento === 'Cartão de Débito' && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>💳 Cobrar na Maquininha (<strong>Débito</strong>):</span>
+                    <strong className="font-mono" style={{ fontSize: '14px', color: '#92400E' }}>{CalcEngine.formatBRL(totais.valor_total_debito)}</strong>
+                  </div>
+                )}
+                {order.forma_pagamento === 'Cartão de Crédito' && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>💳 Maquininha (<strong>Crédito {order.cartao_parcelas || 1}x</strong>):</span>
+                    <strong className="font-mono" style={{ fontSize: '14px', color: '#1E40AF' }}>
+                      {CalcEngine.formatBRL(totais.valor_total_bruto)}
+                      {(order.cartao_parcelas || 1) > 1 && (
+                        <span style={{ fontSize: '11px', color: '#1E40AF', fontWeight: 600, marginLeft: '4px' }}>
+                          ({order.cartao_parcelas}x de {CalcEngine.formatBRL(totais.valor_total_bruto / order.cartao_parcelas)})
+                        </span>
+                      )}
+                    </strong>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ maxHeight: '115px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {(order.pagamentos || []).map((pg, idx) => {
+                  const isCred = pg.tipo === 'Cartão de Crédito';
+                  const parc = isCred ? Math.min(5, Math.max(1, parseInt(pg.parcelas) || 1)) : 1;
+                  return (
+                    <div key={pg.id || idx} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <select
+                        className="form-select"
+                        style={{ height: '28px', fontSize: '11.5px', flex: 1 }}
+                        value={pg.tipo}
+                        onChange={e => handleUpdatePaymentLine(pg.id, 'tipo', e.target.value)}
+                      >
+                        <option value="Pix">Pix</option>
+                        <option value="Dinheiro">Dinheiro</option>
+                        <option value="Cartão de Débito">Cartão de Débito</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                      </select>
+
+                      {isCred && (
+                        <select
+                          className="form-select font-mono"
+                          style={{ height: '28px', fontSize: '11px', width: '65px' }}
+                          value={parc}
+                          onChange={e => handleUpdatePaymentLine(pg.id, 'parcelas', e.target.value)}
+                        >
+                          <option value={1}>1x</option>
+                          <option value={2}>2x</option>
+                          <option value={3}>3x</option>
+                          <option value={4}>4x</option>
+                          <option value={5}>5x</option>
+                        </select>
+                      )}
+
+                      <input
+                        type="number"
+                        step="0.50"
+                        min="0"
+                        className="form-input font-mono"
+                        style={{ height: '28px', width: '90px', padding: '2px 6px', textAlign: 'right', fontWeight: 700 }}
+                        value={pg.valor === 0 ? '' : (pg.valor ?? '')}
+                        placeholder="R$ 0,00"
+                        onChange={e => handleUpdatePaymentLine(pg.id, 'valor', e.target.value)}
+                      />
+
+                      {(order.pagamentos || []).length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePaymentLine(pg.id)}
+                          style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', fontSize: '15px', padding: '0 3px' }}
+                          title="Remover"
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                <button
+                  type="button"
+                  onClick={handleAddPaymentLine}
+                  className="btn btn-sm btn-secondary"
+                  style={{ fontSize: '10.5px', padding: '2px 8px', height: '24px' }}
+                >
+                  + Forma
+                </button>
+
+                <div>
+                  {Math.abs(diferencaAlocacao) < 0.01 ? (
+                    <span style={{ color: '#047857', fontWeight: 700 }}>✓ Total 100% OK</span>
+                  ) : diferencaAlocacao > 0 ? (
+                    <span style={{ color: '#D97706', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <span>Falta: <strong>{CalcEngine.formatBRL(diferencaAlocacao)}</strong></span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const lastId = order.pagamentos?.[order.pagamentos.length - 1]?.id;
+                          if (lastId) handleAutofillRemaining(lastId);
+                        }}
+                        style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#92400E', borderRadius: '3px', padding: '1px 5px', fontSize: '10px', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        Completar
+                      </button>
+                    </span>
+                  ) : (
+                    <span style={{ color: '#DC2626', fontWeight: 700 }}>Ultrapassou: {CalcEngine.formatBRL(Math.abs(diferencaAlocacao))}</span>
+                  )}
                 </div>
               </div>
-              <input 
-                type="number" 
-                className="form-input font-mono" 
-                style={{ height: '34px' }}
-                value={order.valor_sinal}
-                onChange={e => setOrder(prev => ({ ...prev, valor_sinal: parseFloat(e.target.value) || 0 }))}
-              />
+            </div>
+          )}
+        </div>
+
+        {/* BLOCO 4: FINALIZAÇÃO DO PEDIDO & IMPRESSÕES */}
+        <div className="balcao-footer-block" style={{ background: '#F8FAFC' }}>
+          <div className="balcao-footer-block-title">
+            <span>4. Finalização</span>
+            <span style={{ fontSize: '10px', color: 'var(--brand-primary)', fontWeight: 700 }}>Pronto para Vender</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, justifyContent: 'center' }}>
+            {/* Botão Primário Grande: Salvar como Pago */}
+            <button
+              type="button"
+              className="btn"
+              onClick={handleSalvarPago}
+              style={{
+                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                color: '#FFFFFF',
+                fontWeight: 800,
+                fontSize: '15px',
+                border: 'none',
+                borderRadius: '6px',
+                height: '46px',
+                width: '100%',
+                boxShadow: '0 3px 6px rgba(5,150,105,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" strokeWidth="2.8"><polyline points="20 6 9 17 4 12" /></svg>
+              <span>Salvar como Pago</span>
+            </button>
+
+            {/* Botão Salvar Orçamento */}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleSalvarOrcamento}
+              style={{ fontWeight: 600, fontSize: '12.5px', height: '36px', width: '100%' }}
+            >
+              Salvar como Orçamento
+            </button>
+
+            {/* Linha de Impressão */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleImprimir('CLIENTE')}
+                style={{ fontWeight: 600, fontSize: '11px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                title="Imprimir via do cliente em formato A5"
+              >
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+                <span>Via A5</span>
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => handleImprimir('PATIO')}
+                style={{ fontWeight: 600, fontSize: '11px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                title="Imprimir romaneio de expedição para o pátio"
+              >
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></svg>
+                <span>Romaneio</span>
+              </button>
             </div>
           </div>
-
-          {/* SALDO A RECEBER */}
-          <div className="summary-row balance-due" style={{ marginTop: '10px' }}>
-            <span>SALDO A RECEBER NA ENTREGA:</span>
-            <span className="font-mono">
-              {totais.saldo_a_receber <= 0 && totais.valor_total > 0 ? (
-                <span style={{ color: '#059669', fontWeight: 800 }}>R$ 0,00 (100% QUITADO)</span>
-              ) : (
-                CalcEngine.formatBRL(totais.saldo_a_receber)
-              )}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* BARRA DE AÇÕES DO BALCÃO */}
-      <div className="order-actions-bar" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <button 
-            type="button" 
-            className="btn btn-lg" 
-            onClick={handleFinalizarBalcao}
-            style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#FFFFFF', fontWeight: 700, border: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            <span>Finalizar Venda Balcão (Pago & Entregue Já)</span>
-          </button>
-          <button type="button" className="btn btn-primary btn-lg" onClick={handleAprovarVenda}>
-            Aprovar Venda (Enviar p/ Pátio)
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={handleSalvarOrcamento}>
-            Salvar Orçamento
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button type="button" className="btn btn-secondary" onClick={() => handleImprimir('CLIENTE')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            <span>Imprimir Orçamento (A5)</span>
-          </button>
-          <button type="button" className="btn btn-secondary" onClick={() => handleImprimir('PATIO')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
-            <span>Romaneio Pátio</span>
-          </button>
         </div>
       </div>
     </div>
   );
 };
+

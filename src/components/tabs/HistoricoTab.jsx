@@ -20,14 +20,17 @@ export const HistoricoTab = () => {
 
   const filteredOrders = useMemo(() => {
     return orders.filter(p => {
-      if (statusFilter !== 'TODOS' && p.status !== statusFilter) return false;
+      if (statusFilter === 'ORCAMENTO' && p.status !== 'ORCAMENTO') return false;
+      if (statusFilter === 'PAGO' && (p.status !== 'PAGO' && p.status !== 'APROVADO' && p.status !== 'ENTREGUE')) return false;
+      if (statusFilter === 'ENTREGUE' && p.status !== 'ENTREGUE') return false;
       if (searchTerm.trim()) {
         const t = searchTerm.toLowerCase();
         const num = String(p.numero || '').toLowerCase();
         const cli = (p.cliente?.nome || '').toLowerCase();
         const tel = (p.cliente?.telefone || '').toLowerCase();
         const end = (p.cliente?.endereco_obra || '').toLowerCase();
-        if (!num.includes(t) && !cli.includes(t) && !tel.includes(t) && !end.includes(t)) {
+        const vend = (p.vendedor_nome || p.vendedor?.nome || '').toLowerCase();
+        if (!num.includes(t) && !cli.includes(t) && !tel.includes(t) && !end.includes(t) && !vend.includes(t)) {
           return false;
         }
       }
@@ -58,6 +61,8 @@ export const HistoricoTab = () => {
     const total = CalcEngine.formatBRL(p.resumo_financeiro?.valor_total || 0);
     const pctBruto = p.resumo_financeiro?.percentual_bruto !== undefined ? p.resumo_financeiro.percentual_bruto : CalcEngine.getPercentualPrecoBruto();
     const totalBruto = CalcEngine.formatBRL(p.resumo_financeiro?.valor_total_bruto || CalcEngine.calcularPrecoBruto(p.resumo_financeiro?.valor_total || 0, pctBruto));
+    const pctDebito = p.resumo_financeiro?.percentual_debito !== undefined ? p.resumo_financeiro.percentual_debito : CalcEngine.getPercentualTaxaDebito();
+    const totalDebito = CalcEngine.formatBRL(p.resumo_financeiro?.valor_total_debito || CalcEngine.calcularPrecoDebito(p.resumo_financeiro?.valor_total || 0, pctDebito));
 
     const nomeEmpresa = config.nome_madeireira || 'Serraria e Madeireira Bom Jesus';
 
@@ -65,7 +70,8 @@ export const HistoricoTab = () => {
     texto += `Aqui é da *${nomeEmpresa}* (Caçapava - SP).\n\n`;
     texto += `Gostaria de saber se você conseguiu analisar a nossa proposta do *Orçamento #${num}*:\n`;
     texto += `• *À Vista (Pix/Dinheiro):* ${total}\n`;
-    texto += `• *Preço Bruto (A Prazo/Cartão):* ${totalBruto}\n\n`;
+    texto += `• *No Débito / Cartão:* ${totalDebito}\n`;
+    texto += `• *Preço Bruto (A Prazo / Parcelado):* ${totalBruto}\n\n`;
     texto += `Temos os lotes de madeira selecionados no pátio prontos para corte e carregamento. Consegue nos dar um retorno para programarmos esta semana? Obrigado!`;
 
     const url = `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(texto)}`;
@@ -104,15 +110,21 @@ export const HistoricoTab = () => {
         novo.resumo_financeiro?.valor_frete || 0,
         novo.resumo_financeiro?.desconto_valor || 0,
         novo.resumo_financeiro?.desconto_tipo || 'VALOR',
-        0
+        0,
+        novo.resumo_financeiro?.plaina_pct || 0,
+        novo.resumo_financeiro?.plaina_base || 'ITENS_PLAINA'
       );
       novo.resumo_financeiro.subtotal_itens_puros = t.subtotal_itens_puros;
+      novo.resumo_financeiro.subtotal_itens_plaina = t.subtotal_itens_plaina;
       novo.resumo_financeiro.taxa_aparelhamento = t.taxa_aparelhamento;
+      novo.resumo_financeiro.plaina_pct = t.plaina_percentual;
       novo.resumo_financeiro.subtotal_com_plaina = t.subtotal_com_plaina;
       novo.resumo_financeiro.valor_total = t.valor_total;
       novo.resumo_financeiro.percentual_bruto = t.percentual_bruto;
       novo.resumo_financeiro.valor_total_bruto = t.valor_total_bruto;
-      novo.resumo_financeiro.saldo_a_receber = t.valor_total;
+      novo.resumo_financeiro.percentual_debito = t.percentual_debito;
+      novo.resumo_financeiro.valor_total_debito = t.valor_total_debito;
+      novo.resumo_financeiro.saldo_a_receber = 0;
       novo.resumo_financeiro.valor_sinal = 0;
     }
 
@@ -131,7 +143,7 @@ export const HistoricoTab = () => {
               <input 
                 type="text" 
                 className="form-input" 
-                placeholder="Buscar por Nº do Pedido, Cliente, Endereço ou Telefone..."
+                placeholder="Buscar por Nº, Cliente, Vendedor, Endereço ou Telefone..."
                 value={searchTerm}
                 onChange={e => {
                   setSearchTerm(e.target.value);
@@ -143,7 +155,7 @@ export const HistoricoTab = () => {
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>Status:</span>
               <div style={{ display: 'flex', gap: '4px' }}>
-                {['TODOS', 'ORCAMENTO', 'APROVADO', 'ENTREGUE'].map(st => (
+                {['TODOS', 'PAGO', 'ORCAMENTO', 'ENTREGUE'].map(st => (
                   <button
                     key={st}
                     type="button"
@@ -154,7 +166,7 @@ export const HistoricoTab = () => {
                       setCurrentPage(1);
                     }}
                   >
-                    {st === 'TODOS' ? 'Todos' : st === 'ORCAMENTO' ? 'Orçamentos' : st === 'APROVADO' ? 'Aprovados' : 'Quitados / Entregues'}
+                    {st === 'TODOS' ? 'Todos' : st === 'PAGO' ? 'Vendas Pagas' : st === 'ORCAMENTO' ? 'Orçamentos' : 'Entregues'}
                   </button>
                 ))}
               </div>
@@ -174,9 +186,9 @@ export const HistoricoTab = () => {
                 <th>Cliente & Destino</th>
                 <th style={{ width: '90px' }} className="align-center">Status</th>
                 <th style={{ width: '100px' }} className="align-center">Pátio</th>
-                <th style={{ width: '100px' }} className="align-center">Carga</th>
+                <th style={{ width: '90px' }} className="align-center">Carga</th>
                 <th style={{ width: '125px' }} className="align-right">Valor Total</th>
-                <th style={{ width: '110px' }} className="align-right">Saldo Entrega</th>
+                <th style={{ width: '120px' }} className="align-center">Pagamento</th>
                 <th style={{ width: '190px' }} className="align-center">Ações</th>
               </tr>
             </thead>
@@ -189,12 +201,13 @@ export const HistoricoTab = () => {
                 </tr>
               ) : (
                 paginatedOrders.map(p => {
-                  const saldo = p.resumo_financeiro?.saldo_a_receber || 0;
-                  const temSaldo = saldo > 0;
                   const dataFmt = new Date(p.data_criacao || Date.now()).toLocaleDateString('pt-BR');
                   const total = p.resumo_financeiro?.valor_total || 0;
                   const pctBruto = p.resumo_financeiro?.percentual_bruto !== undefined ? p.resumo_financeiro.percentual_bruto : CalcEngine.getPercentualPrecoBruto();
                   const totalBruto = p.resumo_financeiro?.valor_total_bruto || CalcEngine.calcularPrecoBruto(total, pctBruto);
+                  const pctDebito = p.resumo_financeiro?.percentual_debito !== undefined ? p.resumo_financeiro.percentual_debito : CalcEngine.getPercentualTaxaDebito();
+                  const totalDebito = p.resumo_financeiro?.valor_total_debito || CalcEngine.calcularPrecoDebito(total, pctDebito);
+                  const isOrcamento = p.status === 'ORCAMENTO';
 
                   return (
                     <tr key={p.id}>
@@ -206,12 +219,13 @@ export const HistoricoTab = () => {
                         <strong>{p.cliente?.nome || 'Cliente Balcão'}</strong>
                         <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)' }}>
                           {p.cliente?.bairro ? `${p.cliente.bairro}` : ''}
-                          {p.carpinteiro_nome ? ` | Ind: ${p.carpinteiro_nome}` : ''}
+                          <span style={{ color: '#047857', fontWeight: 600 }}> • Vend: {p.vendedor_nome || p.vendedor?.nome || 'Balcão'}</span>
+                          {p.carpinteiro_nome ? ` • Ind: ${p.carpinteiro_nome}` : ''}
                         </div>
                       </td>
                       <td className="align-center">
-                        <span className={`badge-tag ${p.status === 'ENTREGUE' ? 'badge-entregue' : (p.status === 'APROVADO' ? 'badge-aprovado' : 'badge-orcamento')}`}>
-                          {p.status}
+                        <span className={`badge-tag ${p.status === 'ENTREGUE' ? 'badge-entregue' : (isOrcamento ? 'badge-orcamento' : 'badge-aprovado')}`}>
+                          {isOrcamento ? 'ORÇAMENTO' : (p.status === 'ENTREGUE' ? 'ENTREGUE' : 'PAGO')}
                         </span>
                       </td>
                       <td className="align-center">
@@ -224,17 +238,20 @@ export const HistoricoTab = () => {
                       </td>
                       <td className="align-right font-mono" style={{ fontWeight: 700 }}>
                         <div>{CalcEngine.formatBRL(total)}</div>
-                        <div style={{ fontSize: '10px', fontWeight: 'normal', color: '#2563EB' }} title="Preço Bruto a prazo">
+                        <div style={{ fontSize: '10px', fontWeight: 'normal', color: '#B45309' }} title="No Débito / Cartão">
+                          Déb: {CalcEngine.formatBRL(totalDebito)}
+                        </div>
+                        <div style={{ fontSize: '10px', fontWeight: 'normal', color: '#2563EB' }} title="Preço Bruto / A Prazo">
                           Bruto: {CalcEngine.formatBRL(totalBruto)}
                         </div>
                       </td>
-                      <td className="align-right font-mono" style={{ fontWeight: 700 }}>
-                        {temSaldo ? (
-                          <span style={{ color: 'var(--red-text)', backgroundColor: 'var(--red-bg)', padding: '1px 5px', borderRadius: '3px' }}>
-                            {CalcEngine.formatBRL(saldo)}
-                          </span>
+                      <td className="align-center">
+                        {isOrcamento ? (
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Orçamento</span>
                         ) : (
-                          <span style={{ color: 'var(--action-green)' }}>Quitado</span>
+                          <span style={{ color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', padding: '2px 7px', borderRadius: '4px', fontSize: '10.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            100% Pago ({p.forma_pagamento || p.resumo_financeiro?.forma_pagamento || 'Pix'})
+                          </span>
                         )}
                       </td>
                       <td className="align-center" style={{ whiteSpace: 'nowrap' }}>

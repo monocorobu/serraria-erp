@@ -227,6 +227,16 @@ const COMANDA_PRINT_CSS = `
     padding-top: 3px;
     margin-top: 3px;
   }
+  .print-debito-highlight {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #92400E;
+    background-color: #FEF3C7 !important;
+    border: 1px solid #FCD34D;
+    border-radius: 3px;
+    padding: 2.5px 5px;
+    margin-top: 2.5px;
+  }
   .print-bruto-highlight {
     font-size: 11px;
     font-weight: 800;
@@ -235,7 +245,7 @@ const COMANDA_PRINT_CSS = `
     border: 1px solid #93C5FD;
     border-radius: 3px;
     padding: 2.5px 5px;
-    margin-top: 3px;
+    margin-top: 2.5px;
   }
   .print-status-tag {
     margin-top: 3px;
@@ -411,23 +421,27 @@ export const PrintModal = () => {
 
   const p = printModal.order;
   const isCliente = printModal.mode === 'CLIENTE';
+  const isOrcamento = p.status === 'ORCAMENTO';
 
   const dataCriacao = new Date(p.data_criacao || Date.now()).toLocaleDateString('pt-BR');
   const validadeAte = new Date(new Date(p.data_criacao || Date.now()).getTime() + (p.validade_dias || 7) * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR');
-  const saldoReceber = p.resumo_financeiro?.saldo_a_receber || 0;
-  const temSaldoCobrar = saldoReceber > 0;
 
   const nomeEmpresa = config.nome_madeireira || 'Serraria e Madeireira Bom Jesus';
   const cnpjEmpresa = config.cnpj_madeireira || '16.482.988/0001-02';
   const endEmpresa = config.endereco_madeireira || 'Av. Adhemar Pinto de Siqueira, 1000 - Vila Galvão, Caçapava - SP';
   const telEmpresa = config.telefone_madeireira || '(12) 99603-3793';
 
-  // Preço Bruto
+  // Preço Bruto & Preço Débito
   const pctBruto = (p.resumo_financeiro?.percentual_bruto !== undefined && p.resumo_financeiro?.percentual_bruto !== null)
     ? parseFloat(p.resumo_financeiro.percentual_bruto)
     : CalcEngine.getPercentualPrecoBruto();
   const totalAVista = p.resumo_financeiro?.valor_total || 0;
   const totalBruto = p.resumo_financeiro?.valor_total_bruto || CalcEngine.calcularPrecoBruto(totalAVista, pctBruto);
+
+  const pctDebito = (p.resumo_financeiro?.percentual_debito !== undefined && p.resumo_financeiro?.percentual_debito !== null)
+    ? parseFloat(p.resumo_financeiro.percentual_debito)
+    : CalcEngine.getPercentualTaxaDebito();
+  const totalDebito = p.resumo_financeiro?.valor_total_debito || CalcEngine.calcularPrecoDebito(totalAVista, pctDebito);
 
   // Itens & densidade
   const itens = p.itens || [];
@@ -471,13 +485,13 @@ export const PrintModal = () => {
                   </div>
                   <div className="print-doc-meta">
                     <div className="print-doc-title">
-                      {(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? 'CUPOM DE VENDA DE BALCÃO' : (p.status === 'ENTREGUE' ? 'COMPROVANTE DE ENTREGA E QUITAÇÃO' : 'VIA DO CLIENTE')}
+                      {isOrcamento ? 'ORÇAMENTO' : (p.status === 'ENTREGUE' ? 'COMPROVANTE DE ENTREGA E QUITAÇÃO' : 'COMPROVANTE DE VENDA')}
                     </div>
                     <div className="print-doc-number">
-                      {(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? `VENDA Nº #${p.numero}` : (p.status === 'ORCAMENTO' ? `ORÇAMENTO Nº #${p.numero}` : `PEDIDO Nº #${p.numero}`)}
+                      {isOrcamento ? `ORÇAMENTO Nº #${p.numero}` : `PEDIDO Nº #${p.numero}`}
                     </div>
                     <div className="print-doc-date">
-                      Emissão: <strong>{dataCriacao}</strong> | Status: <strong>{(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? '100% PAGO & RETIRADO' : (p.status === 'ENTREGUE' ? 'QUITADO' : `Válido até ${validadeAte}`)}</strong>
+                      Emissão: <strong>{dataCriacao}</strong> | Status: <strong>{isOrcamento ? `Válido até ${validadeAte}` : (p.status === 'ENTREGUE' ? 'ENTREGUE & QUITADO' : '100% PAGO')}</strong>
                     </div>
                   </div>
                 </div>
@@ -489,14 +503,14 @@ export const PrintModal = () => {
                     <div className="print-client-row"><strong>Telefone:</strong> {p.cliente?.telefone || 'Não informado'}</div>
                   </div>
                   <div>
-                    <div className="print-client-row"><strong>Local:</strong> {(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? 'Retirada no Balcão' : (p.cliente?.endereco_obra || 'Retirada no Pátio')}</div>
+                    <div className="print-client-row"><strong>Local:</strong> {p.cliente?.endereco_obra || 'Retirada no Pátio'}</div>
                     <div className="print-client-row"><strong>Bairro:</strong> {p.cliente?.bairro || p.resumo_financeiro?.bairro_frete || '-'}</div>
                     <div className="print-client-row"><strong>Cidade:</strong> {p.cliente?.cidade || 'Caçapava'}</div>
                   </div>
                   <div>
-                    <div className="print-client-row"><strong>Vendedor:</strong> {p.vendedor?.nome || 'Balcão'}</div>
+                    <div className="print-client-row"><strong>Vendedor:</strong> {p.vendedor_nome || p.vendedor?.nome || 'Balcão'}</div>
                     <div className="print-client-row"><strong>Indicação:</strong> {p.carpinteiro_nome || 'Direta'}</div>
-                    <div className="print-client-row"><strong>Pagamento:</strong> {p.resumo_financeiro?.forma_pagamento || 'Pix'}</div>
+                    <div className="print-client-row"><strong>Pagamento:</strong> {p.resumo_financeiro?.forma_pagamento || p.forma_pagamento || 'Pix'}</div>
                   </div>
                 </div>
 
@@ -524,8 +538,8 @@ export const PrintModal = () => {
                           <td className="font-mono">{it.codigo}</td>
                           <td><strong>{it.descricao}</strong></td>
                           <td className="align-center font-mono">{it.quantidade}</td>
-                          <td className="align-center font-mono">{it.largura_cm ? `${it.largura_cm} cm` : '-'}</td>
-                          <td className="align-center font-mono">{it.comprimento_m > 0 ? `${it.comprimento_m}m` : '-'}</td>
+                          <td className="align-center font-mono">{(it.tipo_calculo === 'ML' && parseFloat(it.largura_cm) > 0) ? `${it.largura_cm} cm` : '-'}</td>
+                          <td className="align-center font-mono">{(it.tipo_calculo === 'ML' && parseFloat(it.comprimento_m) > 0) ? `${it.comprimento_m}m` : '-'}</td>
                           <td className="align-right font-mono">
                             {CalcEngine.formatNumero(it.metragem_total, it.tipo_calculo === 'ML' ? 1 : 0)} {it.tipo_calculo === 'ML' ? 'ML' : it.tipo_calculo === 'M2' ? 'm²' : 'un'}
                           </td>
@@ -546,6 +560,15 @@ export const PrintModal = () => {
                   <div className="print-footer-left">
                     <div className="print-payment-badge">
                       <strong>Forma de Pagamento:</strong> {p.resumo_financeiro?.forma_pagamento || 'Pix'}
+                      {p.resumo_financeiro?.pagamentos_detalhe && p.resumo_financeiro.pagamentos_detalhe.length > 1 && (
+                        <div style={{ marginTop: '2px', fontSize: '9px', fontWeight: 600 }}>
+                          {p.resumo_financeiro.pagamentos_detalhe.map((pg, idx) => (
+                            <span key={idx} style={{ display: 'inline-block', marginRight: '8px' }}>
+                              • {pg.tipo}{pg.tipo === 'Cartão de Crédito' && pg.parcelas > 1 ? ` (${pg.parcelas}x)` : ''}: {CalcEngine.formatBRL(pg.valor)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="print-terms">
@@ -554,7 +577,7 @@ export const PrintModal = () => {
 
                     <div className="print-signatures-grid">
                       <div className="signature-line">
-                        {p.vendedor?.nome || 'Vendedor'}<br />
+                        {p.vendedor_nome || p.vendedor?.nome || 'Vendedor'}<br />
                         <span>Atendimento de Balcão</span>
                       </div>
                       <div className="signature-line">
@@ -572,7 +595,7 @@ export const PrintModal = () => {
                       </div>
                       {(p.resumo_financeiro?.taxa_aparelhamento > 0) && (
                         <div className="print-financial-line">
-                          <span>Taxa Beneficiamento (Plaina):</span>
+                          <span>Acréscimo Plaina{p.resumo_financeiro?.plaina_pct ? ` (${p.resumo_financeiro.plaina_pct}%)` : ''}:</span>
                           <span className="font-mono">{CalcEngine.formatBRL(p.resumo_financeiro.taxa_aparelhamento)}</span>
                         </div>
                       )}
@@ -589,28 +612,27 @@ export const PrintModal = () => {
                         </div>
                       )}
 
-                      {/* DUAL PRICING NO RODAPÉ DA FOLHA */}
+                      {/* PREÇOS (À VISTA, DÉBITO E BRUTO) NO RODAPÉ DA FOLHA */}
                       <div className="print-financial-line print-total-highlight">
                         <span>TOTAL À VISTA (PIX / DINH.):</span>
                         <span className="font-mono">{CalcEngine.formatBRL(totalAVista)}</span>
                       </div>
+                      <div className="print-financial-line print-debito-highlight">
+                        <span>NO DÉBITO / CARTÃO:</span>
+                        <span className="font-mono">{CalcEngine.formatBRL(totalDebito)}</span>
+                      </div>
                       <div className="print-financial-line print-bruto-highlight">
-                        <span>PREÇO BRUTO (A PRAZO +{pctBruto}%):</span>
+                        <span>PREÇO BRUTO (A PRAZO):</span>
                         <span className="font-mono">{CalcEngine.formatBRL(totalBruto)}</span>
                       </div>
 
-                      {(p.finalizado_balcao || p.tipo_entrega === 'BALCAO_IMEDIATO') ? (
-                        <div className="print-status-tag paid">
-                          100% PAGO NO BALCÃO — MERCADORIA ENTREGUE
-                        </div>
-                      ) : saldoReceber > 0 ? (
-                        <div className="print-balance-due-box">
-                          <span>SALDO À VISTA A RECEBER:</span>
-                          <span className="font-mono" style={{ fontSize: '11.5px' }}>{CalcEngine.formatBRL(saldoReceber)}</span>
+                      {isOrcamento ? (
+                        <div className="print-status-tag" style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569' }}>
+                          PROPOSTA COMERCIAL — VÁLIDA POR {p.validade_dias || 7} DIAS
                         </div>
                       ) : (
                         <div className="print-status-tag paid">
-                          PEDIDO TOTALMENTE PAGO
+                          100% PAGO — VENDA QUITADA
                         </div>
                       )}
                     </div>
@@ -637,21 +659,15 @@ export const PrintModal = () => {
                   </div>
                 </div>
 
-                {temSaldoCobrar ? (
-                  <div className="patio-alert-cobrar">
-                    ATENÇÃO MOTORISTA: COBRAR O VALOR DE {CalcEngine.formatBRL(saldoReceber)} NO ATO DO DESCARREGAMENTO (PIX OU DINHEIRO)
-                  </div>
-                ) : (
-                  <div style={{ backgroundColor: '#DCFCE7', border: '1.5px solid #15803D', color: '#15803D', fontSize: '10.5px', fontWeight: 800, padding: '3px 6px', textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase' }}>
-                    PEDIDO QUITADO - NÃO COBRAR NADA DO CLIENTE NA DESCARGA
-                  </div>
-                )}
+                <div style={{ backgroundColor: '#DCFCE7', border: '1.5px solid #15803D', color: '#15803D', fontSize: '10.5px', fontWeight: 800, padding: '4px 6px', textAlign: 'center', marginBottom: '6px', textTransform: 'uppercase' }}>
+                  PEDIDO 100% PAGO — CARGA LIBERADA PARA CORTE E ENTREGA
+                </div>
 
                 <div className="patio-info-banner">
                   <div>
                     <div><strong>CLIENTE:</strong> {p.cliente?.nome || 'Cliente'}</div>
                     <div><strong>LOCAL DA OBRA:</strong> {p.cliente?.endereco_obra || 'Retirada no Pátio'}</div>
-                    <div><strong>CONTATO:</strong> {p.cliente?.telefone || 'N/A'} | <strong>VENDEDOR:</strong> {p.vendedor?.nome || 'Balcão'}</div>
+                    <div><strong>CONTATO:</strong> {p.cliente?.telefone || 'N/A'} | <strong>VENDEDOR:</strong> {p.vendedor_nome || p.vendedor?.nome || 'Balcão'}</div>
                   </div>
                   <div>
                     <div><strong>DESTINO / BAIRRO:</strong></div>
@@ -721,8 +737,8 @@ export const PrintModal = () => {
                             <td className="font-mono">{it.codigo}</td>
                             <td><strong>{it.descricao}</strong></td>
                             <td style={{ textAlign: 'center', fontWeight: 800 }}>{it.quantidade}</td>
-                            <td style={{ textAlign: 'center' }}>{it.largura_cm ? `${it.largura_cm}cm` : '-'}</td>
-                            <td style={{ textAlign: 'center' }}>{it.comprimento_m > 0 ? `${it.comprimento_m}m` : '-'}</td>
+                            <td style={{ textAlign: 'center' }}>{(it.tipo_calculo === 'ML' && parseFloat(it.largura_cm) > 0) ? `${it.largura_cm}cm` : '-'}</td>
+                            <td style={{ textAlign: 'center' }}>{(it.tipo_calculo === 'ML' && parseFloat(it.comprimento_m) > 0) ? `${it.comprimento_m}m` : '-'}</td>
                             <td style={{ textAlign: 'right' }}>{it.metragem_total} {it.tipo_calculo}</td>
                           </tr>
                         ))}

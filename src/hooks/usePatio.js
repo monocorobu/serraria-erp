@@ -8,7 +8,7 @@ import { DB } from '../services/data.js';
 export function usePatio(orders, saveOrder, showToast) {
   // Pedidos ativos no pátio (aprovados ou prontos)
   const patioOrders = useMemo(() => {
-    return orders.filter(o => o.status === 'APROVADO' || o.etapa_patio === 'ENTREGUE');
+    return orders.filter(o => o.status === 'PAGO' || o.status === 'APROVADO' || o.etapa_patio === 'ENTREGUE');
   }, [orders]);
 
   // Avançar ou mover etapa do Kanban

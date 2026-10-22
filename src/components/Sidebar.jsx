@@ -9,7 +9,7 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
     if (onCloseMobile) onCloseMobile();
   };
 
-  const pendingPatioCount = orders.filter(o => o.status === 'APROVADO' && o.etapa_patio !== 'ENTREGUE').length;
+  const pendingPatioCount = orders.filter(o => (o.status === 'APROVADO' || o.status === 'PAGO') && o.etapa_patio !== 'ENTREGUE').length;
   const totalStockCount = products.length;
 
   return (
