@@ -6,6 +6,11 @@
    Garantia: O conteúdo SEMPRE cabe em uma única folha A5 deitada.
    ========================================================================== */
 
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+
 /* Estilos de tela para a folha A5 Deitada no modal de prévia */
 .print-sheet {
   background-color: #FFFFFF;
@@ -417,7 +422,7 @@
 @media print {
   @page {
     size: A5 landscape;
-    margin: 4mm 6mm;
+    margin: 0;
   }
 
   html, body {
@@ -436,7 +441,6 @@
   }
 
   /* Oculta tudo que não for o documento de impressão */
-  .app-container,
   .main-wrapper,
   .sidebar,
   .top-header,
@@ -445,6 +449,12 @@
   .toast-container,
   .no-print {
     display: none !important;
+  }
+
+  .app-container {
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .modal-overlay:not(#modal-impressao-a4) {
@@ -519,6 +529,9 @@
     max-width: 100% !important;
     height: 100% !important;
     max-height: 140mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
     background-color: #FFFFFF !important;
     color: #0F172A !important;
     overflow: hidden !important;

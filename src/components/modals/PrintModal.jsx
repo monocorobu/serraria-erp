@@ -1,10 +1,411 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CalcEngine } from '../../services/calc.js';
+
+// Folha de estilos completa e autocontida para a comanda A5 Paisagem
+const COMANDA_PRINT_CSS = `
+  @page {
+    size: A5 landscape;
+    margin: 0;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 10px;
+    line-height: 1.3;
+    width: 210mm !important;
+    height: 148mm !important;
+    max-height: 148mm !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-sheet {
+    background-color: #FFFFFF !important;
+    color: #0F172A !important;
+    padding: 5mm 8mm !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 10px;
+    line-height: 1.3;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    height: 148mm !important;
+    max-height: 148mm !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+  }
+  .print-sheet.density-normal { font-size: 10.5px; }
+  .print-sheet.density-normal .print-table th, .print-sheet.density-normal .print-table td { padding: 3.5px 5px; }
+  .print-sheet.density-compact { font-size: 9.5px; }
+  .print-sheet.density-compact .print-table th, .print-sheet.density-compact .print-table td { padding: 2px 4px; }
+  .print-sheet.density-compact .print-sheet-header { margin-bottom: 6px; padding-bottom: 5px; }
+  .print-sheet.density-compact .print-client-box { margin-bottom: 6px; padding: 4px 6px; }
+  .print-sheet.density-compact .print-footer-container { margin-top: 6px; padding: 4px 8px; }
+  .print-sheet.density-dense { font-size: 8.5px; }
+  .print-sheet.density-dense .print-table th, .print-sheet.density-dense .print-table td { padding: 1.5px 3px; font-size: 8.5px; }
+  .print-sheet.density-dense .print-sheet-header { margin-bottom: 4px; padding-bottom: 4px; }
+  .print-sheet.density-dense .print-company-name { font-size: 13px; }
+  .print-sheet.density-dense .print-client-box { margin-bottom: 4px; padding: 3px 6px; }
+  .print-sheet.density-dense .print-footer-container { margin-top: 4px; padding: 3px 6px; }
+  .print-sheet.density-dense .print-signatures-grid { margin-top: 6px; }
+
+  .print-sheet-header {
+    border-bottom: 2px solid #0F172A;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .print-company-name {
+    font-size: 15px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #14532D;
+    line-height: 1.15;
+  }
+  .print-company-meta {
+    font-size: 9.5px;
+    color: #475569;
+    line-height: 1.25;
+    margin-top: 2px;
+  }
+  .print-doc-meta { text-align: right; }
+  .print-doc-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #0F172A;
+    text-transform: uppercase;
+  }
+  .print-doc-number {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-size: 13.5px;
+    font-weight: 800;
+    color: #14532D;
+  }
+  .print-doc-date {
+    font-size: 9.5px;
+    color: #475569;
+  }
+
+  .print-client-box {
+    border: 1px solid #94A3B8;
+    padding: 5px 8px;
+    margin-bottom: 8px;
+    background-color: #F8FAFC !important;
+    display: grid;
+    grid-template-columns: 1.3fr 1.3fr 1fr;
+    gap: 8px;
+    font-size: 9.5px;
+    line-height: 1.3;
+  }
+  .print-client-row {
+    margin-bottom: 1.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .print-client-row strong { color: #0F172A; }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 6px;
+    font-size: 10px;
+  }
+  .print-table th {
+    background-color: #F1F5F9 !important;
+    border-top: 1px solid #0F172A;
+    border-bottom: 1.5px solid #0F172A;
+    border-right: 1px solid #CBD5E1;
+    padding: 3px 5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 9px;
+    text-align: left;
+  }
+  .print-table th:last-child { border-right: none; }
+  .print-table td {
+    border-bottom: 1px solid #E2E8F0;
+    border-right: 1px solid #F1F5F9;
+    padding: 3px 5px;
+  }
+  .print-table td:last-child { border-right: none; }
+  .print-table td.align-right, .print-table th.align-right { text-align: right; }
+  .print-table td.align-center, .print-table th.align-center { text-align: center; }
+  .print-table td.font-mono {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .print-footer-container {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    gap: 12px;
+    border: 1px solid #94A3B8;
+    padding: 6px 10px;
+    background-color: #F8FAFC !important;
+    margin-top: auto;
+  }
+  .print-footer-left {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .print-payment-badge {
+    font-size: 10px;
+    color: #0F172A;
+    background-color: #E2E8F0 !important;
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+    margin-bottom: 3px;
+  }
+  .print-terms {
+    font-size: 8px;
+    color: #475569;
+    line-height: 1.25;
+    margin-bottom: 5px;
+  }
+  .print-signatures-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 6px;
+  }
+  .signature-line {
+    border-top: 1px solid #0F172A;
+    text-align: center;
+    font-size: 8.5px;
+    padding-top: 2px;
+    color: #334155;
+    line-height: 1.2;
+  }
+  .signature-line span {
+    font-size: 7.5px;
+    color: #64748B;
+  }
+
+  .print-footer-right {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-left: 1px solid #CBD5E1;
+    padding-left: 10px;
+  }
+  .print-financial-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 9.5px;
+  }
+  .print-financial-line {
+    display: flex;
+    justify-content: space-between;
+  }
+  .print-total-highlight {
+    font-size: 12px;
+    font-weight: 800;
+    color: #14532D;
+    border-top: 1.5px solid #0F172A;
+    padding-top: 3px;
+    margin-top: 3px;
+  }
+  .print-bruto-highlight {
+    font-size: 11px;
+    font-weight: 800;
+    color: #1E40AF;
+    background-color: #EFF6FF !important;
+    border: 1px solid #93C5FD;
+    border-radius: 3px;
+    padding: 2.5px 5px;
+    margin-top: 3px;
+  }
+  .print-status-tag {
+    margin-top: 3px;
+    padding: 2.5px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    font-size: 9px;
+    text-align: center;
+  }
+  .print-status-tag.paid {
+    background: #ECFDF5 !important;
+    border: 1px solid #10B981;
+    color: #047857;
+  }
+  .print-balance-due-box {
+    background-color: #FEF3C7 !important;
+    border: 1px solid #B45309;
+    padding: 3px 6px;
+    color: #B45309;
+    font-weight: 700;
+    font-size: 10.5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 3px;
+  }
+
+  /* Pátio */
+  .patio-sheet { font-size: 10.5px; line-height: 1.3; }
+  .patio-alert-cobrar {
+    background-color: #FEE2E2 !important;
+    border: 1.5px solid #B91C1C;
+    color: #B91C1C;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 8px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    text-align: center;
+    letter-spacing: 0.4px;
+  }
+  .patio-info-banner {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 10px;
+    background-color: #F1F5F9 !important;
+    border: 1px solid #94A3B8;
+    padding: 5px 8px;
+    margin-bottom: 6px;
+    font-size: 10px;
+  }
+  .patio-section-title {
+    background-color: #0F172A !important;
+    color: #FFFFFF !important;
+    padding: 3px 8px;
+    font-size: 9.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-top: 6px;
+    margin-bottom: 3px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .patio-section-title.plaina { background-color: #14532D !important; }
+  .patio-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+    margin-bottom: 6px;
+  }
+  .patio-table th {
+    background-color: #E2E8F0 !important;
+    border-top: 1px solid #0F172A;
+    border-bottom: 1.5px solid #0F172A;
+    border-right: 1px solid #CBD5E1;
+    padding: 3px 5px;
+    font-weight: 800;
+    font-size: 9px;
+    text-transform: uppercase;
+  }
+  .patio-table td {
+    border-bottom: 1px solid #94A3B8;
+    border-right: 1px solid #E2E8F0;
+    padding: 3px 5px;
+    font-weight: 600;
+  }
+  .patio-check-box {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid #0F172A;
+    display: inline-block;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', Consolas, monospace !important;
+  }
+`;
 
 export const PrintModal = () => {
   const { printModal, closePrintModal, togglePrintMode, config } = useApp();
   const printSheetRef = useRef(null);
+
+  const executarImpressao = () => {
+    try {
+      const container = printSheetRef.current;
+      if (!container) return;
+
+      const p = printModal.order;
+      const isCliente = printModal.mode === 'CLIENTE';
+
+      let printIframe = document.getElementById('comanda-print-iframe-react');
+      if (!printIframe) {
+        printIframe = document.createElement('iframe');
+        printIframe.id = 'comanda-print-iframe-react';
+        printIframe.style.position = 'fixed';
+        printIframe.style.right = '0';
+        printIframe.style.bottom = '0';
+        printIframe.style.width = '0';
+        printIframe.style.height = '0';
+        printIframe.style.border = '0';
+        printIframe.style.visibility = 'hidden';
+        document.body.appendChild(printIframe);
+      }
+
+      const frameDoc = printIframe.contentWindow.document;
+      frameDoc.open();
+      frameDoc.write(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <title>${isCliente ? 'Comanda_Orcamento' : 'Romaneio_Patio'}_${p?.numero || ''}_A5</title>
+          <style>
+            ${COMANDA_PRINT_CSS}
+          </style>
+        </head>
+        <body>
+          ${container.innerHTML}
+        </body>
+        </html>
+      `);
+      frameDoc.close();
+
+      setTimeout(() => {
+        try {
+          printIframe.contentWindow.focus();
+          printIframe.contentWindow.print();
+        } catch (err) {
+          console.warn('Falha no print do iframe:', err);
+        }
+      }, 250);
+    } catch (e) {
+      console.error('Erro ao executar impressão:', e);
+    }
+  };
+
+  // Atalho de teclado Ctrl+P (Hook SEMPRE executado na mesma ordem)
+  useEffect(() => {
+    if (!printModal.isOpen || !printModal.order) return;
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        executarImpressao();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [printModal.isOpen, printModal.order, printModal.mode]);
 
   if (!printModal.isOpen || !printModal.order) return null;
 
@@ -36,80 +437,6 @@ export const PrintModal = () => {
   // Pátio
   const itensPlaina = itens.filter(i => i.aparelhar);
   const itensBruta = itens.filter(i => !i.aparelhar);
-
-  const executarImpressao = () => {
-    const container = printSheetRef.current;
-    if (!container) return;
-
-    let printIframe = document.getElementById('comanda-print-iframe-react');
-    if (!printIframe) {
-      printIframe = document.createElement('iframe');
-      printIframe.id = 'comanda-print-iframe-react';
-      printIframe.style.position = 'fixed';
-      printIframe.style.right = '0';
-      printIframe.style.bottom = '0';
-      printIframe.style.width = '0';
-      printIframe.style.height = '0';
-      printIframe.style.border = '0';
-      printIframe.style.visibility = 'hidden';
-      document.body.appendChild(printIframe);
-    }
-
-    const frameDoc = printIframe.contentWindow.document;
-    frameDoc.open();
-    frameDoc.write(`
-      <!DOCTYPE html>
-      <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8">
-        <title>${isCliente ? 'Comanda_Orcamento' : 'Romaneio_Patio'}_${p.numero}_A5</title>
-        <link rel="stylesheet" href="/css/print.css">
-        <style>
-          @page { size: A5 landscape; margin: 4mm 6mm; }
-          * { box-sizing: border-box; }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #FFFFFF !important;
-            color: #0F172A !important;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            width: 210mm !important;
-            height: 148mm !important;
-            max-height: 148mm !important;
-            overflow: hidden !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .print-sheet {
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            max-height: 140mm !important;
-            overflow: hidden !important;
-            box-sizing: border-box !important;
-          }
-        </style>
-      </head>
-      <body>
-        ${container.innerHTML}
-      </body>
-      </html>
-    `);
-    frameDoc.close();
-
-    setTimeout(() => {
-      try {
-        printIframe.contentWindow.focus();
-        printIframe.contentWindow.print();
-      } catch (err) {
-        console.warn('Fallback print:', err);
-        window.print();
-      }
-    }, 250);
-  };
 
   return (
     <div className="modal-overlay active" style={{ display: 'flex' }}>
