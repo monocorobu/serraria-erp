@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CalcEngine } from '../../services/calc.js';
 import { DB, STORAGE_KEYS, DocMascara } from '../../services/data.js';
+import Pagination from '../common/Pagination.jsx';
 
 export const GerenteTab = () => {
   const { 
@@ -16,10 +17,32 @@ export const GerenteTab = () => {
     currentUser, 
     refreshAll, 
     showToast, 
-    carpenters 
+    carpenters,
+    isDev,
+    zerarSistema 
   } = useApp();
 
   const [subtab, setSubtab] = useState('parametros');
+
+  // Paginação Funcionários
+  const [pageEmployees, setPageEmployees] = useState(1);
+  const [pageSizeEmployees, setPageSizeEmployees] = useState(10);
+  const totalPagesEmployees = Math.max(1, Math.ceil(employees.length / pageSizeEmployees));
+  const safePageEmployees = Math.min(Math.max(1, pageEmployees), totalPagesEmployees);
+  const paginatedEmployees = useMemo(() => {
+    const start = (safePageEmployees - 1) * pageSizeEmployees;
+    return employees.slice(start, start + pageSizeEmployees);
+  }, [employees, safePageEmployees, pageSizeEmployees]);
+
+  // Paginação Contas
+  const [pageUsers, setPageUsers] = useState(1);
+  const [pageSizeUsers, setPageSizeUsers] = useState(10);
+  const totalPagesUsers = Math.max(1, Math.ceil(users.length / pageSizeUsers));
+  const safePageUsers = Math.min(Math.max(1, pageUsers), totalPagesUsers);
+  const paginatedUsers = useMemo(() => {
+    const start = (safePageUsers - 1) * pageSizeUsers;
+    return users.slice(start, start + pageSizeUsers);
+  }, [users, safePageUsers, pageSizeUsers]);
 
   // Estado dos parâmetros do formulário
   const [paramsForm, setParamsForm] = useState({
@@ -233,7 +256,7 @@ export const GerenteTab = () => {
       username: usr.username || '',
       nome: usr.nome || '',
       email: usr.email || '',
-      senha: usr.senha || '',
+      senha: '', // Em edição, o campo de senha inicia vazio por segurança
       perfil: usr.perfil || 'FUNCIONARIO',
       cargo: usr.cargo || '',
       funcionario_id: usr.funcionario_id || '',
@@ -249,8 +272,8 @@ export const GerenteTab = () => {
       showToast('O nome de usuário (login) é obrigatório.', 'warning');
       return;
     }
-    if (!formUsuario.senha.trim()) {
-      showToast('A senha de acesso é obrigatória.', 'warning');
+    if (!modalUsuario.isEdit && !formUsuario.senha.trim()) {
+      showToast('A senha de acesso é obrigatória para novas contas.', 'warning');
       return;
     }
 
@@ -271,25 +294,43 @@ export const GerenteTab = () => {
       data_criacao: formUsuario.data_criacao || new Date().toISOString()
     };
 
+    // Se a senha estiver em branco na edição, remove para não sobrescrever o hash existente
+    if (modalUsuario.isEdit && !formUsuario.senha.trim()) {
+      delete payload.senha;
+    }
+
     saveUser(payload);
+    showToast('Conta de acesso salva com sucesso!', 'success');
     setModalUsuario({ isOpen: false, isEdit: false });
   };
 
   const handleConfirmarExcluirUsuario = () => {
     if (!modalExcluirUsuario.usuario) return;
     const usr = modalExcluirUsuario.usuario;
-    if (usr.id === 'usr_admin' || usr.username === 'admin') {
-      showToast('A conta de Administrador Geral (admin) é do sistema e não pode ser excluída.', 'error');
+
+    // Proteção absoluta: a conta DEV jamais pode ser excluída
+    if (usr.perfil === 'DEV' || usr.username === 'thales' || usr.email === 'thalesgabriel.war@gmail.com') {
+      showToast('A conta de Desenvolvedor Master (DEV) é protegida e não pode ser excluída.', 'error');
       setModalExcluirUsuario({ isOpen: false, usuario: null });
       return;
     }
+
     if (currentUser && currentUser.id === usr.id) {
       showToast('Você não pode excluir a sua própria conta conectada no momento.', 'error');
       setModalExcluirUsuario({ isOpen: false, usuario: null });
       return;
     }
 
+    // Se for conta de Administrador Geral sendo excluída por alguém que não é DEV:
+    const isMainAdmin = usr.id === 'usr_admin' || usr.username === 'admin';
+    if (isMainAdmin && !isDev) {
+      showToast('Apenas a conta de Desenvolvedor (DEV) possui privilégio para excluir o Administrador Geral.', 'error');
+      setModalExcluirUsuario({ isOpen: false, usuario: null });
+      return;
+    }
+
     deleteUser(usr.id);
+    showToast(`Conta de acesso "${usr.username}" (${usr.perfil}) excluída com sucesso!`, 'info');
     setModalExcluirUsuario({ isOpen: false, usuario: null });
   };
 
@@ -539,10 +580,43 @@ export const GerenteTab = () => {
             </div>
           </div>
 
-          <button type="submit" className="btn btn-primary btn-lg" style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            <span>Salvar Parâmetros e Configurações</span>
-          </button>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button type="submit" className="btn btn-primary btn-lg" style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span>Salvar Parâmetros e Configurações</span>
+            </button>
+          </div>
+
+          {/* PAINEL DE ZERAMENTO / INÍCIO DE TESTES REAIS */}
+          <div className="panel" style={{ marginTop: '24px', border: '1px dashed #F59E0B', background: '#FFFBEB' }}>
+            <div className="panel-header" style={{ borderBottom: '1px solid #FDE68A', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span className="panel-title" style={{ color: '#B45309', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" strokeWidth="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Preparação para Testes Reais (Zeramento de Movimentações)
+              </span>
+            </div>
+            <div className="panel-body">
+              <p style={{ fontSize: '13px', color: '#92400E', margin: '0 0 14px 0', lineHeight: 1.5 }}>
+                Caso precise recomeçar os testes reais do zero a qualquer momento, clique no botão abaixo. Isso irá zerar <strong>todos os pedidos, orçamentos, clientes e comissões</strong>, mantendo <strong>100% íntegro todo o estoque de produtos, preços, categorias e usuários</strong>.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ borderColor: '#D97706', color: '#B45309', fontWeight: 700, background: '#FEF3C7' }}
+                onClick={() => {
+                  if (window.confirm('Atenção: Deseja realmente zerar todos os pedidos e clientes cadastrados para iniciar testes reais? O catálogo de produtos, estoque e contas de acesso continuarão intactos.')) {
+                    zerarSistema();
+                  }
+                }}
+              >
+                Zerar Pedidos & Clientes Agora
+              </button>
+            </div>
+          </div>
         </form>
       )}
 
@@ -576,14 +650,14 @@ export const GerenteTab = () => {
                 </tr>
               </thead>
               <tbody>
-                {employees.length === 0 ? (
+                {paginatedEmployees.length === 0 ? (
                   <tr>
                     <td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
                       Nenhum funcionário cadastrado. Clique no botão acima para adicionar.
                     </td>
                   </tr>
                 ) : (
-                  employees.map(f => (
+                  paginatedEmployees.map(f => (
                     <tr key={f.id}>
                       <td>
                         <strong>{f.nome}</strong>
@@ -659,6 +733,14 @@ export const GerenteTab = () => {
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={pageEmployees}
+            totalItems={employees.length}
+            pageSize={pageSizeEmployees}
+            onPageChange={setPageEmployees}
+            onPageSizeChange={setPageSizeEmployees}
+            itemLabel="funcionários"
+          />
         </div>
       )}
 
@@ -697,7 +779,14 @@ export const GerenteTab = () => {
                 </tr>
               </thead>
               <tbody>
-                {users.map(u => {
+                {paginatedUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                      Nenhuma conta cadastrada.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedUsers.map(u => {
                   const vinculado = employees.find(e => e.id === u.funcionario_id);
                   const isExibindoSenha = mostrarSenhas[u.id];
                   const isCurrent = currentUser && currentUser.id === u.id;
@@ -716,7 +805,11 @@ export const GerenteTab = () => {
                         {u.email && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{u.email}</div>}
                       </td>
                       <td className="align-center">
-                        {u.perfil === 'ADMIN' ? (
+                        {u.perfil === 'DEV' ? (
+                          <span className="badge-role-tag badge-role-dev" style={{ fontSize: '10px', padding: '2px 8px' }}>
+                            ⚡ DEV MASTER
+                          </span>
+                        ) : u.perfil === 'ADMIN' ? (
                           <span className="badge-tag" style={{ background: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D', fontWeight: 700, fontSize: '10.5px' }}>
                             👑 ADMIN (Total)
                           </span>
@@ -731,31 +824,13 @@ export const GerenteTab = () => {
                         {vinculado ? vinculado.nome : <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Não vinculado</span>}
                       </td>
                       <td className="align-center font-mono">
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '12px', letterSpacing: isExibindoSenha ? '0' : '2px', fontWeight: 700 }}>
-                            {isExibindoSenha ? u.senha : '••••••'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setMostrarSenhas(prev => ({ ...prev, [u.id]: !prev[u.id] }))}
-                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '2px 4px' }}
-                            title={isExibindoSenha ? 'Ocultar Senha' : 'Ver Senha'}
-                          >
-                            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
-                              {isExibindoSenha ? (
-                                <>
-                                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                                  <line x1="1" y1="1" x2="23" y2="23"></line>
-                                </>
-                              ) : (
-                                <>
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                  <circle cx="12" cy="12" r="3"></circle>
-                                </>
-                              )}
-                            </svg>
-                          </button>
-                        </div>
+                        <span style={{ fontSize: '11px', background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '3px 8px', borderRadius: '4px', color: '#0F766E', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" strokeWidth="2.2">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                          </svg>
+                          SHA-256
+                        </span>
                       </td>
                       <td className="align-center">
                         {u.ativo !== false ? (
@@ -771,11 +846,11 @@ export const GerenteTab = () => {
                             className="btn btn-sm btn-secondary" 
                             style={{ fontSize: '11px', padding: '2px 7px' }}
                             onClick={() => handleAbrirEditarUsuario(u)}
-                            title="Editar Conta e Senha"
+                            title="Editar Conta e Redefinir Senha"
                           >
                             Editar
                           </button>
-                          {!isMainAdmin && !isCurrent && (
+                          {!isCurrent && u.perfil !== 'DEV' && (isDev || !isMainAdmin) && (
                             <button 
                               type="button"
                               className="btn btn-sm" 
@@ -797,10 +872,18 @@ export const GerenteTab = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={pageUsers}
+            totalItems={users.length}
+            pageSize={pageSizeUsers}
+            onPageChange={setPageUsers}
+            onPageSizeChange={setPageSizeUsers}
+            itemLabel="contas"
+          />
         </div>
       )}
 
@@ -1094,15 +1177,21 @@ export const GerenteTab = () => {
                     <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Sem espaços ou maiúsculas</span>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Senha de Acesso:</label>
+                    <label className="form-label">
+                      {modalUsuario.isEdit ? 'Nova Senha (Opcional):' : 'Senha de Acesso:'}
+                    </label>
                     <input
-                      type="text"
+                      type="password"
                       className="form-input font-mono"
-                      placeholder="Digite a senha..."
-                      required
+                      placeholder={modalUsuario.isEdit ? 'Manter senha atual...' : 'Digite a senha...'}
+                      required={!modalUsuario.isEdit}
                       value={formUsuario.senha}
                       onChange={e => setFormUsuario(prev => ({ ...prev, senha: e.target.value }))}
+                      autoComplete="new-password"
                     />
+                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                      {modalUsuario.isEdit ? 'Preencha apenas se desejar redefinir' : 'Criptografada com SHA-256 + Salt'}
+                    </span>
                   </div>
                 </div>
 
@@ -1128,6 +1217,9 @@ export const GerenteTab = () => {
                     >
                       <option value="FUNCIONARIO">FUNCIONÁRIO (Balcão, Pátio e Histórico)</option>
                       <option value="ADMIN">ADMINISTRADOR (Acesso Total + Central Gerente)</option>
+                      {currentUser?.perfil === 'DEV' && (
+                        <option value="DEV">DEV MASTER (Acesso Supremo & Engenharia)</option>
+                      )}
                     </select>
                   </div>
                   <div className="form-group">

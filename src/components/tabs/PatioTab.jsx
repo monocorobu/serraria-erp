@@ -142,7 +142,7 @@ export const PatioTab = () => {
   return (
     <div className="patio-layout">
       {/* KANBAN OPERACIONAL DO PÁTIO */}
-      <div className="kanban-board" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', alignItems: 'start' }}>
+      <div className="kanban-board">
         {COLUNAS.map(col => {
           const pedidosNaColuna = patioOrders.filter(p => getColunaId(p.etapa_patio) === col.id);
 

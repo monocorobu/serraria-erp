@@ -41,7 +41,7 @@ const TAB_TITLES = {
 };
 
 export const Header = ({ onOpenMobile, onOpenAuth }) => {
-  const { activeTab, setActiveTab, currentUser, showToast } = useApp();
+  const { activeTab, setActiveTab, currentUser, logout, showToast } = useApp();
   const info = TAB_TITLES[activeTab] || TAB_TITLES.balcao;
 
   return (
@@ -89,30 +89,61 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
         {/* WIDGET DE SESSÃO & SEGURANÇA */}
         <div className="user-session-widget" id="user-session-widget">
           <div className="user-avatar-badge" id="user-session-avatar">
-            {currentUser?.nome ? currentUser.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : 'CE'}
+            {currentUser?.nome ? currentUser.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() : 'US'}
           </div>
           <div className="user-info-text">
             <div className="user-name-line">
               <span className="user-display-name" id="user-session-name">
-                {currentUser?.nome || 'Carlos Eduardo'}
+                {currentUser?.nome || 'Usuário'}
               </span>
-              <span className={`badge-role-tag ${currentUser?.perfil === 'ADMIN' ? 'badge-role-admin' : 'badge-role-func'}`} id="user-session-badge">
-                {currentUser?.perfil || 'ADMIN'}
+              <span 
+                className={`badge-role-tag ${
+                  currentUser?.perfil === 'DEV' 
+                    ? 'badge-role-dev' 
+                    : currentUser?.perfil === 'ADMIN' 
+                      ? 'badge-role-admin' 
+                      : 'badge-role-func'
+                }`} 
+                id="user-session-badge"
+              >
+                {currentUser?.perfil === 'DEV' ? '👑 DEV MASTER' : (currentUser?.perfil || 'FUNCIONARIO')}
               </span>
             </div>
             <span className="user-cargo-line" id="user-session-cargo">
-              {currentUser?.cargo || 'Gerente Geral & Administrador'}
+              {currentUser?.cargo || 'Colaborador'}
             </span>
           </div>
-          <button 
-            type="button" 
-            className="btn-user-switch" 
-            onClick={onOpenAuth} 
-            title="Alternar usuário / Trocar de conta"
-          >
-            <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M17 11l4-4-4-4"/><path d="M21 7H13"/></svg>
-            <span>Trocar</span>
-          </button>
+
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <button 
+              type="button" 
+              className="btn-user-switch" 
+              onClick={onOpenAuth} 
+              title="Alternar usuário / Trocar de conta"
+            >
+              <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M17 11l4-4-4-4"/><path d="M21 7H13"/></svg>
+              <span>Trocar</span>
+            </button>
+
+            <button 
+              type="button" 
+              className="btn-user-switch" 
+              onClick={logout} 
+              title="Encerrar sessão / Sair do sistema"
+              style={{
+                background: '#FEF2F2',
+                color: '#DC2626',
+                borderColor: '#FECACA'
+              }}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              <span>Sair</span>
+            </button>
+          </div>
         </div>
       </div>
     </header>

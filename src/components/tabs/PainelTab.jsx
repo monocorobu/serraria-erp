@@ -127,7 +127,7 @@ export const PainelTab = () => {
       </div>
 
       {/* 5 KPIS EXECUTIVOS */}
-      <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '16px' }}>
+      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <div className="kpi-card" style={{ padding: '14px', borderRadius: 'var(--radius-md)', backgroundColor: '#FFFFFF', border: '1.5px solid var(--border-medium)' }}>
           <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>Faturamento do Período</div>
           <div style={{ fontSize: '20px', fontWeight: 800, color: '#047857', marginTop: '4px' }}>

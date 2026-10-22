@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CalcEngine } from '../../services/calc.js';
 import { DB } from '../../services/data.js';
+import Pagination from '../common/Pagination.jsx';
 
 export const HistoricoTab = () => {
   const { orders, setActiveTab, setEditingOrderId, openPrintModal, showToast, saveOrder, config, products } = useApp();
@@ -9,7 +10,7 @@ export const HistoricoTab = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('TODOS');
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 12;
+  const [pageSize, setPageSize] = useState(10);
 
   // Modal Duplicar Pedido
   const [duplicarState, setDuplicarState] = useState({
@@ -38,11 +39,12 @@ export const HistoricoTab = () => {
     }).sort((a, b) => new Date(b.data_criacao || 0) - new Date(a.data_criacao || 0));
   }, [orders, statusFilter, searchTerm]);
 
-  const totalPages = Math.ceil(filteredOrders.length / pageSize) || 1;
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
   const paginatedOrders = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
+    const start = (safeCurrentPage - 1) * pageSize;
     return filteredOrders.slice(start, start + pageSize);
-  }, [filteredOrders, currentPage, pageSize]);
+  }, [filteredOrders, safeCurrentPage, pageSize]);
 
   const handleEditar = (pedidoId) => {
     setEditingOrderId(pedidoId);
@@ -296,30 +298,15 @@ export const HistoricoTab = () => {
           </table>
         </div>
 
-        {/* PAGINAÇÃO */}
-        {totalPages > 1 && (
-          <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-light)' }}>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-              Mostrando página {currentPage} de {totalPages} ({filteredOrders.length} pedidos)
-            </span>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button 
-                className="btn btn-sm btn-secondary" 
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              >
-                Anterior
-              </button>
-              <button 
-                className="btn btn-sm btn-secondary" 
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              >
-                Próxima
-              </button>
-            </div>
-          </div>
-        )}
+        {/* PAGINAÇÃO COMPLETA */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredOrders.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="pedidos"
+        />
       </div>
 
       {/* MODAL DUPLICAR PEDIDO */}

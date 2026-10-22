@@ -476,11 +476,18 @@ export const PrintModal = () => {
               /* VIA DO CLIENTE COM PREÇO À VISTA E PREÇO BRUTO */
               <div className={`print-sheet ${densityClass}`}>
                 <div className="print-sheet-header">
-                  <div>
-                    <div className="print-company-name">{nomeEmpresa}</div>
-                    <div className="print-company-meta">
-                      CNPJ: {cnpjEmpresa} | Telefone/WhatsApp: {telEmpresa}<br />
-                      {endEmpresa}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img 
+                      src="/logo.png" 
+                      alt="Logo Serraria Bom Jesus" 
+                      style={{ width: '42px', height: '42px', objectFit: 'contain', flexShrink: 0 }} 
+                    />
+                    <div>
+                      <div className="print-company-name">{nomeEmpresa}</div>
+                      <div className="print-company-meta">
+                        CNPJ: {cnpjEmpresa} | Telefone/WhatsApp: {telEmpresa}<br />
+                        {endEmpresa}
+                      </div>
                     </div>
                   </div>
                   <div className="print-doc-meta">
@@ -643,12 +650,19 @@ export const PrintModal = () => {
               /* VIA DO PÁTIO E SERRA (SEM PREÇOS) */
               <div className={`print-sheet patio-sheet ${densityClass}`}>
                 <div className="print-sheet-header" style={{ borderBottom: '2px solid #000000' }}>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 900, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
-                      ROMANEIO DE CORTE, PLAINA E CARREGAMENTO
-                    </div>
-                    <div style={{ fontSize: '10px', fontWeight: 700, color: '#334155' }}>
-                      SERRARIA & PÁTIO DE EXPEDIÇÃO - {nomeEmpresa.toUpperCase()} (CAÇAPAVA - SP)
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img 
+                      src="/logo.png" 
+                      alt="Logo Serraria Bom Jesus" 
+                      style={{ width: '38px', height: '38px', objectFit: 'contain', flexShrink: 0 }} 
+                    />
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 900, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+                        ROMANEIO DE CORTE, PLAINA E CARREGAMENTO
+                      </div>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#334155' }}>
+                        SERRARIA & PÁTIO DE EXPEDIÇÃO - {nomeEmpresa.toUpperCase()} (CAÇAPAVA - SP)
+                      </div>
                     </div>
                   </div>
                   <div className="print-doc-meta">

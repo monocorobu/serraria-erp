@@ -2,7 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 
 export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
-  const { activeTab, setActiveTab, orders, products } = useApp();
+  const { activeTab, setActiveTab, orders, products, isAdmin } = useApp();
 
   const handleSelectTab = (tabId) => {
     setActiveTab(tabId);
@@ -15,8 +15,8 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
   return (
     <aside className={`sidebar ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-brand">
-        <div className="brand-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <div className="brand-icon" style={{ background: 'transparent', border: 'none', boxShadow: 'none' }}>
+          <img src="/logo.png" alt="Serraria Bom Jesus" className="brand-logo-img" style={{ width: '38px', height: '38px', objectFit: 'contain' }} />
         </div>
         <div className="brand-info">
           <h1>Serraria Bom Jesus</h1>
@@ -110,30 +110,35 @@ export const Sidebar = ({ isMobileOpen, onCloseMobile }) => {
           </div>
         </a>
 
-        <div className="nav-section-title">Gestão & Diretoria</div>
+        {/* ÁREA EXCLUSIVA DE ADMINISTRAÇÃO E GERÊNCIA */}
+        {isAdmin && (
+          <>
+            <div className="nav-section-title">Gestão & Diretoria</div>
 
-        <a 
-          className={`nav-item ${activeTab === 'gerente' ? 'active' : ''}`} 
-          onClick={() => handleSelectTab('gerente')}
-          style={{ cursor: 'pointer' }}
-        >
-          <div className="nav-item-left">
-            <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span>Central do Gerente</span>
-          </div>
-          <span className="nav-badge" style={{ backgroundColor: 'var(--brand-primary)', color: '#FFFFFF' }}>Admin</span>
-        </a>
+            <a 
+              className={`nav-item ${activeTab === 'gerente' ? 'active' : ''}`} 
+              onClick={() => handleSelectTab('gerente')}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="nav-item-left">
+                <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Central do Gerente</span>
+              </div>
+              <span className="nav-badge" style={{ backgroundColor: 'var(--brand-primary)', color: '#FFFFFF' }}>Admin</span>
+            </a>
 
-        <a 
-          className={`nav-item ${activeTab === 'painel' ? 'active' : ''}`} 
-          onClick={() => handleSelectTab('painel')}
-          style={{ cursor: 'pointer' }}
-        >
-          <div className="nav-item-left">
-            <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-            <span>Painel do Dono & Caixa</span>
-          </div>
-        </a>
+            <a 
+              className={`nav-item ${activeTab === 'painel' ? 'active' : ''}`} 
+              onClick={() => handleSelectTab('painel')}
+              style={{ cursor: 'pointer' }}
+            >
+              <div className="nav-item-left">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <span>Painel do Dono & Caixa</span>
+              </div>
+            </a>
+          </>
+        )}
 
         <a 
           className={`nav-item ${activeTab === 'tutorial' ? 'active' : ''}`} 

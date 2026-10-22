@@ -3,16 +3,18 @@
  * Dados reais e estruturados de uma madeireira brasileira.
  */
 
+import { Security } from './security.js';
+
 const STORAGE_KEYS = {
   PRODUTOS: 'serraria_produtos_v4',
-  CLIENTES: 'serraria_clientes_v1',
-  CARPINTEIROS: 'serraria_carpinteiros_v1',
-  PEDIDOS: 'serraria_pedidos_v1',
+  CLIENTES: 'serraria_clientes_v2',
+  CARPINTEIROS: 'serraria_carpinteiros_v2',
+  PEDIDOS: 'serraria_pedidos_v2',
   BAIRROS: 'serraria_bairros_v1',
   CONFIG: 'serraria_config_v1',
-  FUNCIONARIOS: 'serraria_funcionarios_v1',
-  PAGAMENTOS_COMISSAO: 'serraria_pagamentos_comissao_v1',
-  AUDITORIA_DESCONTOS: 'serraria_auditoria_descontos_v1',
+  FUNCIONARIOS: 'serraria_funcionarios_v2',
+  PAGAMENTOS_COMISSAO: 'serraria_pagamentos_comissao_v2',
+  AUDITORIA_DESCONTOS: 'serraria_auditoria_descontos_v2',
   USUARIOS: 'serraria_usuarios_v1',
   CATEGORIAS: 'serraria_categorias_v1'
 };
@@ -1027,102 +1029,9 @@ const SEED_PRODUTOS = [
   {"id":"prod_991","codigo":"1-451","nome":"ÓCULOS PROTEÇÃO TRANSP. E FUME","categoria":"EPIs, Cordas & Diversos","especie":"Diversos","tipo_calculo":"UN","unidade_medida":"UN","preco_unitario":6.6,"taxa_plaina_padrao":0,"estoque_atual":40,"estoque_minimo":10,"ativo":true}
 ];
 
-const SEED_CLIENTES = [
-  {
-    id: 'cli_1',
-    nome: 'Construtora Alvorada Ltda (Eng. Roberto)',
-    documento: '32.145.890/0001-44',
-    telefone: '(11) 98122-3344',
-    email: 'compras@alvoradaconstrutora.com.br',
-    endereco_obra: 'Av. dos Ipês, 450 - Canteiro de Obras 02',
-    bairro: 'Jardim América',
-    cidade: 'São Paulo',
-    observacoes: 'Descarga liberada das 08h às 17h. Acesso fácil para caminhão toco.'
-  },
-  {
-    id: 'cli_2',
-    nome: 'Fazenda & Sítio Boa Esperança (Sr. Darcy)',
-    documento: '145.882.308-54',
-    telefone: '(11) 99455-1212',
-    email: 'darcy.esperanca@agro.com.br',
-    endereco_obra: 'Estrada Vicinal do Ribeirão, Km 8 - Porteira Verde',
-    bairro: 'Zona Rural / Represa',
-    cidade: 'Atibaia',
-    observacoes: 'Estrada de terra batida. Não mandar caminhão truck se estiver chovendo forte.'
-  },
-  {
-    id: 'cli_3',
-    nome: 'Eng. Marcos Aurelio Obra',
-    documento: '231.908.454-71',
-    telefone: '(11) 97333-8899',
-    email: 'marcosaurelio.eng@gmail.com',
-    endereco_obra: 'Rua das Palmeiras, 112 - Sobrado em Reforma',
-    bairro: 'Vila Nova',
-    cidade: 'São Paulo',
-    observacoes: 'Cliente da obra da Vila Nova. Canteiro de reforma.'
-  },
-  {
-    id: 'cli_4',
-    nome: 'Residencial Quinta da Baronesa (Dra. Camila)',
-    documento: '092.341.768-15',
-    telefone: '(11) 98877-6655',
-    email: 'camila.nogueira@med.com.br',
-    endereco_obra: 'Alameda das Acácias, Lote 42 - Condomínio Fechado',
-    bairro: 'Alphaville / Tamboré',
-    cidade: 'Santana de Parnaíba',
-    observacoes: 'Portaria exige identificação do motorista e placa do caminhão com 24h de antecedência.'
-  },
-  {
-    id: 'cli_5',
-    nome: 'Marcenaria & Telhados Rústicos (Marcio)',
-    documento: '45.671.293/0001-18',
-    telefone: '(11) 99188-2233',
-    email: 'rusticos.marcio@uol.com.br',
-    endereco_obra: 'Rua da Olaria, 89 - Galpão 3',
-    bairro: 'Distrito Industrial',
-    cidade: 'Guarulhos',
-    observacoes: 'Entrega direto no galpão.'
-  }
-];
+const SEED_CLIENTES = [];
 
-const SEED_CARPINTEIROS = [
-  {
-    id: 'carp_1',
-    nome: 'Mestre João Telhadista',
-    telefone: '(11) 98455-0101',
-    especialidade: 'Telhados Coloniais e Estruturas Pesadas',
-    comissao_padrao_pct: 4.0,
-    total_indicado_mes: 24620.00,
-    pedidos_indicados_qtd: 6,
-    comissao_acumulada: 984.80,
-    comissao_paga: 700.00,
-    saldo_a_pagar: 284.80
-  },
-  {
-    id: 'carp_2',
-    nome: 'Carlos Carpinteiro',
-    telefone: '(11) 97233-1122',
-    especialidade: 'Decks de Piscina, Pergolados e Forros',
-    comissao_padrao_pct: 3.0,
-    total_indicado_mes: 8920.00,
-    pedidos_indicados_qtd: 2,
-    comissao_acumulada: 267.60,
-    comissao_paga: 0.00,
-    saldo_a_pagar: 267.60
-  },
-  {
-    id: 'carp_3',
-    nome: 'Eng. Marcos Obra',
-    telefone: '(11) 97333-8899',
-    especialidade: 'Construção Civil Geral e Caixaria',
-    comissao_padrao_pct: 5.0,
-    total_indicado_mes: 15750.00,
-    pedidos_indicados_qtd: 4,
-    comissao_acumulada: 787.50,
-    comissao_paga: 787.50,
-    saldo_a_pagar: 0.00
-  }
-];
+const SEED_CARPINTEIROS = [];
 
 const SEED_FUNCIONARIOS = [
   {
@@ -1135,10 +1044,10 @@ const SEED_FUNCIONARIOS = [
     salario_base: 2200.00,
     pix: 'rodrigo@serraria.com.br',
     ativo: true,
-    vendas_mes: 42500.00,
-    comissao_acumulada: 850.00,
-    comissao_paga: 500.00,
-    saldo_comissao: 350.00
+    vendas_mes: 0.00,
+    comissao_acumulada: 0.00,
+    comissao_paga: 0.00,
+    saldo_comissao: 0.00
   },
   {
     id: 'func_2',
@@ -1150,10 +1059,10 @@ const SEED_FUNCIONARIOS = [
     salario_base: 2400.00,
     pix: '11976542211',
     ativo: true,
-    vendas_mes: 58200.00,
-    comissao_acumulada: 1455.00,
-    comissao_paga: 1000.00,
-    saldo_comissao: 455.00
+    vendas_mes: 0.00,
+    comissao_acumulada: 0.00,
+    comissao_paga: 0.00,
+    saldo_comissao: 0.00
   },
   {
     id: 'func_3',
@@ -1195,9 +1104,9 @@ const SEED_FUNCIONARIOS = [
     salario_base: 5500.00,
     pix: 'gerencia@serraria.com.br',
     ativo: true,
-    vendas_mes: 125320.00,
-    comissao_acumulada: 1253.20,
-    comissao_paga: 1253.20,
+    vendas_mes: 0.00,
+    comissao_acumulada: 0.00,
+    comissao_paga: 0.00,
     saldo_comissao: 0.00
   }
 ];
@@ -1222,71 +1131,31 @@ const SEED_CONFIG = {
   estado: 'São Paulo'
 };
 
-const SEED_PAGAMENTOS_COMISSAO = [
-  {
-    id: 'pag_com_1',
-    data: '2026-10-05T14:20:00',
-    beneficiario_tipo: 'CARPINTEIRO',
-    beneficiario_id: 'carp_1',
-    beneficiario_nome: 'Mestre João Telhadista',
-    valor: 700.00,
-    forma_pagamento: 'Pix',
-    comprovante_obs: 'Adiantamento quinzenal de comissões de telhados'
-  },
-  {
-    id: 'pag_com_2',
-    data: '2026-10-08T17:10:00',
-    beneficiario_tipo: 'VENDEDOR',
-    beneficiario_id: 'func_2',
-    beneficiario_nome: 'Amanda Mendes',
-    valor: 1000.00,
-    forma_pagamento: 'Pix',
-    comprovante_obs: 'Fechamento parcial de comissão de vendas'
-  },
-  {
-    id: 'pag_com_3',
-    data: '2026-10-10T11:45:00',
-    beneficiario_tipo: 'CARPINTEIRO',
-    beneficiario_id: 'carp_3',
-    beneficiario_nome: 'Eng. Marcos Obra',
-    valor: 787.50,
-    forma_pagamento: 'Transferência Bancária',
-    comprovante_obs: 'Quitação integral de indicações das obras Loteamento'
-  }
-];
+const SEED_PAGAMENTOS_COMISSAO = [];
 
-const SEED_AUDITORIA_DESCONTOS = [
-  {
-    id: 'aud_1',
-    data: '2026-10-14T10:15:00',
-    pedido_numero: 1021,
-    cliente_nome: 'Construtora Alvorada Ltda',
-    vendedor_nome: 'Rodrigo Silveira',
-    valor_pedido: 18450.00,
-    desconto_pct: 8.0,
-    desconto_valor: 1476.00,
-    motivo: 'Volume alto de vigas de peroba para condomínio fechado'
-  },
-  {
-    id: 'aud_2',
-    data: '2026-10-13T16:40:00',
-    pedido_numero: 1019,
-    cliente_nome: 'Marcenaria & Telhados Rústicos',
-    vendedor_nome: 'Amanda Mendes',
-    valor_pedido: 6320.00,
-    desconto_pct: 6.5,
-    desconto_valor: 410.80,
-    motivo: 'Parceria contínua de retirada quinzenal'
-  }
-];
+const SEED_AUDITORIA_DESCONTOS = [];
 
 const SEED_USUARIOS = [
+  {
+    id: 'usr_dev',
+    username: 'thales',
+    nome: 'Thales Gabriel (DEV)',
+    email: 'thalesgabriel.war@gmail.com',
+    salt: 'sbj_salt_dev_thales_988',
+    hash: 'cc63f5b24d1303c2f595d914931e1519edeb4cac06421392d49fece4f8b35ef0',
+    perfil: 'DEV', // DEV: Acesso Supremo / Superusuário & Auditoria
+    cargo: 'Engenheiro de Software & DEV Master',
+    funcionario_id: '',
+    ativo: true,
+    data_criacao: '2026-01-01T00:00:00'
+  },
   {
     id: 'usr_admin',
     username: 'admin',
     nome: 'Carlos Eduardo (Gerente Geral)',
     email: 'gerencia@serraria.com.br',
-    senha: 'admin',
+    salt: 'sbj_salt_admin_carlos_01',
+    hash: '3f712b7be304cb96b93cc32afef6133a4da1af7ef4dd9941c21344af4744da49',
     perfil: 'ADMIN', // ADMIN: Acesso Total
     cargo: 'Gerente Geral & Administrador',
     funcionario_id: 'func_5',
@@ -1298,7 +1167,8 @@ const SEED_USUARIOS = [
     username: 'rodrigo',
     nome: 'Rodrigo Silveira',
     email: 'rodrigo@serraria.com.br',
-    senha: '123',
+    salt: 'sbj_salt_rodrigo_silv_02',
+    hash: '4cec85f9ccb5f0b7ee3a90e2fe00fc5d266d0a038dfa17f3a73e85c516041af9',
     perfil: 'FUNCIONARIO', // FUNCIONARIO: Apenas Balcão, Pátio, Histórico e Consulta
     cargo: 'Vendedor de Balcão',
     funcionario_id: 'func_1',
@@ -1310,7 +1180,8 @@ const SEED_USUARIOS = [
     username: 'amanda',
     nome: 'Amanda Mendes',
     email: 'amanda.mendes@serraria.com.br',
-    senha: '123',
+    salt: 'sbj_salt_amanda_mend_03',
+    hash: 'f68729a03684e89e7625c7fbb8a4e560563057f8e5c9de374d19d5585ff1f174',
     perfil: 'FUNCIONARIO',
     cargo: 'Vendedora de Madeiras & Projetos',
     funcionario_id: 'func_2',
@@ -1330,395 +1201,11 @@ const SEED_BAIRROS = [
   { nome: 'Retira no Pátio (Sem Frete)', valor_frete: 0.00, prazo_horas: 0 }
 ];
 
-const SEED_PEDIDOS = [
-  {
-    id: 'PED-1021',
-    numero: 1021,
-    data_criacao: '2026-10-14T09:30:00',
-    validade_dias: 7,
-    status: 'ORCAMENTO', // ORCAMENTO, APROVADO, CANCELADO, ENTREGUE
-    etapa_patio: 'NAO_ENVIADO', // NAO_ENVIADO, CORTE_PLAINA, SEPARACAO, PRONTO_CARREGAR, SAIU_ENTREGA, ENTREGUE
-    cliente: {
-      id: 'cli_2',
-      nome: 'Fazenda & Sítio Boa Esperança (Sr. Darcy)',
-      documento: '145.882.308-54',
-      telefone: '(11) 99455-1212',
-      endereco_obra: 'Estrada Vicinal do Ribeirão, Km 8 - Porteira Verde',
-      bairro: 'Zona Rural / Represa',
-      cidade: 'Atibaia',
-      observacoes: 'Orçamento para reforma da tulha de café.'
-    },
-    carpinteiro_id: 'carp_1',
-    carpinteiro_nome: 'Mestre João Telhadista',
-    itens: [
-      {
-        id: 'item_1',
-        produto_id: 'prod_988',
-        codigo: '1-793',
-        descricao: 'VIGA EUCALIPTO 5X20',
-        largura_cm: 20,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: 'ML',
-        quantidade: 10,
-        comprimento_m: 5.0,
-        metragem_total: 50.0,
-        valor_unitario: 54.00,
-        taxa_plaina: 0.0,
-        subtotal: 2700.00,
-        volume_m3: 0.36,
-        peso_kg: 316.8
-      },
-      {
-        id: 'item_2',
-        produto_id: 'prod_823',
-        codigo: 'T-647',
-        descricao: 'TABUA EUCALIPTO 15 CM',
-        largura_cm: 15,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: 'ML',
-        quantidade: 30,
-        comprimento_m: 4.0,
-        metragem_total: 120.0,
-        valor_unitario: 23.50,
-        taxa_plaina: 0.0,
-        subtotal: 2820.00,
-        volume_m3: 0.36,
-        peso_kg: 316.8
-      },
-      {
-        id: 'item_3',
-        produto_id: 'prod_729',
-        codigo: '1-555',
-        descricao: 'PREGO 19X36 C/C - KG',
-        largura_cm: 0,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: 'UN',
-        quantidade: 10,
-        comprimento_m: 0,
-        metragem_total: 10,
-        valor_unitario: 19.50,
-        taxa_plaina: 0.0,
-        subtotal: 195.00,
-        volume_m3: 0.003,
-        peso_kg: 10.0
-      }
-    ],
-    resumo_fisico: {
-      total_pecas: 50,
-      volume_total_m3: 0.723,
-      peso_total_kg: 643.6,
-      veiculo_sugerido: 'Picape Leve / Utilitário (Strada / Fiorino / S10)'
-    },
-    resumo_financeiro: {
-      subtotal_itens: 5715.00,
-      taxa_aparelhamento: 0.00,
-      valor_frete: 250.00,
-      bairro_frete: 'Zona Rural / Represa',
-      desconto_tipo: 'VALOR',
-      desconto_valor: 125.00,
-      desconto_percentual: 2.19,
-      desconto_autorizado: true,
-      valor_total: 5840.00,
-      forma_pagamento: 'Pix',
-      valor_sinal: 0.00,
-      saldo_a_receber: 0.00
-    },
-    checklist_patio: [],
-    observacoes_venda: 'Aguardando confirmação do telhadista para fechar compra.'
-  },
-  {
-    id: 'PED-1022',
-    numero: 1022,
-    data_criacao: '2026-10-14T11:15:00',
-    validade_dias: 7,
-    status: 'APROVADO',
-    etapa_patio: 'CORTE_PLAINA', // Na Serra / Plaina
-    cliente: {
-      id: 'cli_4',
-      nome: 'Residencial Quinta da Baronesa (Dra. Camila)',
-      documento: '092.341.768-15',
-      telefone: '(11) 98877-6655',
-      endereco_obra: 'Alameda das Acácias, Lote 42 - Condomínio Fechado',
-      bairro: 'Alphaville / Tamboré',
-      cidade: 'Santana de Parnaíba',
-      observacoes: 'Pergolado e Deck de piscina.'
-    },
-    carpinteiro_id: 'carp_2',
-    carpinteiro_nome: 'Carlos Carpinteiro',
-    itens: [
-      {
-        id: 'item_1022_1',
-        produto_id: 'prod_987',
-        codigo: '1-792',
-        descricao: 'VIGA EUCALIPTO 5X15',
-        largura_cm: 15,
-        acabamento: 'APARELHADA',
-        aparelhar: true,
-        tipo_calculo: 'ML',
-        quantidade: 12,
-        comprimento_m: 5.0,
-        metragem_total: 60.0,
-        valor_unitario: 46.50,
-        taxa_plaina: 3.50,
-        subtotal: 3000.00, // 60 * (46.50 + 3.50)
-        volume_m3: 0.432,
-        peso_kg: 367.2
-      },
-      {
-        id: 'item_1022_2',
-        produto_id: 'prod_440',
-        codigo: 'MAT-440',
-        descricao: 'FORRO PVC BRANCO GELO REGUA 200 MM X 3,50 (0,70 M²)',
-        largura_cm: 20,
-        acabamento: 'BRUTA', // Já beneficiado
-        aparelhar: false,
-        tipo_calculo: 'M2',
-        quantidade: 24, // 24 m²
-        comprimento_m: 0,
-        metragem_total: 24.0,
-        valor_unitario: 245.00,
-        taxa_plaina: 0.0,
-        subtotal: 5880.00,
-        volume_m3: 0.48,
-        peso_kg: 456.0
-      }
-    ],
-    resumo_fisico: {
-      total_pecas: 36,
-      volume_total_m3: 0.912,
-      peso_total_kg: 823.2,
-      veiculo_sugerido: 'Picape Leve / Utilitário (Strada / Fiorino / S10)'
-    },
-    resumo_financeiro: {
-      subtotal_itens: 8670.00,
-      taxa_aparelhamento: 210.00, // 60m * 3.50
-      valor_frete: 180.00,
-      bairro_frete: 'Alphaville / Tamboré',
-      desconto_tipo: 'VALOR',
-      desconto_valor: 140.00,
-      desconto_percentual: 1.58,
-      desconto_autorizado: true,
-      valor_total: 8920.00,
-      forma_pagamento: 'Pix',
-      valor_sinal: 8920.00,
-      saldo_a_receber: 0.00
-    },
-    checklist_patio: [
-      { item_id: 'item_1022_1', descricao: 'VIGA EUCALIPTO 5X15 (12 pcs x 5.0m) - APARELHAR', cortado: false, carregado: false, requer_plaina: true },
-      { item_id: 'item_1022_2', descricao: 'Forro PVC Branco Gelo (24 m²)', cortado: true, carregado: false, requer_plaina: false }
-    ],
-    observacoes_venda: 'Vigas precisam de acabamento fino de plaina 4 faces. Entregar na sexta-feira às 10h.'
-  },
-  {
-    id: 'PED-1023',
-    numero: 1023,
-    data_criacao: '2026-10-14T14:20:00',
-    validade_dias: 7,
-    status: 'APROVADO',
-    etapa_patio: 'PRONTO_CARREGAR', // Pronto para Carregar
-    cliente: {
-      id: 'cli_3',
-      nome: 'Eng. Marcos Aurelio Obra',
-      documento: '231.908.454-71',
-      telefone: '(11) 97333-8899',
-      endereco_obra: 'Rua das Palmeiras, 112 - Sobrado em Reforma',
-      bairro: 'Vila Nova',
-      cidade: 'São Paulo',
-      observacoes: 'Entrega na obra da Vila Nova.'
-    },
-    carpinteiro_id: 'carp_3',
-    carpinteiro_nome: 'Eng. Marcos Obra',
-    itens: [
-      {
-        id: 'item_1023_1',
-        produto_id: 'prod_831',
-        codigo: 'T-655',
-        descricao: 'TABUA PINUS 20CM X 3MTS',
-        largura_cm: 20,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: 'UN',
-        quantidade: 40,
-        comprimento_m: 3.0,
-        metragem_total: 40,
-        valor_unitario: 36.00,
-        taxa_plaina: 0.0,
-        subtotal: 1440.00,
-        volume_m3: 0.60,
-        peso_kg: 300.0
-      },
-      {
-        id: 'item_1023_2',
-        produto_id: 'prod_833',
-        codigo: 'T-657',
-        descricao: 'TABUA PINUS 30CM X 3MTS',
-        largura_cm: 30,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: 'UN',
-        quantidade: 30,
-        comprimento_m: 3.0,
-        metragem_total: 30,
-        valor_unitario: 52.00,
-        taxa_plaina: 0.0,
-        subtotal: 1560.00,
-        volume_m3: 0.675,
-        peso_kg: 337.5
-      },
-      {
-        id: 'item_1023_3',
-        produto_id: 'prod_829',
-        codigo: 'T-653',
-        descricao: 'TABUA PINUS 10CM X 3MTS',
-        largura_cm: 10,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: 'ML',
-        quantidade: 25,
-        comprimento_m: 3.0,
-        metragem_total: 75.0,
-        valor_unitario: 4.80,
-        taxa_plaina: 0.0,
-        subtotal: 360.00,
-        volume_m3: 0.093,
-        peso_kg: 46.8
-      },
-      {
-        id: 'item_1023_4',
-        produto_id: 'prod_721',
-        codigo: '1-547',
-        descricao: 'PREGO 17X21 C/C - KG',
-        largura_cm: 0,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: 'UN',
-        quantidade: 5,
-        comprimento_m: 0,
-        metragem_total: 5,
-        valor_unitario: 18.50,
-        taxa_plaina: 0.0,
-        subtotal: 92.50,
-        volume_m3: 0.0015,
-        peso_kg: 5.0
-      }
-    ],
-    resumo_fisico: {
-      total_pecas: 100,
-      volume_total_m3: 1.369,
-      peso_total_kg: 689.3,
-      veiculo_sugerido: 'Picape Leve / Utilitário (Strada / Fiorino / S10)'
-    },
-    resumo_financeiro: {
-      subtotal_itens: 3452.50,
-      taxa_aparelhamento: 0.00,
-      valor_frete: 60.00,
-      bairro_frete: 'Vila Nova',
-      desconto_tipo: 'VALOR',
-      desconto_valor: 62.50,
-      desconto_percentual: 1.81,
-      desconto_autorizado: true,
-      valor_total: 3450.00,
-      forma_pagamento: 'Dinheiro',
-      valor_sinal: 3450.00,
-      saldo_a_receber: 0.00
-    },
-    checklist_patio: [
-      { item_id: 'item_1023_1', descricao: 'Tábua Pinus 2.5x20 (40 pcs x 3.0m)', cortado: true, carregado: true, requer_plaina: false },
-      { item_id: 'item_1023_2', descricao: 'Tábua Pinus 2.5x30 (30 pcs x 3.0m)', cortado: true, carregado: true, requer_plaina: false },
-      { item_id: 'item_1023_3', descricao: 'Sarrafo Pinus 2.5x5 (25 pcs x 3.0m)', cortado: true, carregado: true, requer_plaina: false },
-      { item_id: 'item_1023_4', descricao: 'Prego 17x21 (5 Kg)', cortado: true, carregado: true, requer_plaina: false }
-    ],
-    observacoes_venda: 'Motorista: Cobrar saldo de R$ 2.450,00 antes de descarregar.'
-  },
-  {
-    id: 'PED-1024',
-    numero: 1024,
-    data_criacao: '2026-10-13T08:00:00',
-    validade_dias: 7,
-    status: 'ENTREGUE',
-    etapa_patio: 'ENTREGUE', // Entregue e Quitado
-    cliente: {
-      id: 'cli_1',
-      nome: 'Construtora Alvorada Ltda (Eng. Roberto)',
-      documento: '32.145.890/0001-44',
-      telefone: '(11) 98122-3344',
-      endereco_obra: 'Av. dos Ipês, 450 - Canteiro de Obras 02',
-      bairro: 'Jardim América',
-      cidade: 'São Paulo',
-      observacoes: 'Estrutura do telhado do barracão principal.'
-    },
-    carpinteiro_id: 'carp_1',
-    carpinteiro_nome: 'Mestre João Telhadista',
-    itens: [
-      {
-        id: 'item_1024_1',
-        produto_id: 'prod_987',
-        codigo: '1-792',
-        descricao: 'VIGA EUCALIPTO 5X15',
-        largura_cm: 15,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: 'ML',
-        quantidade: 35,
-        comprimento_m: 6.0,
-        metragem_total: 210.0,
-        valor_unitario: 38.00,
-        taxa_plaina: 0.0,
-        subtotal: 7980.00,
-        volume_m3: 1.512,
-        peso_kg: 1300.3
-      },
-      {
-        id: 'item_1024_2',
-        produto_id: 'prod_870',
-        codigo: 'T-681',
-        descricao: 'TELHA BARRO BELO PORTUGUESA E ROMANA RESINADA CADA',
-        largura_cm: 0,
-        acabamento: 'BRUTA',
-        aparelhar: false,
-        tipo_calculo: 'UN',
-        quantidade: 1500,
-        comprimento_m: 0,
-        metragem_total: 1500,
-        valor_unitario: 2.85,
-        taxa_plaina: 0.0,
-        subtotal: 4275.00,
-        volume_m3: 2.7,
-        peso_kg: 3300.0
-      }
-    ],
-    resumo_fisico: {
-      total_pecas: 1535,
-      volume_total_m3: 4.212,
-      peso_total_kg: 4600.3,
-      veiculo_sugerido: 'Caminhão Toco Médio (MB 1620 / Atego)'
-    },
-    resumo_financeiro: {
-      subtotal_itens: 12255.00,
-      taxa_aparelhamento: 0.00,
-      valor_frete: 80.00,
-      bairro_frete: 'Jardim América',
-      desconto_tipo: 'VALOR',
-      desconto_valor: 35.00,
-      desconto_percentual: 0.28,
-      desconto_autorizado: true,
-      valor_total: 12300.00,
-      forma_pagamento: 'Pix',
-      valor_sinal: 12300.00,
-      saldo_a_receber: 0.00
-    },
-    checklist_patio: [
-      { item_id: 'item_1024_1', descricao: 'VIGA EUCALIPTO 5X15 (35 pcs x 6.0m)', cortado: true, carregado: true, requer_plaina: false },
-      { item_id: 'item_1024_2', descricao: 'Telha Portuguesa e Romana Resinada (1.500 un)', cortado: true, carregado: true, requer_plaina: false }
-    ],
-    observacoes_venda: 'Entregue com sucesso no dia 14/10 pela manhã. Motorista: Zé do Caminhão.'
-  }
-];
+const SEED_PEDIDOS = [];
 
 const DB = {
+  STORAGE_KEYS,
+
   get(key, defaultValue = []) {
     try {
       if (typeof localStorage === 'undefined') return defaultValue;
@@ -1742,54 +1229,90 @@ const DB = {
   },
 
   init() {
-    // Inicia seed se não existir ou se faltar campo estoque_atual
+    // Purga proativa de dados de demonstração antigos do armazenamento local
+    try {
+      const demoKeysToRemove = [
+        'serraria_pedidos_v1',
+        'serraria_clientes_v1',
+        'serraria_carpinteiros_v1',
+        'serraria_pagamentos_comissao_v1',
+        'serraria_auditoria_descontos_v1',
+        'serraria_funcionarios_v1'
+      ];
+      demoKeysToRemove.forEach(k => {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(k) !== null) {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch (e) {
+      console.warn('Erro ao expurgar chaves demo legadas:', e);
+    }
+
+    // Inicia seed se não existir ou se faltar campo estoque_atual (mantém catálogo completo de produtos)
     const prodsSalvos = this.get(STORAGE_KEYS.PRODUTOS, null);
     if (!prodsSalvos || !Array.isArray(prodsSalvos) || prodsSalvos.some(p => p.estoque_atual === undefined)) {
       this.set(STORAGE_KEYS.PRODUTOS, SEED_PRODUTOS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CLIENTES)) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.CLIENTES) === null) {
       this.set(STORAGE_KEYS.CLIENTES, SEED_CLIENTES);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CARPINTEIROS)) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.CARPINTEIROS) === null) {
       this.set(STORAGE_KEYS.CARPINTEIROS, SEED_CARPINTEIROS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.BAIRROS)) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.BAIRROS) === null) {
       this.set(STORAGE_KEYS.BAIRROS, SEED_BAIRROS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.PEDIDOS)) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.PEDIDOS) === null) {
       this.set(STORAGE_KEYS.PEDIDOS, SEED_PEDIDOS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.FUNCIONARIOS)) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.FUNCIONARIOS) === null) {
       this.set(STORAGE_KEYS.FUNCIONARIOS, SEED_FUNCIONARIOS);
     }
     const cfgAtual = this.get(STORAGE_KEYS.CONFIG, null);
     if (!cfgAtual || !cfgAtual.endereco_madeireira || cfgAtual.nome_madeireira?.includes('Três Barras') || cfgAtual.nome_madeireira?.includes('Rio Verde')) {
       this.set(STORAGE_KEYS.CONFIG, { ...(cfgAtual || {}), ...SEED_CONFIG });
     }
-    if (!localStorage.getItem(STORAGE_KEYS.PAGAMENTOS_COMISSAO)) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.PAGAMENTOS_COMISSAO) === null) {
       this.set(STORAGE_KEYS.PAGAMENTOS_COMISSAO, SEED_PAGAMENTOS_COMISSAO);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.AUDITORIA_DESCONTOS)) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.AUDITORIA_DESCONTOS) === null) {
       this.set(STORAGE_KEYS.AUDITORIA_DESCONTOS, SEED_AUDITORIA_DESCONTOS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.USUARIOS)) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.USUARIOS) === null) {
       this.set(STORAGE_KEYS.USUARIOS, SEED_USUARIOS);
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CATEGORIAS)) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem(STORAGE_KEYS.CATEGORIAS) === null) {
       this.getCategorias();
     }
   },
 
+  zerarParaProducao() {
+    this.set(STORAGE_KEYS.CLIENTES, []);
+    this.set(STORAGE_KEYS.CARPINTEIROS, []);
+    this.set(STORAGE_KEYS.PEDIDOS, []);
+    this.set(STORAGE_KEYS.PAGAMENTOS_COMISSAO, []);
+    this.set(STORAGE_KEYS.AUDITORIA_DESCONTOS, []);
+    // Zera comissões e vendas acumuladas nos funcionários mantendo o cadastro
+    const funcs = this.getFuncionarios().map(f => ({
+      ...f,
+      vendas_mes: 0,
+      comissao_acumulada: 0,
+      comissao_paga: 0,
+      saldo_comissao: 0
+    }));
+    this.set(STORAGE_KEYS.FUNCIONARIOS, funcs);
+  },
+
   resetDemo() {
     this.set(STORAGE_KEYS.PRODUTOS, SEED_PRODUTOS);
-    this.set(STORAGE_KEYS.CLIENTES, SEED_CLIENTES);
-    this.set(STORAGE_KEYS.CARPINTEIROS, SEED_CARPINTEIROS);
+    this.set(STORAGE_KEYS.CLIENTES, []);
+    this.set(STORAGE_KEYS.CARPINTEIROS, []);
     this.set(STORAGE_KEYS.BAIRROS, SEED_BAIRROS);
-    this.set(STORAGE_KEYS.PEDIDOS, SEED_PEDIDOS);
+    this.set(STORAGE_KEYS.PEDIDOS, []);
     this.set(STORAGE_KEYS.FUNCIONARIOS, SEED_FUNCIONARIOS);
     this.set(STORAGE_KEYS.CONFIG, SEED_CONFIG);
-    this.set(STORAGE_KEYS.PAGAMENTOS_COMISSAO, SEED_PAGAMENTOS_COMISSAO);
-    this.set(STORAGE_KEYS.AUDITORIA_DESCONTOS, SEED_AUDITORIA_DESCONTOS);
+    this.set(STORAGE_KEYS.PAGAMENTOS_COMISSAO, []);
+    this.set(STORAGE_KEYS.AUDITORIA_DESCONTOS, []);
     this.set(STORAGE_KEYS.USUARIOS, SEED_USUARIOS);
     this.set(STORAGE_KEYS.CATEGORIAS, SEED_CATEGORIAS);
   },
@@ -1934,26 +1457,81 @@ const DB = {
   },
 
 
-  // Helpers de Usuários e Autenticação
+  // Helpers de Usuários e Autenticação Criptografada
   getUsuarios() {
-    return this.get(STORAGE_KEYS.USUARIOS, SEED_USUARIOS);
+    let list = this.get(STORAGE_KEYS.USUARIOS, SEED_USUARIOS);
+    if (!Array.isArray(list) || list.length === 0) {
+      list = JSON.parse(JSON.stringify(SEED_USUARIOS));
+      this.set(STORAGE_KEYS.USUARIOS, list);
+    }
+
+    // 1. Garante que a conta DEV master sempre exista no banco
+    const hasDev = list.some(u => 
+      u.username === 'thales' || 
+      (u.email && u.email.toLowerCase() === 'thalesgabriel.war@gmail.com')
+    );
+    if (!hasDev) {
+      const devAccount = SEED_USUARIOS.find(u => u.username === 'thales');
+      if (devAccount) {
+        list.unshift(JSON.parse(JSON.stringify(devAccount)));
+        this.set(STORAGE_KEYS.USUARIOS, list);
+      }
+    }
+
+    // 2. Auto-migração: converte senhas legadas em texto plano para SHA-256 com salt dinâmico
+    let migrated = false;
+    list.forEach(u => {
+      if (u.senha && (!u.hash || !u.salt)) {
+        u.salt = Security.generateSalt();
+        u.hash = Security.hashPassword(u.senha, u.salt);
+        delete u.senha;
+        migrated = true;
+      }
+    });
+    if (migrated) {
+      this.set(STORAGE_KEYS.USUARIOS, list);
+    }
+
+    return list;
   },
 
   salvarUsuario(usr) {
     const list = this.getUsuarios();
-    const idx = list.findIndex(u => u.id === usr.id);
+    const cleanUser = { ...usr };
+
+    // Proteção de Root DEV: a conta master jamais pode ter seu perfil rebaixado ou ser desativada
+    const existing = list.find(u => u.id === cleanUser.id);
+    if (existing && (existing.perfil === 'DEV' || existing.username === 'thales' || existing.email === 'thalesgabriel.war@gmail.com')) {
+      cleanUser.perfil = 'DEV';
+      cleanUser.ativo = true;
+    }
+
+    // Se forneceu nova senha em texto plano (do modal de criação/edição), gera salt e hash SHA-256
+    if (cleanUser.senha && String(cleanUser.senha).trim()) {
+      cleanUser.salt = Security.generateSalt();
+      cleanUser.hash = Security.hashPassword(String(cleanUser.senha).trim(), cleanUser.salt);
+      delete cleanUser.senha;
+    }
+
+    const idx = list.findIndex(u => u.id === cleanUser.id);
     if (idx >= 0) {
-      list[idx] = usr;
+      list[idx] = Object.assign({}, list[idx], cleanUser);
     } else {
-      if (!usr.id) usr.id = 'usr_' + Date.now();
-      list.push(usr);
+      if (!cleanUser.id) cleanUser.id = 'usr_' + Date.now();
+      list.push(cleanUser);
     }
     this.set(STORAGE_KEYS.USUARIOS, list);
-    return usr;
+    return cleanUser;
   },
 
   excluirUsuario(id) {
-    const list = this.getUsuarios().filter(u => u.id !== id);
+    const list = this.getUsuarios().filter(u => {
+      // Proteção de Root: a conta DEV jamais pode ser excluída
+      if (u.id === id && (u.perfil === 'DEV' || u.username === 'thales' || u.email === 'thalesgabriel.war@gmail.com')) {
+        return true;
+      }
+      return u.id !== id;
+    });
     this.set(STORAGE_KEYS.USUARIOS, list);
   },
 
@@ -2235,7 +1813,7 @@ const DB = {
 
   getNextNumeroPedido() {
     const pedidos = this.getPedidos();
-    if (!pedidos.length) return 1025;
+    if (!pedidos || !pedidos.length) return 1001;
     const max = Math.max(...pedidos.map(p => p.numero || 1000));
     return max + 1;
   },

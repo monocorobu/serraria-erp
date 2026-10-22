@@ -1,12 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { DocMascara, DB, STORAGE_KEYS } from '../../services/data.js';
+import Pagination from '../common/Pagination.jsx';
 
 export const ClientesTab = () => {
   const { clients, carpenters, showToast, saveClient, saveCarpenter } = useApp();
 
   const [subtab, setSubtab] = useState('clientes');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Paginação Clientes
+  const [pageClientes, setPageClientes] = useState(1);
+  const [pageSizeClientes, setPageSizeClientes] = useState(10);
+
+  // Paginação Carpinteiros
+  const [pageCarpinteiros, setPageCarpinteiros] = useState(1);
+  const [pageSizeCarpinteiros, setPageSizeCarpinteiros] = useState(10);
 
   // Modal Novo Cliente
   const [modalCliente, setModalCliente] = useState(false);
@@ -57,17 +66,36 @@ export const ClientesTab = () => {
     setFormCarpinteiro({ nome: '', telefone: '', especialidade: 'Mestre Telhadista', comissao_padrao_pct: 3.0, pix: '' });
   };
 
-  const filteredClientes = clients.filter(c => {
-    if (!searchTerm.trim()) return true;
-    const t = searchTerm.toLowerCase();
-    return (c.nome || '').toLowerCase().includes(t) || (c.telefone || '').includes(t) || (c.documento || '').includes(t);
-  });
+  const filteredClientes = useMemo(() => {
+    return clients.filter(c => {
+      if (!searchTerm.trim()) return true;
+      const t = searchTerm.toLowerCase();
+      return (c.nome || '').toLowerCase().includes(t) || (c.telefone || '').includes(t) || (c.documento || '').includes(t);
+    });
+  }, [clients, searchTerm]);
 
-  const filteredCarpinteiros = carpenters.filter(c => {
-    if (!searchTerm.trim()) return true;
-    const t = searchTerm.toLowerCase();
-    return (c.nome || '').toLowerCase().includes(t) || (c.telefone || '').includes(t) || (c.especialidade || '').toLowerCase().includes(t);
-  });
+  const filteredCarpinteiros = useMemo(() => {
+    return carpenters.filter(c => {
+      if (!searchTerm.trim()) return true;
+      const t = searchTerm.toLowerCase();
+      return (c.nome || '').toLowerCase().includes(t) || (c.telefone || '').includes(t) || (c.especialidade || '').toLowerCase().includes(t);
+    });
+  }, [carpenters, searchTerm]);
+
+  // Itens paginados
+  const totalPagesClientes = Math.max(1, Math.ceil(filteredClientes.length / pageSizeClientes));
+  const safePageClientes = Math.min(Math.max(1, pageClientes), totalPagesClientes);
+  const paginatedClientes = useMemo(() => {
+    const start = (safePageClientes - 1) * pageSizeClientes;
+    return filteredClientes.slice(start, start + pageSizeClientes);
+  }, [filteredClientes, safePageClientes, pageSizeClientes]);
+
+  const totalPagesCarpinteiros = Math.max(1, Math.ceil(filteredCarpinteiros.length / pageSizeCarpinteiros));
+  const safePageCarpinteiros = Math.min(Math.max(1, pageCarpinteiros), totalPagesCarpinteiros);
+  const paginatedCarpinteiros = useMemo(() => {
+    const start = (safePageCarpinteiros - 1) * pageSizeCarpinteiros;
+    return filteredCarpinteiros.slice(start, start + pageSizeCarpinteiros);
+  }, [filteredCarpinteiros, safePageCarpinteiros, pageSizeCarpinteiros]);
 
   return (
     <div className="clientes-layout">
@@ -126,19 +154,35 @@ export const ClientesTab = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredClientes.map(c => (
-                  <tr key={c.id}>
-                    <td><strong>{c.nome}</strong></td>
-                    <td className="font-mono">{c.telefone || '-'}</td>
-                    <td className="font-mono">{c.documento || '-'}</td>
-                    <td>{c.endereco_obra || '-'}</td>
-                    <td>{c.bairro || '-'}</td>
-                    <td>{c.cidade || 'Caçapava'}</td>
+                {paginatedClientes.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                      Nenhum cliente encontrado.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedClientes.map(c => (
+                    <tr key={c.id}>
+                      <td><strong>{c.nome}</strong></td>
+                      <td className="font-mono">{c.telefone || '-'}</td>
+                      <td className="font-mono">{c.documento || '-'}</td>
+                      <td>{c.endereco_obra || '-'}</td>
+                      <td>{c.bairro || '-'}</td>
+                      <td>{c.cidade || 'Caçapava'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={pageClientes}
+            totalItems={filteredClientes.length}
+            pageSize={pageSizeClientes}
+            onPageChange={setPageClientes}
+            onPageSizeChange={setPageSizeClientes}
+            itemLabel="clientes"
+          />
         </div>
       )}
 
@@ -157,20 +201,36 @@ export const ClientesTab = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredCarpinteiros.map(c => (
-                  <tr key={c.id}>
-                    <td><strong>{c.nome}</strong></td>
-                    <td className="font-mono">{c.telefone || '-'}</td>
-                    <td>{c.especialidade || 'Mestre Telhadista'}</td>
-                    <td className="align-center font-mono" style={{ fontWeight: 700, color: '#047857' }}>
-                      {c.comissao_padrao_pct || 3.0}%
+                {paginatedCarpinteiros.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                      Nenhum parceiro carpinteiro encontrado.
                     </td>
-                    <td className="font-mono" style={{ fontSize: '11.5px' }}>{c.pix || '-'}</td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedCarpinteiros.map(c => (
+                    <tr key={c.id}>
+                      <td><strong>{c.nome}</strong></td>
+                      <td className="font-mono">{c.telefone || '-'}</td>
+                      <td>{c.especialidade || 'Mestre Telhadista'}</td>
+                      <td className="align-center font-mono" style={{ fontWeight: 700, color: '#047857' }}>
+                        {c.comissao_padrao_pct || 3.0}%
+                      </td>
+                      <td className="font-mono" style={{ fontSize: '11.5px' }}>{c.pix || '-'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
+          <Pagination
+            currentPage={pageCarpinteiros}
+            totalItems={filteredCarpinteiros.length}
+            pageSize={pageSizeCarpinteiros}
+            onPageChange={setPageCarpinteiros}
+            onPageSizeChange={setPageSizeCarpinteiros}
+            itemLabel="parceiros"
+          />
         </div>
       )}
 

@@ -138,6 +138,14 @@ body {
   stroke-width: 2.2;
 }
 
+.brand-icon img.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 50%;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+
 .brand-info h1 {
   font-size: 14px;
   font-weight: 700;
@@ -1447,6 +1455,13 @@ body {
   }
 }
 
+@media (max-width: 580px) {
+  .balcao-client-row-1,
+  .balcao-client-row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* 2. BARRA DE INSERÇÃO RÁPIDA (LARGURA TOTAL) */
 .balcao-insert-card {
   background-color: #FFFFFF;
@@ -1466,6 +1481,32 @@ body {
 @media (max-width: 1200px) {
   .balcao-insert-grid {
     grid-template-columns: 2fr 90px 95px 100px 110px 115px 130px;
+  }
+}
+
+@media (max-width: 992px) {
+  .balcao-insert-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .balcao-insert-grid .product-combobox-container {
+    grid-column: 1 / -1;
+  }
+  .balcao-insert-grid .form-group:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .balcao-insert-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .balcao-insert-grid .product-combobox-container {
+    grid-column: 1 / -1;
+  }
+  .balcao-insert-grid .form-group:last-child {
+    grid-column: 1 / -1;
   }
 }
 
@@ -2363,6 +2404,14 @@ body {
   border: 1px solid #FDE68A;
 }
 
+.badge-role-dev {
+  background: linear-gradient(135deg, #4338CA 0%, #6D28D9 100%);
+  color: #FFFFFF;
+  border: 1px solid #7C3AED;
+  box-shadow: 0 1px 3px rgba(109, 40, 217, 0.35);
+  font-weight: 800;
+}
+
 .badge-role-func {
   background-color: #ECFDF5;
   color: #065F46;
@@ -2952,7 +3001,9 @@ body {
   }
 
   .modal-body .form-grid,
-  .modal-body [style*="grid-template-columns"] {
+  .modal-body [style*="grid-template-columns"],
+  .panel-body .form-grid,
+  .panel-body [style*="grid-template-columns"] {
     grid-template-columns: 1fr !important;
   }
 
@@ -3117,6 +3168,43 @@ body {
   background-color: var(--bg-hover);
   color: var(--text-primary);
   border-color: var(--brand-primary);
+}
+
+/* ==========================================================================
+   GRIDS RESPONSIVOS DE KPIS & KANBAN (MOBILE & DESKTOP)
+   ========================================================================== */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 680px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+.kanban-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 1200px) {
+  .kanban-board {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .kanban-board {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
 }
 
 

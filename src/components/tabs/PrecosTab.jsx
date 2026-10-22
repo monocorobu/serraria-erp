@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext.jsx';
 import { CalcEngine } from '../../services/calc.js';
 import { DB, STORAGE_KEYS } from '../../services/data.js';
 import { GerenciadorCategoriasModal } from '../modals/GerenciadorCategoriasModal.jsx';
+import Pagination from '../common/Pagination.jsx';
 
 export const PrecosTab = () => {
   const { 
@@ -11,12 +12,15 @@ export const PrecosTab = () => {
     showToast, 
     config, 
     categorias, 
-    aplicarReajustePrecos 
+    aplicarReajustePrecos,
+    isAdmin 
   } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoriaFilter, setCategoriaFilter] = useState('TODAS');
   const [especieFilter, setEspecieFilter] = useState('TODAS');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Estado do Reajuste Coletivo
   const [tipoReajuste, setTipoReajuste] = useState('ACRESCIMO'); // 'ACRESCIMO' ou 'DESCONTO'
@@ -122,6 +126,13 @@ export const PrecosTab = () => {
     });
   }, [products, especieFilter, categoriaFilter, searchTerm]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedProducts = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredProducts.slice(start, start + pageSize);
+  }, [filteredProducts, safeCurrentPage, pageSize]);
+
   // Abrir modal de confirmação do reajuste
   const handleSolicitarReajuste = () => {
     const pct = Math.abs(parseFloat(reajustePct)) || 0;
@@ -169,8 +180,9 @@ export const PrecosTab = () => {
 
   return (
     <div className="precos-layout">
-      {/* PAINEL DE REAJUSTE COLETIVO AVANÇADO */}
-      <div className="panel" style={{ marginBottom: '16px', border: '1.5px solid var(--border-medium)', boxShadow: 'var(--shadow-sm)' }}>
+      {/* PAINEL DE REAJUSTE COLETIVO AVANÇADO (SOMENTE ADMIN) */}
+      {isAdmin ? (
+        <div className="panel" style={{ marginBottom: '16px', border: '1.5px solid var(--border-medium)', boxShadow: 'var(--shadow-sm)' }}>
         <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           <span className="panel-title" style={{ fontSize: '13.5px', fontWeight: 800 }}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -368,6 +380,24 @@ export const PrecosTab = () => {
           </div>
         </div>
       </div>
+      ) : (
+        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>🔒</span>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                Modo Consulta de Tabela de Preços
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+                Visualização oficial de balcão. Reajuste em massa e alteração de valores de catálogo são exclusivos para <strong>Administradores</strong>.
+              </div>
+            </div>
+          </div>
+          <span className="badge-tag" style={{ background: '#ECFDF5', color: '#047857', border: '1px solid #10B981', fontSize: '11px', fontWeight: 700, padding: '4px 8px' }}>
+            ✓ Tabela Vigente
+          </span>
+        </div>
+      )}
 
       {/* TABELA DE PREÇOS OFICIAL */}
       <div className="panel">
@@ -437,14 +467,14 @@ export const PrecosTab = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.length === 0 ? (
+              {paginatedProducts.length === 0 ? (
                 <tr>
                   <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                     Nenhum produto encontrado com os filtros aplicados.
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map(p => {
+                paginatedProducts.map(p => {
                   const precoAVista = parseFloat(p.preco_unitario) || 0;
                   const precoBruto = CalcEngine.calcularPrecoBruto(precoAVista, pctBruto);
                   const pCats = Array.isArray(p.categorias) && p.categorias.length > 0 
@@ -473,15 +503,21 @@ export const PrecosTab = () => {
                       <td style={{ color: 'var(--text-secondary)' }}>{p.especie || '-'}</td>
                       <td className="align-center font-mono">{p.tipo_calculo}</td>
                       <td className="align-right">
-                        <input 
-                          type="number" 
-                          step="0.10" 
-                          min="0"
-                          className="table-input font-mono" 
-                          style={{ width: '110px', textAlign: 'right', fontWeight: 800, color: '#047857' }}
-                          value={p.preco_unitario}
-                          onChange={e => handleEditarPrecoDirect(p.id, e.target.value)}
-                        />
+                        {isAdmin ? (
+                          <input 
+                            type="number" 
+                            step="0.10" 
+                            min="0"
+                            className="table-input font-mono" 
+                            style={{ width: '110px', textAlign: 'right', fontWeight: 800, color: '#047857' }}
+                            value={p.preco_unitario}
+                            onChange={e => handleEditarPrecoDirect(p.id, e.target.value)}
+                          />
+                        ) : (
+                          <span className="font-mono" style={{ fontWeight: 800, color: '#047857', fontSize: '13px' }}>
+                            {CalcEngine.formatBRL(precoAVista)}
+                          </span>
+                        )}
                       </td>
                       <td className="align-right font-mono" style={{ fontWeight: 800, color: '#1E40AF', fontSize: '13px' }}>
                         {CalcEngine.formatBRL(precoBruto)}
@@ -494,6 +530,14 @@ export const PrecosTab = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredProducts.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="produtos"
+        />
       </div>
 
       {/* MODAL DE GERENCIAMENTO DE CATEGORIAS */}

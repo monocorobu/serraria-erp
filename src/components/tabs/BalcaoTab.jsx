@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
 import { CalcEngine } from '../../services/calc.js';
 import { DocMascara, DB } from '../../services/data.js';
+import Pagination from '../common/Pagination.jsx';
 
 // Componente que destaca as letras e termos que batem com a pesquisa
 const HighlightText = ({ text, query }) => {
@@ -95,6 +96,7 @@ export const BalcaoTab = () => {
     orders,
     employees,
     currentUser,
+    isAdmin,
     generateWhatsAppText
   } = useApp();
 
@@ -148,6 +150,17 @@ export const BalcaoTab = () => {
     valor_sinal: 0,
     observacoes: ''
   }));
+
+  // Paginação dos Itens da Comanda/Orçamento
+  const [itemsCurrentPage, setItemsCurrentPage] = useState(1);
+  const [itemsPageSize, setItemsPageSize] = useState(10);
+  const totalItemsPages = Math.max(1, Math.ceil((order.itens?.length || 0) / itemsPageSize));
+  const safeItemsCurrentPage = Math.min(Math.max(1, itemsCurrentPage), totalItemsPages);
+  const paginatedItens = useMemo(() => {
+    const list = order.itens || [];
+    const start = (safeItemsCurrentPage - 1) * itemsPageSize;
+    return list.slice(start, start + itemsPageSize);
+  }, [order.itens, safeItemsCurrentPage, itemsPageSize]);
 
   // Define vendedor inicial quando a lista de funcionários estiver pronta
   useEffect(() => {
@@ -982,42 +995,13 @@ export const BalcaoTab = () => {
 
           <div className="form-group">
             <label className="form-label">Telefone / WhatsApp:</label>
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <input
-                type="text"
-                className="form-input font-mono"
-                placeholder="(12) 99000-0000"
-                value={order.cliente.telefone}
-                onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, telefone: DocMascara.formatarTelefone(e.target.value) } }))}
-                style={{ flex: 1 }}
-              />
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={handleEnviarWhatsApp}
-                title="Enviar Orçamento para o WhatsApp deste número"
-                style={{
-                  background: '#25D366',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  padding: '0 8px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '4px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: '11px',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.067-1.137-.074-.75-.239-1.637-.775-2.502-1.64-.866-.865-1.401-1.752-1.64-2.502-.141-.443-.119-.825-.074-1.137.05-.333.419-1.026.824-1.17.133-.048.28-.023.38.077l.707 1.258c.08.143.064.321-.038.448l-.348.435c-.073.092-.09.219-.043.328.232.536.634 1.055 1.157 1.492.525.438 1.096.732 1.655.859.112.025.228-.014.298-.102l.418-.523c.106-.133.288-.179.441-.112l1.373.606c.148.065.234.22.204.378zM12 2C6.477 2 2 6.477 2 12c0 1.891.523 3.662 1.434 5.177L2 22l4.982-1.309A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" />
-                </svg>
-                <span>WhatsApp</span>
-              </button>
-            </div>
+            <input
+              type="text"
+              className="form-input font-mono"
+              placeholder="(12) 99000-0000"
+              value={order.cliente.telefone}
+              onChange={e => setOrder(prev => ({ ...prev, cliente: { ...prev.cliente, telefone: DocMascara.formatarTelefone(e.target.value) } }))}
+            />
           </div>
 
           <div className="form-group">
@@ -1578,19 +1562,20 @@ export const BalcaoTab = () => {
               </tr>
             </thead>
             <tbody>
-              {order.itens.length === 0 ? (
+              {paginatedItens.length === 0 ? (
                 <tr>
                   <td colSpan="12" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                     Nenhum item adicionado ainda. Utilize a barra rápida acima para adicionar produtos.
                   </td>
                 </tr>
               ) : (
-                order.itens.map((it, idx) => {
+                paginatedItens.map((it, idx) => {
+                  const globalIdx = (safeItemsCurrentPage - 1) * itemsPageSize + idx + 1;
                   const prod = products.find(p => p.id === it.produto_id);
                   const estoqueAtual = prod ? parseFloat(prod.estoque_atual) || 0 : null;
                   return (
                     <tr key={it.id}>
-                      <td className="align-center font-mono" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{idx + 1}</td>
+                      <td className="align-center font-mono" style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{globalIdx}</td>
                       <td className="font-mono" style={{ fontWeight: 600, color: 'var(--primary-green)' }}>{it.codigo}</td>
                       <td>
                         <strong>{it.descricao}</strong>
@@ -1692,6 +1677,17 @@ export const BalcaoTab = () => {
             </tbody>
           </table>
         </div>
+        {order.itens && order.itens.length > 0 && (
+          <Pagination
+            currentPage={itemsCurrentPage}
+            totalItems={order.itens.length}
+            pageSize={itemsPageSize}
+            onPageChange={setItemsCurrentPage}
+            onPageSizeChange={setItemsPageSize}
+            pageSizeOptions={[10, 20, 50, 100]}
+            itemLabel="itens"
+          />
+        )}
       </div>
 
       {/* 4. PAINEL DE FECHAMENTO HORIZONTAL (4 BLOCOS BALANCEADOS LADO A LADO) */}
@@ -1820,25 +1816,39 @@ export const BalcaoTab = () => {
                 <div style={{ color: '#92400E', fontWeight: 700, fontSize: '10.5px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                   <span>🔒 Desconto &gt; {config.desconto_maximo_livre || 5}% exige liberação:</span>
                 </div>
-                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <input
-                    type="password"
-                    className="form-input font-mono"
-                    placeholder="Senha Gerente..."
-                    style={{ height: '26px', flex: 1, fontSize: '11.5px' }}
-                    value={senhaGerenteInput}
-                    onChange={e => setSenhaGerenteInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAutorizarDesconto();
-                      }
+                {isAdmin ? (
+                  <button 
+                    type="button" 
+                    className="btn btn-sm btn-primary" 
+                    onClick={() => {
+                      setOrder(prev => ({ ...prev, desconto_autorizado: true }));
+                      showToast('Desconto liberado com perfil Administrador!', 'success');
                     }}
-                  />
-                  <button type="button" className="btn btn-sm btn-primary" onClick={handleAutorizarDesconto} style={{ height: '26px', padding: '0 8px', fontSize: '11px', fontWeight: 700 }}>
-                    Liberar
+                    style={{ height: '26px', padding: '0 10px', fontSize: '11px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    👑 Liberar como Admin
                   </button>
-                </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <input
+                      type="password"
+                      className="form-input font-mono"
+                      placeholder="Senha Gerente..."
+                      style={{ height: '26px', flex: 1, fontSize: '11.5px' }}
+                      value={senhaGerenteInput}
+                      onChange={e => setSenhaGerenteInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAutorizarDesconto();
+                        }
+                      }}
+                    />
+                    <button type="button" className="btn btn-sm btn-primary" onClick={handleAutorizarDesconto} style={{ height: '26px', padding: '0 8px', fontSize: '11px', fontWeight: 700 }}>
+                      Liberar
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             {totais.requer_autorizacao && order.desconto_autorizado && (

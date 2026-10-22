@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext.jsx';
 import { CalcEngine } from '../../services/calc.js';
 import { DB } from '../../services/data.js';
 import { GerenciadorCategoriasModal } from '../modals/GerenciadorCategoriasModal.jsx';
+import Pagination from '../common/Pagination.jsx';
 
 export const EstoqueTab = () => {
   const { 
@@ -13,11 +14,15 @@ export const EstoqueTab = () => {
     showToast, 
     config, 
     categorias, 
-    salvarCategoria 
+    salvarCategoria,
+    isAdmin 
   } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [categoriaFilter, setCategoriaFilter] = useState('TODAS');
+  const [statusEstoqueFilter, setStatusEstoqueFilter] = useState('TODOS'); // 'TODOS' | 'ZERADOS' | 'BAIXO' | 'ATENCAO' | 'NORMAL'
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isGerenciadorOpen, setIsGerenciadorOpen] = useState(false);
 
   // Modal Produto (Novo ou Edição)
@@ -93,6 +98,16 @@ export const EstoqueTab = () => {
   // Filtragem de produtos
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
+      const saldo = parseFloat(p.estoque_atual) || 0;
+      const min = parseFloat(p.estoque_minimo) || 10;
+      const isZerado = saldo <= 0;
+      const isBaixo = saldo > 0 && saldo <= min;
+
+      if (statusEstoqueFilter === 'ZERADOS' && !isZerado) return false;
+      if (statusEstoqueFilter === 'BAIXO' && !isBaixo) return false;
+      if (statusEstoqueFilter === 'ATENCAO' && (!isZerado && !isBaixo)) return false;
+      if (statusEstoqueFilter === 'NORMAL' && (isZerado || isBaixo)) return false;
+
       if (categoriaFilter !== 'TODAS') {
         const pCats = Array.isArray(p.categorias) && p.categorias.length > 0 
           ? p.categorias 
@@ -109,7 +124,14 @@ export const EstoqueTab = () => {
       }
       return true;
     });
-  }, [products, categoriaFilter, searchTerm]);
+  }, [products, statusEstoqueFilter, categoriaFilter, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const paginatedProducts = useMemo(() => {
+    const start = (safeCurrentPage - 1) * pageSize;
+    return filteredProducts.slice(start, start + pageSize);
+  }, [filteredProducts, safeCurrentPage, pageSize]);
 
   // KPIs de Estoque
   const kpis = useMemo(() => {
@@ -231,8 +253,12 @@ export const EstoqueTab = () => {
     }
   };
 
-  // Solicitar exclusão com modal de confirmação
+  // Solicitar exclusão com modal de confirmação (restrito a admin)
   const handleSolicitarExcluir = (prod) => {
+    if (!isAdmin) {
+      showToast('Apenas administradores possuem permissão para excluir produtos do catálogo.', 'error');
+      return;
+    }
     setModalExcluir({
       isOpen: true,
       product: prod
@@ -261,19 +287,88 @@ export const EstoqueTab = () => {
 
   return (
     <div className="estoque-layout">
-      {/* KPIS DE ESTOQUE */}
-      <div className="kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '14px' }}>
-        <div className="kpi-card" style={{ padding: '14px', borderRadius: 'var(--radius-md)', backgroundColor: '#FFFFFF', border: '1.5px solid var(--border-medium)' }}>
-          <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)' }}>Total de Produtos no Pátio</div>
+      {/* KPIS DE ESTOQUE INTERATIVOS (CLIQUE PARA FILTRAR) */}
+      <div className="kpi-grid">
+        <div 
+          className="kpi-card" 
+          onClick={() => { setStatusEstoqueFilter('TODOS'); setCurrentPage(1); }}
+          style={{ 
+            padding: '14px 16px', 
+            borderRadius: 'var(--radius-md)', 
+            backgroundColor: statusEstoqueFilter === 'TODOS' ? '#F0FDF4' : '#FFFFFF', 
+            border: statusEstoqueFilter === 'TODOS' ? '2px solid #059669' : '1.5px solid var(--border-medium)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: statusEstoqueFilter === 'TODOS' ? '0 2px 8px rgba(5,150,105,0.15)' : 'none'
+          }}
+          title="Clique para ver todos os produtos"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-secondary)' }}>Total de Produtos no Pátio</span>
+            {statusEstoqueFilter === 'TODOS' && (
+              <span style={{ fontSize: '10px', background: '#059669', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>Todos</span>
+            )}
+          </div>
           <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>{kpis.totalItens} itens</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Clique para ver catálogo completo</div>
         </div>
-        <div className="kpi-card" style={{ padding: '14px', borderRadius: 'var(--radius-md)', backgroundColor: '#FFFFFF', border: '1.5px solid var(--border-medium)' }}>
-          <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#D97706' }}>Estoque Baixo (&le; Mínimo)</div>
+
+        <div 
+          className="kpi-card" 
+          onClick={() => {
+            setStatusEstoqueFilter(prev => prev === 'BAIXO' ? 'TODOS' : 'BAIXO');
+            setCurrentPage(1);
+          }}
+          style={{ 
+            padding: '14px 16px', 
+            borderRadius: 'var(--radius-md)', 
+            backgroundColor: statusEstoqueFilter === 'BAIXO' ? '#FFFBEB' : '#FFFFFF', 
+            border: statusEstoqueFilter === 'BAIXO' ? '2px solid #D97706' : '1.5px solid var(--border-medium)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: statusEstoqueFilter === 'BAIXO' ? '0 2px 8px rgba(217,119,6,0.15)' : 'none'
+          }}
+          title="Clique para filtrar apenas produtos com estoque baixo (≤ mínimo)"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#D97706' }}>Estoque Baixo (&le; Mínimo)</span>
+            {statusEstoqueFilter === 'BAIXO' && (
+              <span style={{ fontSize: '10px', background: '#D97706', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>Ativo</span>
+            )}
+          </div>
           <div style={{ fontSize: '24px', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>{kpis.baixos} itens</div>
+          <div style={{ fontSize: '11px', color: statusEstoqueFilter === 'BAIXO' ? '#B45309' : 'var(--text-muted)', marginTop: '2px', fontWeight: statusEstoqueFilter === 'BAIXO' ? 700 : 400 }}>
+            {statusEstoqueFilter === 'BAIXO' ? '✓ Filtrando estoque baixo (clique p/ limpar)' : '⚡ Clique para filtrar estoque baixo'}
+          </div>
         </div>
-        <div className="kpi-card" style={{ padding: '14px', borderRadius: 'var(--radius-md)', backgroundColor: '#FFFFFF', border: '1.5px solid var(--border-medium)' }}>
-          <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#DC2626' }}>Estoque Crítico (Zerados)</div>
+
+        <div 
+          className="kpi-card" 
+          onClick={() => {
+            setStatusEstoqueFilter(prev => prev === 'ZERADOS' ? 'TODOS' : 'ZERADOS');
+            setCurrentPage(1);
+          }}
+          style={{ 
+            padding: '14px 16px', 
+            borderRadius: 'var(--radius-md)', 
+            backgroundColor: statusEstoqueFilter === 'ZERADOS' ? '#FEF2F2' : '#FFFFFF', 
+            border: statusEstoqueFilter === 'ZERADOS' ? '2px solid #DC2626' : '1.5px solid var(--border-medium)',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: statusEstoqueFilter === 'ZERADOS' ? '0 2px 8px rgba(220,38,38,0.15)' : 'none'
+          }}
+          title="Clique para filtrar apenas produtos com estoque zerado"
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#DC2626' }}>Estoque Crítico (Zerados)</span>
+            {statusEstoqueFilter === 'ZERADOS' && (
+              <span style={{ fontSize: '10px', background: '#DC2626', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>Ativo</span>
+            )}
+          </div>
           <div style={{ fontSize: '24px', fontWeight: 800, color: '#DC2626', marginTop: '4px' }}>{kpis.zerados} itens</div>
+          <div style={{ fontSize: '11px', color: statusEstoqueFilter === 'ZERADOS' ? '#B91C1C' : 'var(--text-muted)', marginTop: '2px', fontWeight: statusEstoqueFilter === 'ZERADOS' ? 700 : 400 }}>
+            {statusEstoqueFilter === 'ZERADOS' ? '✓ Filtrando zerados (clique p/ limpar)' : '⚡ Clique para filtrar zerados'}
+          </div>
         </div>
       </div>
 
@@ -281,23 +376,45 @@ export const EstoqueTab = () => {
       <div className="panel" style={{ marginBottom: '14px' }}>
         <div className="panel-body" style={{ padding: '12px 16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '260px' }}>
+            <div style={{ display: 'flex', gap: '8px', flex: 1, minWidth: '240px' }}>
               <input 
                 type="text" 
                 className="form-input" 
                 placeholder="Buscar por Código, Madeira, Espécie ou Categoria..."
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
             </div>
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* FILTRAR POR STATUS DE SALDO */}
+              <select 
+                className="form-select font-mono"
+                style={{ 
+                  width: '210px', 
+                  fontWeight: statusEstoqueFilter !== 'TODOS' ? 700 : 500,
+                  borderColor: statusEstoqueFilter === 'ZERADOS' ? '#DC2626' : (statusEstoqueFilter === 'BAIXO' ? '#D97706' : (statusEstoqueFilter === 'ATENCAO' ? '#EA580C' : 'inherit')),
+                  backgroundColor: statusEstoqueFilter === 'ZERADOS' ? '#FEF2F2' : (statusEstoqueFilter === 'BAIXO' ? '#FFFBEB' : (statusEstoqueFilter === 'ATENCAO' ? '#FFF7ED' : 'inherit'))
+                }}
+                value={statusEstoqueFilter}
+                onChange={e => {
+                  setStatusEstoqueFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="TODOS">Todos os Saldos ({products.length})</option>
+                <option value="ZERADOS">🔴 Apenas Zerados ({kpis.zerados})</option>
+                <option value="BAIXO">🟡 Apenas Baixo ({kpis.baixos})</option>
+                <option value="ATENCAO">⚠️ Zerados ou Baixo ({kpis.zerados + kpis.baixos})</option>
+                <option value="NORMAL">🟢 Saldo Normal</option>
+              </select>
+
               {/* FILTRAR POR CATEGORIA DINÂMICA */}
               <select 
                 className="form-select"
-                style={{ width: '210px' }}
+                style={{ width: '190px' }}
                 value={categoriaFilter}
-                onChange={e => setCategoriaFilter(e.target.value)}
+                onChange={e => { setCategoriaFilter(e.target.value); setCurrentPage(1); }}
               >
                 <option value="TODAS">Todas as Categorias ({products.length})</option>
                 {categorias.map(cat => (
@@ -306,6 +423,18 @@ export const EstoqueTab = () => {
                   </option>
                 ))}
               </select>
+
+              {statusEstoqueFilter !== 'TODOS' && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => { setStatusEstoqueFilter('TODOS'); setCurrentPage(1); }}
+                  style={{ color: '#DC2626', borderColor: '#FECACA', fontWeight: 600, fontSize: '11.5px' }}
+                  title="Limpar filtro de saldo"
+                >
+                  Limpar Filtro &times;
+                </button>
+              )}
 
               <button
                 type="button"
@@ -352,14 +481,14 @@ export const EstoqueTab = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.length === 0 ? (
+              {paginatedProducts.length === 0 ? (
                 <tr>
                   <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                     Nenhum produto encontrado com os filtros aplicados.
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map(p => {
+                paginatedProducts.map(p => {
                   const saldo = parseFloat(p.estoque_atual) || 0;
                   const min = parseFloat(p.estoque_minimo) || 10;
                   const isZerado = saldo <= 0;
@@ -440,30 +569,32 @@ export const EstoqueTab = () => {
                           >
                             Saldo
                           </button>
-                          <button 
-                            type="button"
-                            className="btn btn-sm" 
-                            style={{ 
-                              fontSize: '11px', 
-                              padding: '2px 7px', 
-                              background: '#FEE2E2', 
-                              color: '#DC2626', 
-                              border: '1px solid #FCA5A5',
-                              fontWeight: 600,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '3px',
-                              cursor: 'pointer'
-                            }}
-                            onClick={() => handleSolicitarExcluir(p)}
-                            title={`Apagar ${p.nome} do estoque`}
-                          >
-                            <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2.2">
-                              <polyline points="3 6 5 6 21 6"></polyline>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            </svg>
-                            <span>Apagar</span>
-                          </button>
+                          {isAdmin && (
+                            <button 
+                              type="button"
+                              className="btn btn-sm" 
+                              style={{ 
+                                fontSize: '11px', 
+                                padding: '2px 7px', 
+                                background: '#FEE2E2', 
+                                color: '#DC2626', 
+                                border: '1px solid #FCA5A5',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => handleSolicitarExcluir(p)}
+                              title={`Apagar ${p.nome} do estoque`}
+                            >
+                              <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2.2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              </svg>
+                              <span>Apagar</span>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -473,6 +604,14 @@ export const EstoqueTab = () => {
             </tbody>
           </table>
         </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredProducts.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="produtos"
+        />
       </div>
 
       {/* MODAL NOVO / EDITAR PRODUTO COM MULTI-CATEGORIAS */}

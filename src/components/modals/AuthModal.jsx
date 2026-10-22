@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import { DB } from '../../services/data.js';
+import { Security } from '../../services/security.js';
 
 export default function AuthModal({ isOpen, onClose }) {
   const { currentUser, switchUser, showToast } = useApp();
@@ -14,30 +15,52 @@ export default function AuthModal({ isOpen, onClose }) {
 
   const handleFormLogin = (e) => {
     e.preventDefault();
+    const cleanId = Security.sanitizeString(username).toLowerCase();
+    const cleanPass = String(password || '').trim();
+
+    if (!cleanId || !cleanPass) {
+      setErrorMsg('Informe o usuário e a senha.');
+      return;
+    }
+
+    const rateLimit = Security.checkRateLimit(cleanId);
+    if (!rateLimit.allowed) {
+      setErrorMsg(rateLimit.message);
+      return;
+    }
+
     const user = users.find(u => 
-      (u.username.toLowerCase() === username.trim().toLowerCase() || u.email.toLowerCase() === username.trim().toLowerCase()) &&
-      u.senha === password
+      u.username?.toLowerCase() === cleanId || u.email?.toLowerCase() === cleanId
     );
 
     if (!user) {
+      Security.recordFailedLogin(cleanId);
+      setErrorMsg('Credenciais inválidas. Verifique o usuário e a senha.');
+      return;
+    }
+
+    const isMatch = Security.verifyPassword(cleanPass, user.hash, user.salt, user.senha);
+    if (!isMatch) {
+      Security.recordFailedLogin(cleanId);
       setErrorMsg('Credenciais inválidas. Verifique o usuário e a senha.');
       return;
     }
 
     if (!user.ativo) {
-      setErrorMsg('Esta conta de acesso está desativada. Fale com o gerente.');
+      setErrorMsg('Esta conta de acesso está desativada. Fale com a gerência.');
       return;
     }
 
+    Security.clearFailedLogin(cleanId);
     switchUser(user);
     showToast(`Bem-vindo(a), ${user.nome}!`, 'success');
     onClose();
   };
 
-  const handleQuickLogin = (user) => {
-    switchUser(user);
-    showToast(`Sessão alternada para ${user.nome}!`, 'success');
-    onClose();
+  const handleSelectUserToLogin = (u) => {
+    setUsername(u.username);
+    setPassword('');
+    setErrorMsg('');
   };
 
   return (
@@ -52,8 +75,8 @@ export default function AuthModal({ isOpen, onClose }) {
               </svg>
             </div>
             <div>
-              <span className="modal-title">Acesso Seguro ao Sistema ERP</span>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Controle de Contas: Administrador vs Funcionário</div>
+              <span className="modal-title">Alternar Conta de Acesso</span>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Autenticação obrigatória com senha</div>
             </div>
           </div>
           <button className="modal-close" onClick={onClose}>&times;</button>
@@ -68,7 +91,7 @@ export default function AuthModal({ isOpen, onClose }) {
             )}
 
             <div className="form-group" style={{ marginBottom: 14 }}>
-              <label className="form-label">Usuário ou E-mail:</label>
+              <label className="form-label">Usuário de Acesso ou E-mail:</label>
               <input
                 type="text"
                 className="form-input font-mono"
@@ -84,10 +107,11 @@ export default function AuthModal({ isOpen, onClose }) {
               <input
                 type="password"
                 className="form-input font-mono"
-                placeholder="Digite sua senha..."
+                placeholder="Digite a senha da conta..."
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setErrorMsg(''); }}
                 required
+                autoFocus
               />
             </div>
 
@@ -97,27 +121,25 @@ export default function AuthModal({ isOpen, onClose }) {
                 <polyline points="10 17 15 12 10 7" />
                 <line x1="15" y1="12" x2="3" y2="12" />
               </svg>
-              <span>Entrar no Sistema</span>
+              <span>Confirmar Troca de Usuário</span>
             </button>
           </form>
 
-          {/* ACESSO RÁPIDO PARA TESTE / DEMONSTRAÇÃO */}
+          {/* CONTAS DISPONÍVEIS */}
           <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid var(--border-light)' }}>
             <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span>Acesso Rápido de Demonstração (1 Clique)</span>
-              <span style={{ fontSize: 10, color: 'var(--brand-primary)', fontWeight: 600 }}>Homologação</span>
+              <span>Contas Cadastradas (Clique para preencher o login)</span>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {users.map(u => {
-                const initials = u.nome.split(' ').map(n => n[0]).slice(0, 2).join('');
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {users.filter(u => u.perfil !== 'DEV').map(u => {
+                const initials = (u.nome || 'US').split(' ').map(n => n[0]).slice(0, 2).join('');
                 const isAdmin = u.perfil === 'ADMIN';
                 const isCurrent = currentUser?.id === u.id;
                 return (
                   <button
                     key={u.id}
                     type="button"
-                    className="btn-demo-account"
                     style={{
                       border: isCurrent ? '2px solid var(--brand-primary)' : '1px solid var(--border-light)',
                       display: 'flex',
@@ -126,25 +148,42 @@ export default function AuthModal({ isOpen, onClose }) {
                       padding: '8px 12px',
                       background: isCurrent ? 'var(--brand-primary-light)' : '#ffffff',
                       borderRadius: 'var(--radius-md)',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      textAlign: 'left'
                     }}
-                    onClick={() => handleQuickLogin(u)}
+                    onClick={() => handleSelectUserToLogin(u)}
+                    title={`Preencher login @${u.username}`}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span className="user-avatar-badge" style={{ width: 28, height: 28, fontSize: 11, background: isAdmin ? '#0F172A' : '#059669', color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                        {initials}
+                      <span 
+                        className="user-avatar-badge" 
+                        style={{ 
+                          width: 28, 
+                          height: 28, 
+                          fontSize: 11, 
+                          background: isDev ? 'linear-gradient(135deg, #4338CA, #6D28D9)' : (isAdmin ? '#0F172A' : '#059669'), 
+                          color: '#fff', 
+                          borderRadius: '50%', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          fontWeight: 700 
+                        }}
+                      >
+                        {isDev ? '⚡' : initials}
                       </span>
-                      <div style={{ textAlign: 'left' }}>
+                      <div>
                         <div style={{ fontWeight: 700, fontSize: 12.5, color: 'var(--text-primary)' }}>
-                          {u.nome} ({u.username})
+                          {u.nome} <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>(@{u.username})</span>
+                          {isCurrent && <span style={{ marginLeft: 6, fontSize: 10, color: 'var(--brand-primary)', fontWeight: 700 }}>• Sessão Atual</span>}
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                          {u.cargo} • {isAdmin ? 'Acesso Total (Gerência, Preços e Caixa)' : 'Acesso Operacional (Balcão & Pátio)'}
+                          {u.cargo}
                         </div>
                       </div>
                     </div>
-                    <span className={`badge-role-tag ${isAdmin ? 'badge-role-admin' : 'badge-role-func'}`}>
-                      {u.perfil}
+                    <span className={`badge-role-tag ${isDev ? 'badge-role-dev' : (isAdmin ? 'badge-role-admin' : 'badge-role-func')}`}>
+                      {isDev ? 'DEV MASTER' : u.perfil}
                     </span>
                   </button>
                 );
