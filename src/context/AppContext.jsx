@@ -157,59 +157,63 @@ export const AppProvider = ({ children }) => {
   // Sincronização centralizada com o Neon PostgreSQL
   const syncWithCloud = useCallback(async (silent = false) => {
     try {
-      // 1. Sincroniza Usuários / Contas
+      // 1. Sincroniza Usuários / Contas (Bidirecional)
       const remoteUsers = await ApiClient.getUsuarios();
       if (Array.isArray(remoteUsers)) {
-        if (remoteUsers.length > 0) {
-          const merged = DB.mergeUsuarios(remoteUsers);
-          setUsers([...merged]);
-        } else {
-          // Se o banco remoto estiver zerado, faz seed com as contas locais
-          const localUsers = DB.getUsuarios();
-          for (const u of localUsers) {
-            await ApiClient.saveUsuario(u).catch(() => {});
-          }
+        const merged = DB.mergeUsuarios(remoteUsers);
+        setUsers([...merged]);
+
+        // Se houver contas locais que ainda não estão no Neon (ex: conta do dono criada antes no computador da serraria), sobe para a nuvem
+        const missingOnRemote = merged.filter(l => 
+          l && l.username !== 'thales' && !remoteUsers.some(r => r.id === l.id || r.username === l.username)
+        );
+        if (missingOnRemote.length > 0) {
+          await ApiClient.saveUsuario(missingOnRemote).catch(() => {});
         }
       }
 
-      // 2. Sincroniza Pedidos
+      // 2. Sincroniza Pedidos (Bidirecional)
       const remotePedidos = await ApiClient.getPedidos();
       if (Array.isArray(remotePedidos)) {
-        if (remotePedidos.length > 0) {
-          const merged = DB.mergePedidos(remotePedidos);
-          ordersHook.setOrders([...merged]);
-        } else {
-          const localPedidos = DB.getPedidos();
-          for (const p of localPedidos) {
-            await ApiClient.savePedido(p).catch(() => {});
-          }
+        const merged = DB.mergePedidos(remotePedidos);
+        ordersHook.setOrders([...merged]);
+
+        // Se houver pedidos locais não presentes na nuvem, envia em lote
+        const missingPedidos = merged.filter(lp => 
+          lp && lp.id && !remotePedidos.some(rp => rp.id === lp.id)
+        );
+        if (missingPedidos.length > 0) {
+          await ApiClient.savePedido(missingPedidos).catch(() => {});
         }
       }
 
-      // 3. Sincroniza Clientes
+      // 3. Sincroniza Clientes (Bidirecional)
       const remoteClientes = await ApiClient.getClientes();
       if (Array.isArray(remoteClientes)) {
-        if (remoteClientes.length > 0) {
-          const merged = DB.mergeClientes(remoteClientes);
-          clientesHook.setClients([...merged]);
-        } else {
-          const localClientes = DB.getClientes();
-          for (const c of localClientes) {
-            await ApiClient.saveCliente(c).catch(() => {});
-          }
+        const merged = DB.mergeClientes(remoteClientes);
+        clientesHook.setClients([...merged]);
+
+        const missingClientes = merged.filter(lc => 
+          lc && lc.id && !remoteClientes.some(rc => rc.id === lc.id)
+        );
+        if (missingClientes.length > 0) {
+          await ApiClient.saveCliente(missingClientes).catch(() => {});
         }
       }
 
-      // 4. Sincroniza Produtos / Estoque
+      // 4. Sincroniza Produtos / Estoque (Bidirecional)
       const remoteProdutos = await ApiClient.getProdutos();
       if (Array.isArray(remoteProdutos)) {
-        if (remoteProdutos.length > 0) {
-          const merged = DB.mergeProdutos(remoteProdutos);
-          estoqueHook.setProducts([...merged]);
-        } else {
-          const localProdutos = DB.getProdutos();
-          for (const pr of localProdutos) {
-            await ApiClient.saveProduto(pr).catch(() => {});
+        const merged = DB.mergeProdutos(remoteProdutos);
+        estoqueHook.setProducts([...merged]);
+
+        // Se o banco remoto tiver menos produtos que o catálogo completo local (ex: catálogo padrão de 200+ itens), popula o Neon em lote
+        if (remoteProdutos.length < 50 && merged.length > remoteProdutos.length) {
+          const missingProdutos = merged.filter(lp => 
+            lp && lp.id && !remoteProdutos.some(rp => rp.id === lp.id)
+          );
+          if (missingProdutos.length > 0) {
+            await ApiClient.saveProduto(missingProdutos).catch(() => {});
           }
         }
       }

@@ -54,35 +54,44 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const pedido = req.body;
-    if (!pedido || !pedido.id) {
+    const body = req.body;
+    const isBatch = Array.isArray(body);
+    const items = isBatch ? body : [body];
+
+    if (!items.length || !items[0] || !items[0].id) {
       return res.status(400).json({ error: 'Dados do pedido inválidos (necessário id)' });
     }
 
     if (pool) {
       try {
-        await pool.query(`
-          INSERT INTO pedidos (id, numero, dados, updated_at)
-          VALUES ($1, $2, $3, NOW())
-          ON CONFLICT (id) DO UPDATE
-          SET dados = $3, updated_at = NOW()
-        `, [pedido.id, pedido.numero || 0, JSON.stringify(pedido)]);
+        for (const pedido of items) {
+          if (!pedido || !pedido.id) continue;
+          await pool.query(`
+            INSERT INTO pedidos (id, numero, dados, updated_at)
+            VALUES ($1, $2, $3, NOW())
+            ON CONFLICT (id) DO UPDATE
+            SET dados = $3, updated_at = NOW()
+          `, [pedido.id, pedido.numero || 0, JSON.stringify(pedido)]);
+        }
 
-        return res.status(200).json({ success: true, pedido });
+        return res.status(200).json({ success: true, count: items.length });
       } catch (err) {
         console.error('[API/pedidos] Database save error:', err.message);
       }
     }
 
     if (!inMemoryPedidos) inMemoryPedidos = [];
-    const idx = inMemoryPedidos.findIndex(p => p.id === pedido.id);
-    if (idx >= 0) {
-      inMemoryPedidos[idx] = pedido;
-    } else {
-      inMemoryPedidos.unshift(pedido);
+    for (const pedido of items) {
+      if (!pedido || !pedido.id) continue;
+      const idx = inMemoryPedidos.findIndex(p => p.id === pedido.id);
+      if (idx >= 0) {
+        inMemoryPedidos[idx] = pedido;
+      } else {
+        inMemoryPedidos.unshift(pedido);
+      }
     }
 
-    return res.status(200).json({ success: true, pedido });
+    return res.status(200).json({ success: true, count: items.length });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

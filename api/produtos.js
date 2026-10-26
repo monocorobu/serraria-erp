@@ -38,35 +38,44 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const produto = req.body;
-    if (!produto || !produto.id) {
+    const body = req.body;
+    const isBatch = Array.isArray(body);
+    const items = isBatch ? body : [body];
+
+    if (!items.length || !items[0] || !items[0].id) {
       return res.status(400).json({ error: 'Dados do produto inválidos (necessário id)' });
     }
 
     if (pool) {
       try {
-        await pool.query(`
-          INSERT INTO produtos (id, codigo, nome, dados, updated_at)
-          VALUES ($1, $2, $3, $4, NOW())
-          ON CONFLICT (id) DO UPDATE
-          SET dados = $4, updated_at = NOW()
-        `, [produto.id, produto.codigo || '', produto.nome || '', JSON.stringify(produto)]);
+        for (const produto of items) {
+          if (!produto || !produto.id) continue;
+          await pool.query(`
+            INSERT INTO produtos (id, codigo, nome, dados, updated_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            ON CONFLICT (id) DO UPDATE
+            SET dados = $4, updated_at = NOW()
+          `, [produto.id, produto.codigo || '', produto.nome || '', JSON.stringify(produto)]);
+        }
 
-        return res.status(200).json({ success: true, produto });
+        return res.status(200).json({ success: true, count: items.length });
       } catch (err) {
         console.error('[API/produtos] Database save error:', err.message);
       }
     }
 
     if (!inMemoryProdutos) inMemoryProdutos = [];
-    const idx = inMemoryProdutos.findIndex(p => p.id === produto.id);
-    if (idx >= 0) {
-      inMemoryProdutos[idx] = produto;
-    } else {
-      inMemoryProdutos.push(produto);
+    for (const produto of items) {
+      if (!produto || !produto.id) continue;
+      const idx = inMemoryProdutos.findIndex(p => p.id === produto.id);
+      if (idx >= 0) {
+        inMemoryProdutos[idx] = produto;
+      } else {
+        inMemoryProdutos.push(produto);
+      }
     }
 
-    return res.status(200).json({ success: true, produto });
+    return res.status(200).json({ success: true, count: items.length });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

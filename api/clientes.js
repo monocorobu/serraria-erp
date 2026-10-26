@@ -38,35 +38,44 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const cliente = req.body;
-    if (!cliente || !cliente.id) {
+    const body = req.body;
+    const isBatch = Array.isArray(body);
+    const items = isBatch ? body : [body];
+
+    if (!items.length || !items[0] || !items[0].id) {
       return res.status(400).json({ error: 'Dados do cliente inválidos (necessário id)' });
     }
 
     if (pool) {
       try {
-        await pool.query(`
-          INSERT INTO clientes (id, nome, documento, telefone, dados, updated_at)
-          VALUES ($1, $2, $3, $4, $5, NOW())
-          ON CONFLICT (id) DO UPDATE
-          SET dados = $5, updated_at = NOW()
-        `, [cliente.id, cliente.nome || '', cliente.documento || '', cliente.telefone || '', JSON.stringify(cliente)]);
+        for (const cliente of items) {
+          if (!cliente || !cliente.id) continue;
+          await pool.query(`
+            INSERT INTO clientes (id, nome, documento, telefone, dados, updated_at)
+            VALUES ($1, $2, $3, $4, $5, NOW())
+            ON CONFLICT (id) DO UPDATE
+            SET dados = $5, updated_at = NOW()
+          `, [cliente.id, cliente.nome || '', cliente.documento || '', cliente.telefone || '', JSON.stringify(cliente)]);
+        }
 
-        return res.status(200).json({ success: true, cliente });
+        return res.status(200).json({ success: true, count: items.length });
       } catch (err) {
         console.error('[API/clientes] Database save error:', err.message);
       }
     }
 
     if (!inMemoryClientes) inMemoryClientes = [];
-    const idx = inMemoryClientes.findIndex(c => c.id === cliente.id);
-    if (idx >= 0) {
-      inMemoryClientes[idx] = cliente;
-    } else {
-      inMemoryClientes.push(cliente);
+    for (const cliente of items) {
+      if (!cliente || !cliente.id) continue;
+      const idx = inMemoryClientes.findIndex(c => c.id === cliente.id);
+      if (idx >= 0) {
+        inMemoryClientes[idx] = cliente;
+      } else {
+        inMemoryClientes.push(cliente);
+      }
     }
 
-    return res.status(200).json({ success: true, cliente });
+    return res.status(200).json({ success: true, count: items.length });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

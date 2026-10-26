@@ -39,39 +39,47 @@ export default async function handler(req, res) {
     return res.status(200).json(inMemoryUsuarios);
   }
 
-  // POST: Cria ou atualiza usuário
+  // POST: Cria ou atualiza usuário (suporta individual ou lote)
   if (req.method === 'POST') {
-    const usuario = req.body;
-    if (!usuario || !usuario.id || !usuario.username) {
+    const body = req.body;
+    const isBatch = Array.isArray(body);
+    const items = isBatch ? body : [body];
+
+    if (!items.length || !items[0] || !items[0].id || !items[0].username) {
       return res.status(400).json({ error: 'Dados do usuário inválidos (necessário id e username)' });
     }
 
-    const cleanUsername = String(usuario.username).toLowerCase().trim();
-
     if (pool) {
       try {
-        await pool.query(`
-          INSERT INTO usuarios (id, username, dados, updated_at)
-          VALUES ($1, $2, $3, NOW())
-          ON CONFLICT (id) DO UPDATE
-          SET username = $2, dados = $3, updated_at = NOW()
-        `, [usuario.id, cleanUsername, JSON.stringify(usuario)]);
+        for (const usuario of items) {
+          if (!usuario || !usuario.id || !usuario.username) continue;
+          const cleanUsername = String(usuario.username).toLowerCase().trim();
+          await pool.query(`
+            INSERT INTO usuarios (id, username, dados, updated_at)
+            VALUES ($1, $2, $3, NOW())
+            ON CONFLICT (id) DO UPDATE
+            SET username = $2, dados = $3, updated_at = NOW()
+          `, [usuario.id, cleanUsername, JSON.stringify(usuario)]);
+        }
 
-        return res.status(200).json({ success: true, usuario });
+        return res.status(200).json({ success: true, count: items.length });
       } catch (err) {
         console.error('[API/usuarios] Database save error:', err.message);
       }
     }
 
     if (!inMemoryUsuarios) inMemoryUsuarios = [];
-    const idx = inMemoryUsuarios.findIndex(u => u.id === usuario.id);
-    if (idx >= 0) {
-      inMemoryUsuarios[idx] = usuario;
-    } else {
-      inMemoryUsuarios.push(usuario);
+    for (const usuario of items) {
+      if (!usuario || !usuario.id) continue;
+      const idx = inMemoryUsuarios.findIndex(u => u.id === usuario.id);
+      if (idx >= 0) {
+        inMemoryUsuarios[idx] = usuario;
+      } else {
+        inMemoryUsuarios.push(usuario);
+      }
     }
 
-    return res.status(200).json({ success: true, usuario });
+    return res.status(200).json({ success: true, count: items.length });
   }
 
   // DELETE: Remove usuário (com proteção da conta master DEV)
