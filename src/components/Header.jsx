@@ -41,7 +41,7 @@ const TAB_TITLES = {
 };
 
 export const Header = ({ onOpenMobile, onOpenAuth }) => {
-  const { activeTab, setActiveTab, currentUser, logout, showToast } = useApp();
+  const { activeTab, setActiveTab, currentUser, logout, showToast, cloudSyncStatus, syncWithCloud } = useApp();
   const info = TAB_TITLES[activeTab] || TAB_TITLES.balcao;
 
   return (
@@ -68,7 +68,37 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
       </div>
 
       <div className="header-right-group">
-        <div className="header-shortcuts">
+        <div className="header-shortcuts" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => syncWithCloud(false)}
+            title={cloudSyncStatus?.isConnected ? `Nuvem Neon sincronizada (${cloudSyncStatus.lastSync || 'agora'}). Clique para sincronizar agora.` : 'Modo local (clique para tentar sincronizar com o banco Neon)'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              fontSize: '11px',
+              fontWeight: 600,
+              borderRadius: '20px',
+              border: cloudSyncStatus?.isConnected ? '1px solid #BBF7D0' : '1px solid #E2E8F0',
+              background: cloudSyncStatus?.isConnected ? '#F0FDF4' : '#F8FAFC',
+              color: cloudSyncStatus?.isConnected ? '#15803D' : '#64748B',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: cloudSyncStatus?.isConnected ? '#22C55E' : '#94A3B8',
+              boxShadow: cloudSyncStatus?.isConnected ? '0 0 6px #22C55E' : 'none',
+              display: 'inline-block'
+            }} />
+            <span>{cloudSyncStatus?.isConnected ? 'Nuvem Conectada' : 'Modo Local'}</span>
+          </button>
+
           <button 
             className="shortcut-btn btn-primary" 
             id="btn-header-novo" 

@@ -1,24 +1,9 @@
 // Vercel Serverless Function: /api/pedidos
-// Suporta tanto persistência em PostgreSQL (se DATABASE_URL configurada) quanto fallback seguro em memória/JSON
+// Suporta persistência em Neon PostgreSQL e fallback em memória
+
+import { getPgPool, initTables } from './db.js';
 
 let inMemoryPedidos = null;
-
-async function getPgClient() {
-  const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-  if (!connectionString) return null;
-
-  try {
-    const { Pool } = await import('pg');
-    const pool = new Pool({
-      connectionString,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-    });
-    return pool;
-  } catch (err) {
-    console.warn('[API/pedidos] pg client unavailable, using fallback store:', err.message);
-    return null;
-  }
-}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -30,23 +15,16 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const pool = await getPgClient();
+  const pool = await getPgPool();
+  if (pool) {
+    await initTables(pool);
+  }
 
   if (req.method === 'GET') {
     const { id } = req.query || {};
 
     if (pool) {
       try {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS pedidos (
-            id VARCHAR(50) PRIMARY KEY,
-            numero INT,
-            dados JSONB,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
-
         if (id) {
           const result = await pool.query('SELECT dados FROM pedidos WHERE id = $1', [id]);
           if (result.rows.length === 0) return res.status(404).json({ error: 'Pedido não encontrado' });
@@ -57,7 +35,7 @@ export default async function handler(req, res) {
         const pedidos = result.rows.map(r => r.dados);
         return res.status(200).json(pedidos);
       } catch (err) {
-        console.error('[API/pedidos] Database error:', err);
+        console.error('[API/pedidos] Database error:', err.message);
       }
     }
 
@@ -92,7 +70,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json({ success: true, pedido });
       } catch (err) {
-        console.error('[API/pedidos] Database save error:', err);
+        console.error('[API/pedidos] Database save error:', err.message);
       }
     }
 

@@ -1,5 +1,7 @@
 // Vercel Serverless Function: /api/config
-// Parâmetros operacionais e comerciais (ex: percentual de Preço Bruto, taxa de plaina)
+// Parâmetros operacionais e comerciais (ex: percentual de Preço Bruto, taxa de plaina) via Neon PostgreSQL
+
+import { getPgPool, initTables } from './db.js';
 
 let inMemoryConfig = {
   percentual_preco_bruto: 20,
@@ -9,23 +11,6 @@ let inMemoryConfig = {
   desconto_maximo_gerente_pct: 15,
   permitir_venda_estoque_zerado: true
 };
-
-async function getPgClient() {
-  const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-  if (!connectionString) return null;
-
-  try {
-    const { Pool } = await import('pg');
-    const pool = new Pool({
-      connectionString,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-    });
-    return pool;
-  } catch (err) {
-    console.warn('[API/config] pg client unavailable, using fallback store:', err.message);
-    return null;
-  }
-}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -37,25 +22,20 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const pool = await getPgClient();
+  const pool = await getPgPool();
+  if (pool) {
+    await initTables(pool);
+  }
 
   if (req.method === 'GET') {
     if (pool) {
       try {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS sistema_config (
-            chave VARCHAR(50) PRIMARY KEY,
-            dados JSONB,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
-
         const result = await pool.query("SELECT dados FROM sistema_config WHERE chave = 'geral'");
         if (result.rows.length > 0) {
           return res.status(200).json(result.rows[0].dados);
         }
       } catch (err) {
-        console.error('[API/config] Database error:', err);
+        console.error('[API/config] Database error:', err.message);
       }
     }
 
@@ -79,7 +59,7 @@ export default async function handler(req, res) {
           SET dados = $1, updated_at = NOW()
         `, [JSON.stringify(inMemoryConfig)]);
       } catch (err) {
-        console.error('[API/config] Database save error:', err);
+        console.error('[API/config] Database save error:', err.message);
       }
     }
 

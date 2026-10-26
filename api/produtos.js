@@ -1,24 +1,9 @@
 // Vercel Serverless Function: /api/produtos
-// Gerenciamento de estoque e catálogo com persistência PostgreSQL e fallback em memória
+// Gerenciamento de estoque e catálogo com persistência Neon PostgreSQL e fallback em memória
+
+import { getPgPool, initTables } from './db.js';
 
 let inMemoryProdutos = null;
-
-async function getPgClient() {
-  const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
-  if (!connectionString) return null;
-
-  try {
-    const { Pool } = await import('pg');
-    const pool = new Pool({
-      connectionString,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-    });
-    return pool;
-  } catch (err) {
-    console.warn('[API/produtos] pg client unavailable, using fallback store:', err.message);
-    return null;
-  }
-}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -30,35 +15,25 @@ export default async function handler(req, res) {
     return res.status(200).end();
   }
 
-  const pool = await getPgClient();
+  const pool = await getPgPool();
+  if (pool) {
+    await initTables(pool);
+  }
 
   if (req.method === 'GET') {
     if (pool) {
       try {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS produtos (
-            id VARCHAR(50) PRIMARY KEY,
-            codigo VARCHAR(50),
-            nome VARCHAR(255),
-            dados JSONB,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
-
         const result = await pool.query('SELECT dados FROM produtos ORDER BY id ASC');
         if (result.rows.length > 0) {
           const produtos = result.rows.map(r => r.dados);
           return res.status(200).json(produtos);
         }
       } catch (err) {
-        console.error('[API/produtos] Database error:', err);
+        console.error('[API/produtos] Database error:', err.message);
       }
     }
 
-    if (!inMemoryProdutos) {
-      inMemoryProdutos = [];
-    }
-
+    if (!inMemoryProdutos) inMemoryProdutos = [];
     return res.status(200).json(inMemoryProdutos);
   }
 
@@ -79,7 +54,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json({ success: true, produto });
       } catch (err) {
-        console.error('[API/produtos] Database save error:', err);
+        console.error('[API/produtos] Database save error:', err.message);
       }
     }
 

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { DB } from '../services/data.js';
 import { Security } from '../services/security.js';
+import { ApiClient } from '../services/api.js';
 
 const SESSION_KEY = 'serraria_sessao_ativa';
 
@@ -64,7 +65,7 @@ export function useAuth(showToast) {
   }, [currentUser, logout]);
 
   // Autenticação com verificação de credenciais criptografadas e proteção contra força bruta
-  const login = useCallback((identifier, password, remember = true) => {
+  const login = useCallback(async (identifier, password, remember = true) => {
     const cleanId = Security.sanitizeString(identifier).toLowerCase();
     const cleanPass = String(password || '').trim();
 
@@ -80,10 +81,24 @@ export function useAuth(showToast) {
       return { success: false, error: rateLimit.message };
     }
 
-    const users = DB.getUsuarios();
-    const user = users.find(u => 
+    let users = DB.getUsuarios();
+    let user = users.find(u => 
       (u.username?.toLowerCase() === cleanId || u.email?.toLowerCase() === cleanId)
     );
+
+    // Se o usuário não foi localizado no navegador local, busca do Neon imediatamente
+    if (!user) {
+      try {
+        const remoteUsers = await ApiClient.getUsuarios();
+        if (Array.isArray(remoteUsers) && remoteUsers.length > 0) {
+          const merged = DB.mergeUsuarios(remoteUsers);
+          users = merged;
+          user = users.find(u => 
+            (u.username?.toLowerCase() === cleanId || u.email?.toLowerCase() === cleanId)
+          );
+        }
+      } catch (e) {}
+    }
 
     if (!user) {
       Security.recordFailedLogin(cleanId);

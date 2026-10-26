@@ -8,7 +8,7 @@ export default function LoginScreen({ onLoginSuccess }) {
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
       setErrorMsg('Informe o usuário e a senha para entrar.');
@@ -18,13 +18,16 @@ export default function LoginScreen({ onLoginSuccess }) {
     setLoading(true);
     setErrorMsg('');
 
-    setTimeout(() => {
-      const res = onLoginSuccess(username, password, rememberMe);
-      if (!res.success) {
+    try {
+      const res = await onLoginSuccess(username, password, rememberMe);
+      if (res && !res.success) {
         setErrorMsg(res.error || 'Credenciais inválidas.');
         setLoading(false);
       }
-    }, 150);
+    } catch (err) {
+      setErrorMsg('Falha na autenticação. Tente novamente.');
+      setLoading(false);
+    }
   };
 
   return (

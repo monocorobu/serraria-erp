@@ -1535,6 +1535,72 @@ const DB = {
     this.set(STORAGE_KEYS.USUARIOS, list);
   },
 
+  // Sincronização e Merge com Neon PostgreSQL
+  mergeUsuarios(remoteUsers) {
+    if (!Array.isArray(remoteUsers) || remoteUsers.length === 0) return this.getUsuarios();
+    const local = this.getUsuarios();
+    remoteUsers.forEach(rem => {
+      if (!rem || !rem.id) return;
+      const idx = local.findIndex(l => l.id === rem.id || (rem.username && l.username === rem.username));
+      if (idx >= 0) {
+        if (local[idx].username === 'thales' || local[idx].perfil === 'DEV') return;
+        local[idx] = { ...local[idx], ...rem };
+      } else {
+        local.push(rem);
+      }
+    });
+    this.set(STORAGE_KEYS.USUARIOS, local);
+    return local;
+  },
+
+  mergePedidos(remotePedidos) {
+    if (!Array.isArray(remotePedidos) || remotePedidos.length === 0) return this.getPedidos();
+    const local = this.getPedidos();
+    remotePedidos.forEach(rem => {
+      if (!rem || !rem.id) return;
+      const idx = local.findIndex(l => l.id === rem.id);
+      if (idx >= 0) {
+        local[idx] = { ...local[idx], ...rem };
+      } else {
+        local.unshift(rem);
+      }
+    });
+    this.set(STORAGE_KEYS.PEDIDOS, local);
+    return local;
+  },
+
+  mergeClientes(remoteClientes) {
+    if (!Array.isArray(remoteClientes) || remoteClientes.length === 0) return this.getClientes();
+    const local = this.getClientes();
+    remoteClientes.forEach(rem => {
+      if (!rem || !rem.id) return;
+      const idx = local.findIndex(l => l.id === rem.id);
+      if (idx >= 0) {
+        local[idx] = { ...local[idx], ...rem };
+      } else {
+        local.push(rem);
+      }
+    });
+    this.set(STORAGE_KEYS.CLIENTES, local);
+    return local;
+  },
+
+  mergeProdutos(remoteProdutos) {
+    if (!Array.isArray(remoteProdutos) || remoteProdutos.length === 0) return this.getProdutos();
+    const local = this.getProdutos();
+    remoteProdutos.forEach(rem => {
+      if (!rem || !rem.id) return;
+      const idx = local.findIndex(l => l.id === rem.id || (rem.codigo && l.codigo === rem.codigo));
+      if (idx >= 0) {
+        local[idx] = { ...local[idx], ...rem };
+      } else {
+        local.push(rem);
+      }
+    });
+    this.set(STORAGE_KEYS.PRODUTOS, local);
+    return local;
+  },
+
   // Helpers específicos
   getFuncionarios() {
     return this.get(STORAGE_KEYS.FUNCIONARIOS, SEED_FUNCIONARIOS);
