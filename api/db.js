@@ -107,6 +107,25 @@ export async function initTables(pool) {
         dados JSONB,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      -- Ativação de Row Level Security (RLS) para proteção contra invasão e acessos não autorizados
+      ALTER TABLE IF EXISTS usuarios ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE IF EXISTS pedidos ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE IF EXISTS clientes ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE IF EXISTS produtos ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE IF EXISTS sistema_config ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE IF EXISTS funcionarios ENABLE ROW LEVEL SECURITY;
+
+      -- Revoga permissões públicas via PostgREST/anon se executado no Supabase
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+          REVOKE ALL ON TABLE usuarios, pedidos, clientes, produtos, sistema_config, funcionarios FROM anon;
+        END IF;
+        IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+          REVOKE ALL ON TABLE usuarios, pedidos, clientes, produtos, sistema_config, funcionarios FROM authenticated;
+        END IF;
+      END $$;
     `);
     tablesInitialized = true;
   } catch (err) {

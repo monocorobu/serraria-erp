@@ -38,11 +38,12 @@ export default async function handler(req, res) {
   try {
     await initTables(pool);
 
-    const [usrRes, pedRes, prodRes, cliRes] = await Promise.all([
+    const [usrRes, pedRes, prodRes, cliRes, funcRes] = await Promise.all([
       pool.query('SELECT COUNT(*)::int as total FROM usuarios'),
       pool.query('SELECT COUNT(*)::int as total FROM pedidos'),
       pool.query('SELECT COUNT(*)::int as total FROM produtos'),
-      pool.query('SELECT COUNT(*)::int as total FROM clientes')
+      pool.query('SELECT COUNT(*)::int as total FROM clientes'),
+      pool.query('SELECT COUNT(*)::int as total FROM funcionarios')
     ]);
 
     return res.status(200).json({
@@ -53,16 +54,18 @@ export default async function handler(req, res) {
         usuarios: usrRes.rows[0]?.total || 0,
         pedidos: pedRes.rows[0]?.total || 0,
         produtos: prodRes.rows[0]?.total || 0,
-        clientes: cliRes.rows[0]?.total || 0
+        clientes: cliRes.rows[0]?.total || 0,
+        funcionarios: funcRes.rows[0]?.total || 0
       },
       timestamp: new Date().toISOString()
     });
   } catch (err) {
+    console.error('[API/sync] Connection check error:', err.message);
     return res.status(200).json({
       connected: false,
       configured: true,
       provider,
-      error: err.message
+      error: 'Falha na comunicação com o banco de dados.'
     });
   }
 }

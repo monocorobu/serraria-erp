@@ -43,6 +43,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Dados do produto inválidos (necessário id)' });
     }
 
+    if (items.length > 1000) {
+      return res.status(400).json({ error: 'Limite de lote excedido (máximo 1000 produtos por requisição)' });
+    }
+
     if (pool) {
       try {
         // Inserção/atualização otimizada em lotes (reduz 95% do tráfego de rede)
@@ -52,18 +56,23 @@ export default async function handler(req, res) {
           if (!chunk.length) continue;
 
           for (const produto of chunk) {
+            const cleanId = String(produto.id).trim().slice(0, 60);
+            const cleanCodigo = String(produto.codigo || '').trim().slice(0, 50);
+            const cleanNome = String(produto.nome || '').trim().slice(0, 255);
+
             await safeQuery(pool, `
               INSERT INTO produtos (id, codigo, nome, dados, updated_at)
               VALUES ($1, $2, $3, $4, NOW())
               ON CONFLICT (id) DO UPDATE
               SET codigo = $2, nome = $3, dados = $4, updated_at = NOW()
-            `, [produto.id, produto.codigo || '', produto.nome || '', JSON.stringify(produto)]);
+            `, [cleanId, cleanCodigo, cleanNome, JSON.stringify(produto)]);
           }
         }
 
         return res.status(200).json({ success: true, count: items.length });
       } catch (err) {
         console.error('[API/produtos] Database save error:', err.message);
+        return res.status(500).json({ error: 'Erro interno ao salvar produtos no banco.' });
       }
     }
 

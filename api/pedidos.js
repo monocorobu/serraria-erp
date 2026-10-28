@@ -59,21 +59,28 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Dados do pedido inválidos (necessário id)' });
     }
 
+    if (items.length > 500) {
+      return res.status(400).json({ error: 'Limite de lote excedido (máximo 500 pedidos por requisição)' });
+    }
+
     if (pool) {
       try {
         for (const pedido of items) {
           if (!pedido || !pedido.id) continue;
+          const cleanId = String(pedido.id).trim().slice(0, 60);
+          const cleanNumero = Number(pedido.numero) || 0;
           await safeQuery(pool, `
             INSERT INTO pedidos (id, numero, dados, updated_at)
             VALUES ($1, $2, $3, NOW())
             ON CONFLICT (id) DO UPDATE
             SET dados = $3, updated_at = NOW()
-          `, [pedido.id, pedido.numero || 0, JSON.stringify(pedido)]);
+          `, [cleanId, cleanNumero, JSON.stringify(pedido)]);
         }
 
         return res.status(200).json({ success: true, count: items.length });
       } catch (err) {
         console.error('[API/pedidos] Database save error:', err.message);
+        return res.status(500).json({ error: 'Erro interno ao salvar pedidos no banco.' });
       }
     }
 

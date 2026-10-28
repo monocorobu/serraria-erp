@@ -43,21 +43,31 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Dados do cliente inválidos (necessário id)' });
     }
 
+    if (items.length > 500) {
+      return res.status(400).json({ error: 'Limite de lote excedido (máximo 500 clientes por requisição)' });
+    }
+
     if (pool) {
       try {
         for (const cliente of items) {
           if (!cliente || !cliente.id) continue;
+          const cleanId = String(cliente.id).trim().slice(0, 60);
+          const cleanNome = String(cliente.nome || '').trim().slice(0, 255);
+          const cleanDoc = String(cliente.documento || '').trim().slice(0, 50);
+          const cleanTel = String(cliente.telefone || '').trim().slice(0, 50);
+
           await safeQuery(pool, `
             INSERT INTO clientes (id, nome, documento, telefone, dados, updated_at)
             VALUES ($1, $2, $3, $4, $5, NOW())
             ON CONFLICT (id) DO UPDATE
             SET nome = $2, documento = $3, telefone = $4, dados = $5, updated_at = NOW()
-          `, [cliente.id, cliente.nome || '', cliente.documento || '', cliente.telefone || '', JSON.stringify(cliente)]);
+          `, [cleanId, cleanNome, cleanDoc, cleanTel, JSON.stringify(cliente)]);
         }
 
         return res.status(200).json({ success: true, count: items.length });
       } catch (err) {
         console.error('[API/clientes] Database save error:', err.message);
+        return res.status(500).json({ error: 'Erro interno ao salvar clientes no banco.' });
       }
     }
 
