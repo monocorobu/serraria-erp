@@ -1129,7 +1129,8 @@ const SEED_CONFIG = {
   cep: '12286-325',
   municipio: 'Caçapava',
   cidade: 'Caçapava',
-  estado: 'São Paulo'
+  estado: 'São Paulo',
+  mensagem_whatsapp_rodape: 'Proposta válida por 7 dias. Madeiras selecionadas com garantia de bitola e qualidade!'
 };
 
 const SEED_PAGAMENTOS_COMISSAO = [];

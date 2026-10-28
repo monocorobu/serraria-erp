@@ -92,7 +92,7 @@ export function useOrders(showToast, onOrderSaved) {
   }, [saveOrder, showToast]);
 
   // Gerador de mensagem formatada para WhatsApp com Preços À Vista, Débito e Bruto
-  const generateWhatsAppText = useCallback((p, percentualBruto = 20) => {
+  const generateWhatsAppText = useCallback((p, percentualBruto = 20, customConfig = null) => {
     const nome = p.cliente?.nome || 'Cliente';
     const num = p.numero;
     const total = CalcEngine.formatBRL(p.resumo_financeiro?.valor_total || 0);
@@ -111,7 +111,13 @@ export function useOrders(showToast, onOrderSaved) {
       CalcEngine.calcularPrecoDebito(p.resumo_financeiro?.valor_total || 0, pctDebito)
     );
 
-    let texto = `*SERRARIA BOM JESUS — Proposta Comercial #${num}*\n`;
+    const cfg = customConfig || DB.getConfig();
+    const nomeEmpresa = (cfg?.nome_madeireira || 'Serraria e Madeireira Bom Jesus').toUpperCase();
+    const telEmpresa = cfg?.telefone_madeireira || '(12) 99603-3793';
+    const cidadeEmpresa = cfg?.cidade || cfg?.municipio || 'Caçapava - SP';
+    const rodapePersonalizado = cfg?.mensagem_whatsapp_rodape || 'Proposta válida por 7 dias. Madeiras selecionadas com garantia de bitola e qualidade!';
+
+    let texto = `*${nomeEmpresa} — Proposta Comercial #${num}*\n`;
     texto += `Olá, *${nome}*! Segue a cotação do seu madeiramento:\n\n`;
 
     if (p.itens && p.itens.length > 0) {
@@ -135,8 +141,8 @@ export function useOrders(showToast, onOrderSaved) {
     texto += `\n• *À VISTA (Pix / Dinheiro):* ${total}`;
     texto += `\n• *NO DÉBITO / CARTÃO:* ${totalDebito}`;
     texto += `\n• *PREÇO BRUTO (A Prazo / Cartão em até 12x):* ${totalBruto}`;
-    texto += `\n\n_Proposta válida por 7 dias. Madeiras selecionadas com garantia de bitola e qualidade!_\n`;
-    texto += `Serraria Bom Jesus • Caçapava - SP • Contato: (12) 3653-2000`;
+    texto += `\n\n_${rodapePersonalizado}_\n`;
+    texto += `${cfg?.nome_madeireira || 'Serraria Bom Jesus'} • ${cidadeEmpresa} • Contato: ${telEmpresa}`;
 
     return texto;
   }, []);

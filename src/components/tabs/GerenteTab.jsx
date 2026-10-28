@@ -56,7 +56,8 @@ export const GerenteTab = () => {
     nome_madeireira: config.nome_madeireira || 'Serraria e Madeireira Bom Jesus',
     cnpj_madeireira: config.cnpj_madeireira || '16.482.988/0001-02',
     telefone_madeireira: config.telefone_madeireira || '(12) 99603-3793',
-    endereco_madeireira: config.endereco_madeireira || 'Av. Adhemar Pinto de Siqueira, 1000 - Vila Galvão, Caçapava - SP'
+    endereco_madeireira: config.endereco_madeireira || 'Av. Adhemar Pinto de Siqueira, 1000 - Vila Galvão, Caçapava - SP',
+    mensagem_whatsapp_rodape: config.mensagem_whatsapp_rodape || 'Proposta válida por 7 dias. Madeiras selecionadas com garantia de bitola e qualidade!'
   });
 
   useEffect(() => {
@@ -72,7 +73,8 @@ export const GerenteTab = () => {
         nome_madeireira: config.nome_madeireira || 'Serraria e Madeireira Bom Jesus',
         cnpj_madeireira: config.cnpj_madeireira || '16.482.988/0001-02',
         telefone_madeireira: config.telefone_madeireira || '(12) 99603-3793',
-        endereco_madeireira: config.endereco_madeireira || 'Av. Adhemar Pinto de Siqueira, 1000 - Vila Galvão, Caçapava - SP'
+        endereco_madeireira: config.endereco_madeireira || 'Av. Adhemar Pinto de Siqueira, 1000 - Vila Galvão, Caçapava - SP',
+        mensagem_whatsapp_rodape: config.mensagem_whatsapp_rodape || 'Proposta válida por 7 dias. Madeiras selecionadas com garantia de bitola e qualidade!'
       });
     }
   }, [config]);
@@ -576,6 +578,24 @@ export const GerenteTab = () => {
                     onChange={e => setParamsForm(prev => ({ ...prev, endereco_madeireira: e.target.value }))}
                   />
                 </div>
+              </div>
+
+              <div className="form-group" style={{ marginTop: '14px' }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#25D366" strokeWidth="2.2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                  <span style={{ fontWeight: 700 }}>Mensagem / Rodapé Padrão do WhatsApp (Validade & Garantia):</span>
+                </label>
+                <textarea 
+                  rows={2}
+                  className="form-input" 
+                  style={{ resize: 'vertical', fontSize: '12.5px', lineHeight: 1.45 }}
+                  value={paramsForm.mensagem_whatsapp_rodape || ''}
+                  placeholder="Ex: Proposta válida por 7 dias. Madeiras selecionadas com garantia de bitola e qualidade!"
+                  onChange={e => setParamsForm(prev => ({ ...prev, mensagem_whatsapp_rodape: e.target.value }))}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Este texto e o Telefone/WhatsApp acima são incluídos no rodapé de todas as cotações enviadas aos clientes pelo balcão.
+                </span>
               </div>
             </div>
           </div>

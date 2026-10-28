@@ -89,7 +89,8 @@ export default async function handler(req, res) {
       'cep',
       'municipio',
       'cidade',
-      'estado'
+      'estado',
+      'mensagem_whatsapp_rodape'
     ];
 
     const booleanKeys = [

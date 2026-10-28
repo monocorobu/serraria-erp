@@ -103,6 +103,14 @@ export const BalcaoTab = () => {
   const [mostrarCarpinteiro, setMostrarCarpinteiro] = useState(false);
   const [expandirDadosEntrega, setExpandirDadosEntrega] = useState(true);
 
+  // Modal de Pré-visualização & Edição da Mensagem de WhatsApp
+  const [modalWhatsApp, setModalWhatsApp] = useState({
+    isOpen: false,
+    phone: '',
+    texto: '',
+    nomeCliente: ''
+  });
+
   // Vendedor padrão ativo (prioriza o usuário logado se for funcionário, ou primeiro vendedor)
   const defaultSeller = useMemo(() => {
     if (!employees || employees.length === 0) return null;
@@ -869,27 +877,36 @@ export const BalcaoTab = () => {
     // Salva o orçamento no sistema para garantir o número de registro
     saveOrder(pedido);
 
-    let rawTel = (order.cliente?.telefone || '').replace(/\D/g, '');
-    let phoneParam = '';
-    if (rawTel.length >= 10) {
-      phoneParam = rawTel.startsWith('55') && rawTel.length >= 12 ? rawTel : '55' + rawTel;
-    }
-
     const texto = generateWhatsAppText 
-      ? generateWhatsAppText(pedido, config?.percentual_preco_bruto || 20)
+      ? generateWhatsAppText(pedido, config?.percentual_preco_bruto || 20, config)
       : '';
 
-    const url = phoneParam 
-      ? `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(texto)}`
-      : `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+    setModalWhatsApp({
+      isOpen: true,
+      phone: order.cliente?.telefone || '',
+      texto: texto,
+      nomeCliente: order.cliente?.nome || 'Cliente'
+    });
+  };
+
+  const handleDispararWhatsApp = (phoneParam, textoFinal) => {
+    let rawTel = (phoneParam || '').replace(/\D/g, '');
+    let formattedPhone = '';
+    if (rawTel.length >= 10) {
+      formattedPhone = rawTel.startsWith('55') && rawTel.length >= 12 ? rawTel : '55' + rawTel;
+    }
+
+    const url = formattedPhone 
+      ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(textoFinal)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(textoFinal)}`;
 
     window.open(url, '_blank');
+    setModalWhatsApp(prev => ({ ...prev, isOpen: false }));
 
-    if (phoneParam) {
-      const nomeCliente = order.cliente?.nome ? ` para ${order.cliente.nome}` : '';
-      showToast(`Abrindo WhatsApp${nomeCliente} (${order.cliente.telefone})...`, 'info');
+    if (formattedPhone) {
+      showToast(`Abrindo WhatsApp para ${modalWhatsApp.nomeCliente || 'cliente'}...`, 'info');
     } else {
-      showToast('Abrindo WhatsApp (selecione o contato). Dica: preencha o Telefone no campo do cliente para envio direto.', 'info');
+      showToast('Abrindo WhatsApp (selecione o contato no aplicativo)...', 'info');
     }
   };
 
@@ -2231,6 +2248,168 @@ export const BalcaoTab = () => {
           </div>
         </div>
       </div>
+
+      {/* MODAL DE EDIÇÃO & ENVIO DO WHATSAPP */}
+      {modalWhatsApp.isOpen && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(3px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalWhatsApp(prev => ({ ...prev, isOpen: false }));
+          }}
+        >
+          <div 
+            style={{
+              background: '#FFFFFF',
+              borderRadius: '12px',
+              width: '100%',
+              maxWidth: '620px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '90vh',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Cabeçalho do Modal */}
+            <div 
+              style={{
+                background: 'linear-gradient(135deg, #128C7E 0%, #075E54 100%)',
+                color: '#FFFFFF',
+                padding: '16px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: '#25D366', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="#FFFFFF">
+                    <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.067-1.137-.074-.75-.239-1.637-.775-2.502-1.64-.866-.865-1.401-1.752-1.64-2.502-.141-.443-.119-.825-.074-1.137.05-.333.419-1.026.824-1.17.133-.048.28-.023.38.077l.707 1.258c.08.143.064.321-.038.448l-.348.435c-.073.092-.09.219-.043.328.232.536.634 1.055 1.157 1.492.525.438 1.096.732 1.655.859.112.025.228-.014.298-.102l.418-.523c.106-.133.288-.179.441-.112l1.373.606c.148.065.234.22.204.378zM12 2C6.477 2 2 6.477 2 12c0 1.891.523 3.662 1.434 5.177L2 22l4.982-1.309A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>Enviar Orçamento via WhatsApp</h3>
+                  <span style={{ fontSize: '11px', color: '#D1FAE5' }}>Você pode revisar ou personalizar o texto antes de enviar</span>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setModalWhatsApp(prev => ({ ...prev, isOpen: false }))}
+                style={{ background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', padding: '4px', fontSize: '16px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Corpo do Modal */}
+            <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700, fontSize: '12px' }}>
+                  Número do WhatsApp do Cliente (Destinatário):
+                </label>
+                <input 
+                  type="text" 
+                  className="form-input font-mono" 
+                  style={{ fontWeight: 700, fontSize: '14px' }}
+                  placeholder="(XX) XXXXX-XXXX"
+                  value={modalWhatsApp.phone}
+                  onChange={e => setModalWhatsApp(prev => ({ ...prev, phone: DocMascara.formatarTelefone(e.target.value) }))}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Se deixar em branco, o WhatsApp abrirá permitindo escolher qualquer conversa.
+                </span>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: '12px', marginBottom: 0 }}>
+                    Texto da Mensagem (100% Editável):
+                  </label>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '11px', padding: '2px 8px' }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(modalWhatsApp.texto);
+                      showToast('Texto copiado para a área de transferência!', 'success');
+                    }}
+                  >
+                    📋 Copiar Mensagem
+                  </button>
+                </div>
+                <textarea 
+                  rows={10}
+                  className="form-input font-mono" 
+                  style={{ 
+                    fontSize: '12px', 
+                    lineHeight: 1.45, 
+                    background: '#F8FAFC',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '6px',
+                    padding: '10px'
+                  }}
+                  value={modalWhatsApp.texto}
+                  onChange={e => setModalWhatsApp(prev => ({ ...prev, texto: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {/* Rodapé do Modal com Botões */}
+            <div 
+              style={{
+                background: '#F1F5F9',
+                padding: '14px 20px',
+                borderTop: '1px solid #E2E8F0',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px'
+              }}
+            >
+              <button 
+                type="button" 
+                className="btn btn-secondary"
+                onClick={() => setModalWhatsApp(prev => ({ ...prev, isOpen: false }))}
+              >
+                Cancelar
+              </button>
+              <button 
+                type="button" 
+                className="btn"
+                style={{
+                  background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                  color: '#FFFFFF',
+                  fontWeight: 800,
+                  fontSize: '13px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 18px',
+                  boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)'
+                }}
+                onClick={() => handleDispararWhatsApp(modalWhatsApp.phone, modalWhatsApp.texto)}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.067-1.137-.074-.75-.239-1.637-.775-2.502-1.64-.866-.865-1.401-1.752-1.64-2.502-.141-.443-.119-.825-.074-1.137.05-.333.419-1.026.824-1.17.133-.048.28-.023.38.077l.707 1.258c.08.143.064.321-.038.448l-.348.435c-.073.092-.09.219-.043.328.232.536.634 1.055 1.157 1.492.525.438 1.096.732 1.655.859.112.025.228-.014.298-.102l.418-.523c.106-.133.288-.179.441-.112l1.373.606c.148.065.234.22.204.378zM12 2C6.477 2 2 6.477 2 12c0 1.891.523 3.662 1.434 5.177L2 22l4.982-1.309A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" />
+                </svg>
+                <span>Abrir no WhatsApp e Enviar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
