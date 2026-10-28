@@ -33,7 +33,9 @@ export const ApiClient = {
   async deleteUsuario(id) {
     try {
       const res = await fetch(`/api/usuarios?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
       });
       if (res.ok) return await res.json();
     } catch (e) {

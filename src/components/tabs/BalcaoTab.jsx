@@ -1344,7 +1344,7 @@ export const BalcaoTab = () => {
 
           {/* Quantidade */}
           <div className="form-group">
-            <label className="form-label" id="fast-qtd-label">Qtd Peças:</label>
+            <label className="form-label" id="fast-qtd-label">Qtd:</label>
             <input
               type="number"
               id="fast-qtd-input"
@@ -1369,9 +1369,8 @@ export const BalcaoTab = () => {
 
           {/* Largura da Madeira (cm) */}
           <div className="form-group">
-            <label className="form-label" id="fast-largura-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Largura:</span>
-              {!isMadeiraLinear && <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>(-)</span>}
+            <label className="form-label" id="fast-largura-label">
+              <span>Largura (cm):</span>
             </label>
             <input
               type={isMadeiraLinear ? "number" : "text"}
@@ -1396,9 +1395,8 @@ export const BalcaoTab = () => {
 
           {/* Comprimento */}
           <div className="form-group">
-            <label className="form-label" id="fast-comp-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Comprimento:</span>
-              {!isMadeiraLinear && <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>(-)</span>}
+            <label className="form-label" id="fast-comp-label">
+              <span>Comp. (m):</span>
             </label>
             <input
               type={isMadeiraLinear ? "number" : "text"}
@@ -1423,7 +1421,7 @@ export const BalcaoTab = () => {
 
           {/* Preço Unitário */}
           <div className="form-group">
-            <label className="form-label">Preço Unit. (R$):</label>
+            <label className="form-label">Preço (R$):</label>
             <input
               type="number"
               id="fast-preco-input"
@@ -1447,7 +1445,7 @@ export const BalcaoTab = () => {
             <div
               id="fast-subtotal-preview"
               className="form-input font-mono"
-              style={{ backgroundColor: 'var(--bg-surface-subtle)', fontWeight: 700, color: 'var(--brand-primary-text)', lineHeight: '20px' }}
+              style={{ backgroundColor: 'var(--bg-surface-subtle)', fontWeight: 700, color: 'var(--brand-primary-text)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', height: '34px' }}
             >
               {CalcEngine.formatBRL(fastSubtotalPreview)}
             </div>
@@ -1460,7 +1458,7 @@ export const BalcaoTab = () => {
               className="btn btn-primary"
               id="fast-add-btn"
               ref={fastAddBtnRef}
-              style={{ width: '100%', height: '38px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              style={{ width: '100%', height: '34px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
               onClick={handleAddItem}
               onKeyDown={e => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -1469,7 +1467,7 @@ export const BalcaoTab = () => {
                 }
               }}
             >
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.2">
+              <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" strokeWidth="2.2">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
@@ -1547,18 +1545,18 @@ export const BalcaoTab = () => {
           <table className="dense-table">
             <thead>
               <tr>
-                <th style={{ width: '35px' }} className="align-center">#</th>
-                <th style={{ width: '75px' }}>Código</th>
+                <th style={{ width: '32px' }} className="align-center">#</th>
+                <th style={{ width: '70px' }}>Código</th>
                 <th>Descrição do Produto / Bitola</th>
-                <th style={{ width: '50px' }} className="align-center">Unid.</th>
-                <th style={{ width: '85px' }} className="align-center">Qtd Peças</th>
-                <th style={{ width: '90px' }} className="align-center">Largura (cm)</th>
-                <th style={{ width: '85px' }} className="align-center">Compr. (m)</th>
-                <th style={{ width: '90px' }} className="align-center">Plaina</th>
-                <th style={{ width: '95px' }} className="align-right">Metragem</th>
-                <th style={{ width: '100px' }} className="align-right">Valor Unit.</th>
-                <th style={{ width: '110px' }} className="align-right">Subtotal</th>
-                <th style={{ width: '50px' }} className="align-center">Ações</th>
+                <th style={{ width: '45px' }} className="align-center">Unid.</th>
+                <th style={{ width: '60px' }} className="align-center">Qtd</th>
+                <th style={{ width: '75px' }} className="align-center">Larg. (cm)</th>
+                <th style={{ width: '75px' }} className="align-center">Comp. (m)</th>
+                <th style={{ width: '65px' }} className="align-center">Plaina</th>
+                <th style={{ width: '75px' }} className="align-right">Metragem</th>
+                <th style={{ width: '85px' }} className="align-right">Unitário</th>
+                <th style={{ width: '90px' }} className="align-right">Subtotal</th>
+                <th style={{ width: '45px' }} className="align-center">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -1696,30 +1694,34 @@ export const BalcaoTab = () => {
         <div className="balcao-footer-block">
           <div className="balcao-footer-block-title">
             <span>1. Ajustes & Adicionais</span>
-            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Cálculo Base</span>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Cálculo Base</span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {/* Subtotal dos Itens */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
               <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Subtotal dos Itens:</span>
-              <span className="font-mono" style={{ fontWeight: 700, fontSize: '13.5px' }}>
+              <span className="font-mono" style={{ fontWeight: 700, fontSize: '13px' }}>
                 {CalcEngine.formatBRL(totais.subtotal_itens_puros)}
               </span>
             </div>
 
             {/* Plaina */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }} title={totais.qtd_itens_plaina === 0 ? 'Nenhum item marcado para plaina' : `${totais.qtd_itens_plaina} itens marcados para plainar`}>
                 <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>(+) Plaina:</span>
-                {totais.qtd_itens_plaina === 0 && (
-                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    (Nenhum item)
+                {totais.qtd_itens_plaina > 0 ? (
+                  <span style={{ fontSize: '10px', color: '#047857', background: '#ECFDF5', padding: '1px 5px', borderRadius: '3px', fontWeight: 600 }}>
+                    {totais.qtd_itens_plaina} {totais.qtd_itens_plaina === 1 ? 'item' : 'itens'}
+                  </span>
+                ) : (
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                    (0)
                   </span>
                 )}
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ position: 'relative', width: '68px' }}>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                <div style={{ position: 'relative', width: '62px' }}>
                   <input
                     type="number"
                     min="0"
@@ -1728,8 +1730,9 @@ export const BalcaoTab = () => {
                     className="form-input font-mono"
                     style={{
                       height: '28px',
-                      padding: '2px 18px 2px 6px',
+                      padding: '2px 16px 2px 6px',
                       textAlign: 'right',
+                      fontSize: '11.5px',
                       backgroundColor: totais.qtd_itens_plaina === 0 ? '#F8FAFC' : 'inherit',
                       cursor: totais.qtd_itens_plaina === 0 ? 'not-allowed' : 'text',
                       color: totais.qtd_itens_plaina === 0 ? 'var(--text-muted)' : 'inherit',
@@ -1749,19 +1752,19 @@ export const BalcaoTab = () => {
                     %
                   </span>
                 </div>
-                <span className="font-mono" style={{ fontWeight: 700, minWidth: '70px', textAlign: 'right', color: totais.taxa_aparelhamento > 0 ? '#047857' : 'var(--text-muted)' }}>
+                <span className="font-mono" style={{ fontWeight: 700, minWidth: '65px', textAlign: 'right', fontSize: '12px', color: totais.taxa_aparelhamento > 0 ? '#047857' : 'var(--text-muted)' }}>
                   {CalcEngine.formatBRL(totais.taxa_aparelhamento)}
                 </span>
-              </span>
+              </div>
             </div>
 
             {/* Frete */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px', gap: '6px' }}>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>(+) Frete:</span>
-              <div style={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', gap: '8px' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>(+) Frete:</span>
+              <div style={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
                 <select
                   className="form-select"
-                  style={{ height: '28px', padding: '2px 6px', fontSize: '11.5px', maxWidth: '130px' }}
+                  style={{ height: '28px', padding: '2px 6px', fontSize: '11px', flex: 1, minWidth: '90px', maxWidth: '160px' }}
                   value={order.bairro_frete}
                   onChange={e => {
                     const b = bairros.find(item => item.nome === e.target.value);
@@ -1780,7 +1783,7 @@ export const BalcaoTab = () => {
                 <input
                   type="number"
                   className="form-input font-mono"
-                  style={{ height: '28px', padding: '2px 6px', width: '75px', textAlign: 'right' }}
+                  style={{ height: '28px', padding: '2px 6px', width: '70px', textAlign: 'right', fontSize: '11.5px', flexShrink: 0 }}
                   value={order.frete_valor}
                   onChange={e => setOrder(prev => ({ ...prev, frete_valor: parseFloat(e.target.value) || 0 }))}
                 />
@@ -1788,12 +1791,12 @@ export const BalcaoTab = () => {
             </div>
 
             {/* Desconto */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12.5px', gap: '6px' }}>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>(-) Desconto:</span>
-              <div style={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', gap: '8px' }}>
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 600, whiteSpace: 'nowrap' }}>(-) Desconto:</span>
+              <div style={{ display: 'flex', gap: '4px', flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
                 <select
                   className="form-select"
-                  style={{ height: '28px', padding: '2px 4px', fontSize: '11px', width: '50px' }}
+                  style={{ height: '28px', padding: '2px 4px', fontSize: '11px', width: '48px', flexShrink: 0 }}
                   value={order.desconto_tipo}
                   onChange={e => setOrder(prev => ({ ...prev, desconto_tipo: e.target.value, desconto_autorizado: false }))}
                 >
@@ -1803,7 +1806,7 @@ export const BalcaoTab = () => {
                 <input
                   type="number"
                   className="form-input font-mono"
-                  style={{ height: '28px', padding: '2px 6px', width: '75px', textAlign: 'right' }}
+                  style={{ height: '28px', padding: '2px 6px', width: '70px', textAlign: 'right', fontSize: '11.5px', flexShrink: 0 }}
                   value={order.desconto_valor}
                   onChange={e => setOrder(prev => ({ ...prev, desconto_valor: parseFloat(e.target.value) || 0, desconto_autorizado: false }))}
                 />
@@ -1871,40 +1874,40 @@ export const BalcaoTab = () => {
         <div className="balcao-footer-block" style={{ background: '#FFFFFF' }}>
           <div className="balcao-footer-block-title">
             <span>2. Resumo de Preços</span>
-            <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Tabela Oficial</span>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Tabela Oficial</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center', flex: 1 }}>
             {/* Valor À Vista */}
-            <div style={{ padding: '8px 10px', background: '#ECFDF5', border: '1.5px solid #10B981', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '6px 10px', background: '#ECFDF5', border: '1.5px solid #10B981', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>VALOR À VISTA:</div>
-                <div style={{ fontSize: '10px', color: '#065F46', fontWeight: 600 }}>PIX OU DINHEIRO</div>
+                <div style={{ fontSize: '11px', fontWeight: 800, color: '#047857', textTransform: 'uppercase' }}>VALOR À VISTA:</div>
+                <div style={{ fontSize: '9.5px', color: '#065F46', fontWeight: 600 }}>PIX OU DINHEIRO</div>
               </div>
-              <span className="font-mono" style={{ fontSize: '18px', fontWeight: 800, color: '#047857' }}>
+              <span className="font-mono" style={{ fontSize: '16px', fontWeight: 800, color: '#047857' }}>
                 {CalcEngine.formatBRL(totais.valor_total)}
               </span>
             </div>
 
             {/* No Débito */}
-            <div style={{ padding: '6px 10px', background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '5px 10px', background: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>NO DÉBITO:</div>
-                <div style={{ fontSize: '9.5px', color: '#B45309' }}>CARTÃO À VISTA</div>
+                <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>NO DÉBITO:</div>
+                <div style={{ fontSize: '9px', color: '#B45309' }}>CARTÃO À VISTA</div>
               </div>
-              <span className="font-mono" style={{ fontSize: '15px', fontWeight: 800, color: '#92400E' }}>
+              <span className="font-mono" style={{ fontSize: '13.5px', fontWeight: 800, color: '#92400E' }}>
                 {CalcEngine.formatBRL(totais.valor_total_debito)}
               </span>
             </div>
 
             {/* Preço Bruto / A Prazo */}
-            <div style={{ padding: '6px 10px', background: '#EFF6FF', border: '1px solid #93C5FD', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '5px 10px', background: '#EFF6FF', border: '1px solid #93C5FD', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#1E40AF', textTransform: 'uppercase' }}>A PRAZO (ATÉ 5X):</div>
-                <div style={{ fontSize: '9.5px', color: '#2563EB' }}>CARTÃO CRÉDITO</div>
+                <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#1E40AF', textTransform: 'uppercase' }}>A PRAZO (ATÉ 5X):</div>
+                <div style={{ fontSize: '9px', color: '#2563EB' }}>CARTÃO CRÉDITO</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <span className="font-mono" style={{ fontSize: '15px', fontWeight: 800, color: '#1E40AF' }}>
+                <span className="font-mono" style={{ fontSize: '13.5px', fontWeight: 800, color: '#1E40AF' }}>
                   {CalcEngine.formatBRL(totais.valor_total_bruto)}
                 </span>
               </div>
@@ -1922,7 +1925,7 @@ export const BalcaoTab = () => {
                 onClick={() => handleTogglePagamentoDividido(false)}
                 style={{
                   padding: '2px 8px',
-                  fontSize: '10.5px',
+                  fontSize: '10px',
                   fontWeight: !order.pagamento_dividido ? 700 : 500,
                   background: !order.pagamento_dividido ? '#FFFFFF' : 'transparent',
                   color: !order.pagamento_dividido ? 'var(--brand-primary)' : 'var(--text-secondary)',
@@ -1938,7 +1941,7 @@ export const BalcaoTab = () => {
                 onClick={() => handleTogglePagamentoDividido(true)}
                 style={{
                   padding: '2px 8px',
-                  fontSize: '10.5px',
+                  fontSize: '10px',
                   fontWeight: order.pagamento_dividido ? 700 : 500,
                   background: order.pagamento_dividido ? '#FFFFFF' : 'transparent',
                   color: order.pagamento_dividido ? 'var(--brand-primary)' : 'var(--text-secondary)',
@@ -1953,11 +1956,11 @@ export const BalcaoTab = () => {
           </div>
 
           {!order.pagamento_dividido ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: order.forma_pagamento === 'Cartão de Crédito' ? '1fr 110px' : '1fr', gap: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center', flex: 1 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: order.forma_pagamento === 'Cartão de Crédito' ? '1fr 95px' : '1fr', gap: '6px' }}>
                 <select
                   className="form-select"
-                  style={{ height: '34px', fontWeight: 600, fontSize: '12.5px' }}
+                  style={{ height: '30px', fontWeight: 600, fontSize: '12px' }}
                   value={order.forma_pagamento}
                   onChange={e => {
                     const novaForma = e.target.value;
@@ -1977,7 +1980,7 @@ export const BalcaoTab = () => {
                 {order.forma_pagamento === 'Cartão de Crédito' && (
                   <select
                     className="form-select font-mono"
-                    style={{ height: '34px', fontWeight: 700, fontSize: '12px' }}
+                    style={{ height: '30px', fontWeight: 700, fontSize: '11.5px' }}
                     value={order.cartao_parcelas || 1}
                     onChange={e => setOrder(prev => ({ ...prev, cartao_parcelas: parseInt(e.target.value) || 1 }))}
                     title="Parcelas no Cartão (Máximo 5x)"
@@ -1992,36 +1995,36 @@ export const BalcaoTab = () => {
               </div>
 
               {/* Caixa Informativa */}
-              <div style={{ padding: '6px 10px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '12px' }}>
-                <div style={{ color: 'var(--text-secondary)', marginBottom: '3px', fontSize: '10px', textTransform: 'uppercase', fontWeight: 700 }}>
+              <div style={{ padding: '6px 10px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '11.5px' }}>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '2px', fontSize: '9.5px', textTransform: 'uppercase', fontWeight: 700 }}>
                   Cobrança no Balcão:
                 </div>
                 {order.forma_pagamento === 'Pix' && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>📱 Cobrar no <strong>Pix</strong>:</span>
-                    <strong className="font-mono" style={{ fontSize: '14px', color: '#047857' }}>{CalcEngine.formatBRL(totais.valor_total)}</strong>
+                    <strong className="font-mono" style={{ fontSize: '13.5px', color: '#047857' }}>{CalcEngine.formatBRL(totais.valor_total)}</strong>
                   </div>
                 )}
                 {order.forma_pagamento === 'Dinheiro' && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>💵 Receber em <strong>Dinheiro</strong>:</span>
-                    <strong className="font-mono" style={{ fontSize: '14px', color: '#047857' }}>{CalcEngine.formatBRL(totais.valor_total)}</strong>
+                    <strong className="font-mono" style={{ fontSize: '13.5px', color: '#047857' }}>{CalcEngine.formatBRL(totais.valor_total)}</strong>
                   </div>
                 )}
                 {order.forma_pagamento === 'Cartão de Débito' && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>💳 Cobrar na Maquininha (<strong>Débito</strong>):</span>
-                    <strong className="font-mono" style={{ fontSize: '14px', color: '#92400E' }}>{CalcEngine.formatBRL(totais.valor_total_debito)}</strong>
+                    <span>💳 Cobrar no <strong>Débito</strong>:</span>
+                    <strong className="font-mono" style={{ fontSize: '13.5px', color: '#92400E' }}>{CalcEngine.formatBRL(totais.valor_total_debito)}</strong>
                   </div>
                 )}
                 {order.forma_pagamento === 'Cartão de Crédito' && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>💳 Maquininha (<strong>Crédito {order.cartao_parcelas || 1}x</strong>):</span>
-                    <strong className="font-mono" style={{ fontSize: '14px', color: '#1E40AF' }}>
+                    <span>💳 Crédito <strong>{order.cartao_parcelas || 1}x</strong>:</span>
+                    <strong className="font-mono" style={{ fontSize: '13.5px', color: '#1E40AF' }}>
                       {CalcEngine.formatBRL(totais.valor_total_bruto)}
                       {(order.cartao_parcelas || 1) > 1 && (
-                        <span style={{ fontSize: '11px', color: '#1E40AF', fontWeight: 600, marginLeft: '4px' }}>
-                          ({order.cartao_parcelas}x de {CalcEngine.formatBRL(totais.valor_total_bruto / order.cartao_parcelas)})
+                        <span style={{ fontSize: '10.5px', color: '#1E40AF', fontWeight: 600, marginLeft: '4px' }}>
+                          ({order.cartao_parcelas}x {CalcEngine.formatBRL(totais.valor_total_bruto / order.cartao_parcelas)})
                         </span>
                       )}
                     </strong>
@@ -2133,8 +2136,8 @@ export const BalcaoTab = () => {
             <span style={{ fontSize: '10px', color: 'var(--brand-primary)', fontWeight: 700 }}>Pronto para Vender</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, justifyContent: 'center' }}>
-            {/* Botão Primário Grande: Salvar como Pago */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, justifyContent: 'center' }}>
+            {/* Botão Primário: Salvar como Pago */}
             <button
               type="button"
               className="btn"
@@ -2143,20 +2146,20 @@ export const BalcaoTab = () => {
                 background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
                 color: '#FFFFFF',
                 fontWeight: 800,
-                fontSize: '15px',
+                fontSize: '13.5px',
                 border: 'none',
                 borderRadius: '6px',
-                height: '46px',
+                height: '38px',
                 width: '100%',
-                boxShadow: '0 3px 6px rgba(5,150,105,0.25)',
+                boxShadow: '0 2px 4px rgba(5,150,105,0.2)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '8px',
+                gap: '7px',
                 cursor: 'pointer'
               }}
             >
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" strokeWidth="2.8"><polyline points="20 6 9 17 4 12" /></svg>
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.8"><polyline points="20 6 9 17 4 12" /></svg>
               <span>Salvar como Pago</span>
             </button>
 
@@ -2166,10 +2169,10 @@ export const BalcaoTab = () => {
                 type="button"
                 className="btn btn-secondary"
                 onClick={handleSalvarOrcamento}
-                style={{ fontWeight: 600, fontSize: '11.5px', height: '36px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                style={{ fontWeight: 600, fontSize: '11px', height: '32px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                 title="Salvar apenas como orçamento pendente"
               >
-                <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                 <span>Salvar Orç.</span>
               </button>
 
@@ -2181,21 +2184,21 @@ export const BalcaoTab = () => {
                   background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
                   color: '#FFFFFF',
                   fontWeight: 700,
-                  fontSize: '12px',
+                  fontSize: '11.5px',
                   border: 'none',
                   borderRadius: '4px',
-                  height: '36px',
+                  height: '32px',
                   width: '100%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '6px',
+                  gap: '5px',
                   cursor: 'pointer',
-                  boxShadow: '0 2px 4px rgba(37,211,102,0.25)'
+                  boxShadow: '0 1px 3px rgba(37,211,102,0.2)'
                 }}
                 title="Enviar Orçamento direto para o WhatsApp do cliente"
               >
-                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
                   <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.694.067-1.137-.074-.75-.239-1.637-.775-2.502-1.64-.866-.865-1.401-1.752-1.64-2.502-.141-.443-.119-.825-.074-1.137.05-.333.419-1.026.824-1.17.133-.048.28-.023.38.077l.707 1.258c.08.143.064.321-.038.448l-.348.435c-.073.092-.09.219-.043.328.232.536.634 1.055 1.157 1.492.525.438 1.096.732 1.655.859.112.025.228-.014.298-.102l.418-.523c.106-.133.288-.179.441-.112l1.373.606c.148.065.234.22.204.378zM12 2C6.477 2 2 6.477 2 12c0 1.891.523 3.662 1.434 5.177L2 22l4.982-1.309A9.957 9.957 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" />
                 </svg>
                 <span>WhatsApp</span>
@@ -2208,20 +2211,20 @@ export const BalcaoTab = () => {
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => handleImprimir('CLIENTE')}
-                style={{ fontWeight: 600, fontSize: '11px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                style={{ fontWeight: 600, fontSize: '10.5px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                 title="Imprimir via do cliente em formato A5"
               >
-                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
+                <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2"><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></svg>
                 <span>Via A5</span>
               </button>
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => handleImprimir('PATIO')}
-                style={{ fontWeight: 600, fontSize: '11px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                style={{ fontWeight: 600, fontSize: '10.5px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                 title="Imprimir romaneio de expedição para o pátio"
               >
-                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></svg>
+                <svg viewBox="0 0 24 24" width="11" height="11" stroke="currentColor" fill="none" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><rect x="8" y="2" width="8" height="4" rx="1" ry="1" /></svg>
                 <span>Romaneio</span>
               </button>
             </div>

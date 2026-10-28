@@ -304,7 +304,7 @@ export const GerenteTab = () => {
     setModalUsuario({ isOpen: false, isEdit: false });
   };
 
-  const handleConfirmarExcluirUsuario = () => {
+  const handleConfirmarExcluirUsuario = async () => {
     if (!modalExcluirUsuario.usuario) return;
     const usr = modalExcluirUsuario.usuario;
 
@@ -329,9 +329,9 @@ export const GerenteTab = () => {
       return;
     }
 
-    deleteUser(usr.id);
-    showToast(`Conta de acesso "${usr.username}" (${usr.perfil}) excluída com sucesso!`, 'info');
     setModalExcluirUsuario({ isOpen: false, usuario: null });
+    await deleteUser(usr.id);
+    showToast(`Conta de acesso "${usr.username}" (${usr.perfil}) excluída com sucesso!`, 'info');
   };
 
   return (

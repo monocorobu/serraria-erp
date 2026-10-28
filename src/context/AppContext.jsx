@@ -147,12 +147,19 @@ export const AppProvider = ({ children }) => {
     return saved;
   }, [showToast]);
 
-  const deleteUser = useCallback((id) => {
+  const deleteUser = useCallback(async (id) => {
     DB.excluirUsuario(id);
     setUsers(DB.getUsuarios());
-    ApiClient.deleteUsuario(id).catch(() => {});
-    showToast('Conta de acesso removida.', 'info');
-  }, [showToast]);
+    try {
+      await ApiClient.deleteUsuario(id);
+    } catch (err) {
+      console.warn('[deleteUser] Erro ao sincronizar exclusão com a nuvem:', err);
+    }
+  }, []);
+
+  const { setOrders } = ordersHook;
+  const { setClients } = clientesHook;
+  const { setProducts } = estoqueHook;
 
   // Sincronização centralizada com o Neon PostgreSQL
   const syncWithCloud = useCallback(async (silent = false) => {
@@ -160,12 +167,21 @@ export const AppProvider = ({ children }) => {
       // 1. Sincroniza Usuários / Contas (Bidirecional)
       const remoteUsers = await ApiClient.getUsuarios();
       if (Array.isArray(remoteUsers)) {
+        const excluidos = DB.getUsuariosExcluidos();
+
+        // Se houver contas remotas que constam nos excluídos locais, garante a exclusão no Neon
+        for (const delId of excluidos) {
+          if (remoteUsers.some(r => r.id === delId || r.username === delId)) {
+            await ApiClient.deleteUsuario(delId).catch(() => {});
+          }
+        }
+
         const merged = DB.mergeUsuarios(remoteUsers);
         setUsers([...merged]);
 
         // Se houver contas locais que ainda não estão no Neon (ex: conta do dono criada antes no computador da serraria), sobe para a nuvem
         const missingOnRemote = merged.filter(l => 
-          l && l.username !== 'thales' && !remoteUsers.some(r => r.id === l.id || r.username === l.username)
+          l && l.username !== 'thales' && !excluidos.includes(l.id) && !excluidos.includes(l.username) && !remoteUsers.some(r => r.id === l.id || r.username === l.username)
         );
         if (missingOnRemote.length > 0) {
           await ApiClient.saveUsuario(missingOnRemote).catch(() => {});
@@ -176,7 +192,7 @@ export const AppProvider = ({ children }) => {
       const remotePedidos = await ApiClient.getPedidos();
       if (Array.isArray(remotePedidos)) {
         const merged = DB.mergePedidos(remotePedidos);
-        ordersHook.setOrders([...merged]);
+        setOrders([...merged]);
 
         // Se houver pedidos locais não presentes na nuvem, envia em lote
         const missingPedidos = merged.filter(lp => 
@@ -191,7 +207,7 @@ export const AppProvider = ({ children }) => {
       const remoteClientes = await ApiClient.getClientes();
       if (Array.isArray(remoteClientes)) {
         const merged = DB.mergeClientes(remoteClientes);
-        clientesHook.setClients([...merged]);
+        setClients([...merged]);
 
         const missingClientes = merged.filter(lc => 
           lc && lc.id && !remoteClientes.some(rc => rc.id === lc.id)
@@ -205,7 +221,7 @@ export const AppProvider = ({ children }) => {
       const remoteProdutos = await ApiClient.getProdutos();
       if (Array.isArray(remoteProdutos)) {
         const merged = DB.mergeProdutos(remoteProdutos);
-        estoqueHook.setProducts([...merged]);
+        setProducts([...merged]);
 
         // Se o banco remoto tiver menos produtos que o catálogo completo local (ex: catálogo padrão de 200+ itens), popula o Neon em lote
         if (remoteProdutos.length < 50 && merged.length > remoteProdutos.length) {
@@ -230,7 +246,7 @@ export const AppProvider = ({ children }) => {
       console.warn('[Sync] Falha na sincronização:', err);
       setCloudSyncStatus({ isConnected: false, lastSync: null });
     }
-  }, [ordersHook, clientesHook, estoqueHook, showToast]);
+  }, [setOrders, setClients, setProducts, showToast]);
 
   // Executa a sincronização inicial ao abrir o sistema
   useEffect(() => {

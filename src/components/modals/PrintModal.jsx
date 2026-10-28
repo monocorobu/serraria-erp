@@ -60,12 +60,15 @@ const getPrintCSS = (formato) => {
     line-height: 1.25;
     width: ${pageWidth} !important;
     max-width: ${pageWidth} !important;
-    ${isOfuku ? 'max-height: 126mm !important; overflow: hidden !important;' : ''}
+    height: ${isA4_2Vias ? '132mm' : (isA4_Topo ? '132mm' : '126mm')} !important;
+    min-height: ${isA4_2Vias ? '132mm' : (isA4_Topo ? '132mm' : '126mm')} !important;
+    max-height: ${isA4_2Vias ? '134mm' : (isA4_Topo ? '134mm' : '128mm')} !important;
+    overflow: hidden !important;
     margin: 0 !important;
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: flex-start !important;
+    justify-content: space-between !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
@@ -91,20 +94,33 @@ const getPrintCSS = (formato) => {
     letter-spacing: 0.5px;
   }
 
-  .print-sheet.density-normal { font-size: ${isA4_2Vias ? '8.5px' : '9.5px'}; }
-  .print-sheet.density-normal .print-table th, .print-sheet.density-normal .print-table td { padding: ${isA4_2Vias ? '2px 4px' : '2.5px 4px'}; }
-  .print-sheet.density-compact { font-size: ${isA4_2Vias ? '8px' : '8.5px'}; }
-  .print-sheet.density-compact .print-table th, .print-sheet.density-compact .print-table td { padding: 1.5px 3.5px; }
+  .print-sheet.density-normal { font-size: ${isA4_2Vias ? '9px' : '10px'}; }
+  .print-sheet.density-normal .print-table th { padding: 3px 5px; font-size: 9px; }
+  .print-sheet.density-normal .print-table td { padding: 3px 5px; font-size: 10px; }
+  .print-sheet.density-normal .signature-space { height: 18px; }
+  .print-sheet.density-normal .signature-line { font-size: 10px; }
+  .print-sheet.density-normal .signature-line span { font-size: 8.5px; }
+
+  .print-sheet.density-compact { font-size: ${isA4_2Vias ? '8.5px' : '9px'}; }
+  .print-sheet.density-compact .print-table th { padding: 2px 4px; font-size: 8.5px; }
+  .print-sheet.density-compact .print-table td { padding: 2px 4px; font-size: 9.5px; }
   .print-sheet.density-compact .print-sheet-header { margin-bottom: 3px; padding-bottom: 3px; }
-  .print-sheet.density-compact .print-client-box { margin-bottom: 3px; padding: 2.5px 5px; }
-  .print-sheet.density-compact .print-footer-container { margin-top: 3.5px; padding: 3px 5px; }
+  .print-sheet.density-compact .print-client-box { margin-bottom: 3px; padding: 2.5px 6px; }
+  .print-sheet.density-compact .print-footer-container { margin-top: auto !important; padding: 3px 6px; }
+  .print-sheet.density-compact .signature-space { height: 15px; }
+  .print-sheet.density-compact .signature-line { font-size: 9.5px; }
+  .print-sheet.density-compact .signature-line span { font-size: 8px; }
+
   .print-sheet.density-dense { font-size: 8px; }
-  .print-sheet.density-dense .print-table th, .print-sheet.density-dense .print-table td { padding: 1px 3px; font-size: 8px; }
+  .print-sheet.density-dense .print-table th { padding: 1.5px 3px; font-size: 8px; }
+  .print-sheet.density-dense .print-table td { padding: 1.5px 3px; font-size: 8.5px; }
   .print-sheet.density-dense .print-sheet-header { margin-bottom: 2.5px; padding-bottom: 2.5px; }
-  .print-sheet.density-dense .print-company-name { font-size: 11.5px; }
+  .print-sheet.density-dense .print-company-name { font-size: 12px; }
   .print-sheet.density-dense .print-client-box { margin-bottom: 2.5px; padding: 2px 5px; }
-  .print-sheet.density-dense .print-footer-container { margin-top: 2.5px; padding: 2px 5px; }
-  .print-sheet.density-dense .print-signatures-grid { margin-top: 3px; }
+  .print-sheet.density-dense .print-footer-container { margin-top: auto !important; padding: 2px 5px; }
+  .print-sheet.density-dense .signature-space { height: 12px; }
+  .print-sheet.density-dense .signature-line { font-size: 9px; }
+  .print-sheet.density-dense .signature-line span { font-size: 7.5px; }
 
   .print-sheet-header {
     border-bottom: 2px solid #0F172A;
@@ -148,14 +164,14 @@ const getPrintCSS = (formato) => {
 
   .print-client-box {
     border: 1px solid #94A3B8;
-    padding: 3px 6px;
+    padding: 3.5px 8px;
     margin-bottom: 4px;
     background-color: #F8FAFC !important;
     display: grid;
-    grid-template-columns: 1.3fr 1.3fr 1fr;
-    gap: 6px;
-    font-size: 8.5px;
-    line-height: 1.25;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 8px;
+    font-size: 9.5px;
+    line-height: 1.35;
   }
   .print-client-row {
     margin-bottom: 1px;
@@ -169,7 +185,7 @@ const getPrintCSS = (formato) => {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 4px;
-    font-size: 9px;
+    font-size: 10px;
   }
   .print-table th {
     background-color: #F1F5F9 !important;
@@ -179,14 +195,15 @@ const getPrintCSS = (formato) => {
     padding: 2.5px 4px;
     font-weight: 700;
     text-transform: uppercase;
-    font-size: 8px;
+    font-size: 8.5px;
     text-align: left;
   }
   .print-table th:last-child { border-right: none; }
   .print-table td {
     border-bottom: 1px solid #E2E8F0;
     border-right: 1px solid #F1F5F9;
-    padding: 2px 4px;
+    padding: 2.5px 4px;
+    font-size: 10px;
   }
   .print-table td:last-child { border-right: none; }
   .print-table td.align-right, .print-table th.align-right { text-align: right; }
@@ -203,7 +220,17 @@ const getPrintCSS = (formato) => {
     border: 1px solid #94A3B8;
     padding: 4px 6px;
     background-color: #F8FAFC !important;
-    margin-top: 4px;
+    margin-top: auto !important;
+  }
+  .patio-footer-container {
+    margin-top: auto !important;
+    border: 1px solid #94A3B8;
+    background-color: #F8FAFC !important;
+    padding: 3px 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    font-size: 8px;
   }
   .print-footer-left {
     display: flex;
@@ -220,28 +247,40 @@ const getPrintCSS = (formato) => {
     margin-bottom: 2px;
   }
   .print-terms {
-    font-size: 7px;
+    font-size: 8px;
     color: #475569;
-    line-height: 1.15;
-    margin-bottom: 3px;
+    line-height: 1.2;
+    margin-bottom: 4px;
   }
   .print-signatures-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 3px;
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .signature-box {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .signature-space {
+    height: 18px;
   }
   .signature-line {
-    border-top: 1px solid #0F172A;
+    border-top: 1.2px solid #0F172A;
     text-align: center;
-    font-size: 7.5px;
+    font-size: 10px;
+    font-weight: 700;
     padding-top: 2px;
-    color: #334155;
-    line-height: 1.15;
+    color: #0F172A;
+    line-height: 1.2;
   }
   .signature-line span {
-    font-size: 6.5px;
-    color: #64748B;
+    font-size: 8.5px;
+    font-weight: 500;
+    color: #475569;
+    display: block;
+    margin-top: 1px;
   }
 
   .print-footer-right {
@@ -255,14 +294,14 @@ const getPrintCSS = (formato) => {
     display: flex;
     flex-direction: column;
     gap: 1.5px;
-    font-size: 8.5px;
+    font-size: 9px;
   }
   .print-financial-line {
     display: flex;
     justify-content: space-between;
   }
   .print-total-highlight {
-    font-size: 11px;
+    font-size: 12.5px;
     font-weight: 800;
     color: #14532D;
     border-top: 1.5px solid #0F172A;
@@ -270,7 +309,7 @@ const getPrintCSS = (formato) => {
     margin-top: 2px;
   }
   .print-debito-highlight {
-    font-size: 9.5px;
+    font-size: 10px;
     font-weight: 800;
     color: #92400E;
     background-color: #FEF3C7 !important;
@@ -280,7 +319,7 @@ const getPrintCSS = (formato) => {
     margin-top: 2px;
   }
   .print-bruto-highlight {
-    font-size: 10px;
+    font-size: 10.5px;
     font-weight: 800;
     color: #1E40AF;
     background-color: #EFF6FF !important;
@@ -503,7 +542,16 @@ export const PrintModal = () => {
 
   // Renderizador da Via do Cliente
   const renderViaCliente = (isCompact = false, customTitle = null) => (
-    <div className={`print-sheet ${densityClass}`} style={isCompact ? { padding: '4mm 7mm 3mm 7mm' } : {}}>
+    <div 
+      className={`print-sheet ${densityClass}`} 
+      style={{
+        ...(isCompact ? { padding: '4mm 7mm 3mm 7mm' } : {}),
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
+        minHeight: isCompact ? '480px' : (formatoPapel === 'OFUKU_HAGAKI' ? '500px' : '520px'),
+      }}
+    >
       <div className="print-sheet-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: isCompact ? '6px' : '8px' }}>
           <img 
@@ -534,19 +582,23 @@ export const PrintModal = () => {
 
       <div className="print-client-box">
         <div>
-          <div className="print-client-row"><strong>Cliente:</strong> {p.cliente?.nome || 'Cliente Balcão'}</div>
-          <div className="print-client-row"><strong>CPF/CNPJ:</strong> {p.cliente?.documento || 'Não informado'}</div>
-          <div className="print-client-row"><strong>Telefone:</strong> {p.cliente?.telefone || 'Não informado'}</div>
+          <div className="print-client-row">
+            <strong>Cliente:</strong> {p.cliente?.nome || 'Cliente Balcão'}
+          </div>
+          <div className="print-client-row" style={{ color: '#475569' }}>
+            {p.cliente?.telefone ? <span><strong>Tel:</strong> {p.cliente.telefone}</span> : <span>Venda Balcão Presencial</span>}
+            {p.cliente?.documento ? <span style={{ marginLeft: '8px' }}>• <strong>Doc:</strong> {p.cliente.documento}</span> : null}
+          </div>
         </div>
         <div>
-          <div className="print-client-row"><strong>Local:</strong> {p.cliente?.endereco_obra || 'Retirada no Pátio'}</div>
-          <div className="print-client-row"><strong>Bairro:</strong> {p.cliente?.bairro || p.resumo_financeiro?.bairro_frete || '-'}</div>
-          <div className="print-client-row"><strong>Cidade:</strong> {p.cliente?.cidade || 'Caçapava'}</div>
-        </div>
-        <div>
-          <div className="print-client-row"><strong>Vendedor:</strong> {p.vendedor_nome || p.vendedor?.nome || 'Balcão'}</div>
-          <div className="print-client-row"><strong>Indicação:</strong> {p.carpinteiro_nome || 'Direta'}</div>
-          <div className="print-client-row"><strong>Pagamento:</strong> {p.resumo_financeiro?.forma_pagamento || p.forma_pagamento || 'Pix'}</div>
+          <div className="print-client-row">
+            <strong>Entrega / Local:</strong> {p.cliente?.endereco_obra || 'Retirada no Pátio'}
+            {(p.cliente?.bairro && p.cliente.bairro !== '-') ? ` (${p.cliente.bairro})` : (p.resumo_financeiro?.bairro_frete ? ` (${p.resumo_financeiro.bairro_frete})` : '')}
+          </div>
+          <div className="print-client-row">
+            <strong>Vendedor:</strong> {p.vendedor_nome || p.vendedor?.nome || 'Balcão'}
+            {p.carpinteiro_nome ? <span style={{ marginLeft: '6px' }}>• <strong>Parceiro:</strong> {p.carpinteiro_nome}</span> : null}
+          </div>
         </div>
       </div>
 
@@ -567,10 +619,9 @@ export const PrintModal = () => {
         <tbody>
           {itens.map((it, idx) => {
             const itemSub = it.subtotal || 0;
-            const itemBruto = CalcEngine.calcularPrecoBruto(itemSub, pctBruto);
             return (
               <tr key={idx}>
-                <td className="align-center font-mono" style={{ fontSize: '8.5px' }}>{idx + 1}</td>
+                <td className="align-center font-mono" style={{ fontSize: '9px' }}>{idx + 1}</td>
                 <td className="font-mono">{it.codigo}</td>
                 <td><strong>{it.descricao}</strong></td>
                 <td className="align-center font-mono">{it.quantidade}</td>
@@ -580,11 +631,8 @@ export const PrintModal = () => {
                   {CalcEngine.formatNumero(it.metragem_total, it.tipo_calculo === 'ML' ? 1 : 0)} {it.tipo_calculo === 'ML' ? 'ML' : it.tipo_calculo === 'M2' ? 'm²' : 'un'}
                 </td>
                 <td className="align-right font-mono">{CalcEngine.formatBRL(it.valor_unitario)}</td>
-                <td className="align-right font-mono" style={{ fontWeight: 700 }}>
+                <td className="align-right font-mono" style={{ fontWeight: 700, fontSize: '10.5px' }}>
                   {CalcEngine.formatBRL(itemSub)}
-                  <div style={{ fontSize: '7.5px', color: '#475569', fontWeight: 500 }}>
-                    Bruto: {CalcEngine.formatBRL(itemBruto)}
-                  </div>
                 </td>
               </tr>
             );
@@ -592,7 +640,7 @@ export const PrintModal = () => {
         </tbody>
       </table>
 
-      <div className="print-footer-container">
+      <div className="print-footer-container" style={{ marginTop: 'auto' }}>
         <div className="print-footer-left">
           <div className="print-payment-badge">
             <strong>Forma de Pagamento:</strong> {p.resumo_financeiro?.forma_pagamento || 'Pix'}
@@ -612,13 +660,19 @@ export const PrintModal = () => {
           </div>
 
           <div className="print-signatures-grid">
-            <div className="signature-line">
-              {p.vendedor_nome || p.vendedor?.nome || 'Vendedor de Balcão'}<br />
-              <span>Atendimento de Balcão</span>
+            <div className="signature-box">
+              <div className="signature-space"></div>
+              <div className="signature-line">
+                {p.vendedor_nome || p.vendedor?.nome || 'Vendedor de Balcão'}
+                <span>Atendimento de Balcão</span>
+              </div>
             </div>
-            <div className="signature-line">
-              {p.cliente?.nome || 'Cliente'}<br />
-              <span>Assinatura do Recebedor</span>
+            <div className="signature-box">
+              <div className="signature-space"></div>
+              <div className="signature-line">
+                {p.cliente?.nome || 'Cliente / Responsável'}
+                <span>Assinatura do Recebedor</span>
+              </div>
             </div>
           </div>
         </div>
@@ -679,7 +733,16 @@ export const PrintModal = () => {
 
   // Renderizador da Via do Pátio
   const renderViaPatio = (isCompact = false) => (
-    <div className={`print-sheet patio-sheet ${densityClass}`} style={isCompact ? { padding: '4mm 7mm 3mm 7mm' } : {}}>
+    <div 
+      className={`print-sheet patio-sheet ${densityClass}`} 
+      style={{
+        ...(isCompact ? { padding: '4mm 7mm 3mm 7mm' } : {}),
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
+        minHeight: isCompact ? '480px' : (formatoPapel === 'OFUKU_HAGAKI' ? '500px' : '520px'),
+      }}
+    >
       <div className="print-sheet-header" style={{ borderBottom: '2px solid #000000' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: isCompact ? '6px' : '8px' }}>
           <img 
@@ -791,6 +854,29 @@ export const PrintModal = () => {
           </table>
         </>
       )}
+
+      <div className="patio-footer-container" style={{
+        marginTop: 'auto',
+        border: '1px solid #94A3B8',
+        backgroundColor: '#F8FAFC',
+        padding: isCompact ? '3px 6px' : '4px 8px',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr 1fr',
+        gap: '8px',
+        fontSize: isCompact ? '8px' : '9px',
+        pageBreakInside: 'avoid',
+        breakInside: 'avoid'
+      }}>
+        <div style={{ borderTop: '1px solid #0F172A', paddingTop: '2px', textAlign: 'center' }}>
+          <strong>Separado por:</strong> <span>_______________</span>
+        </div>
+        <div style={{ borderTop: '1px solid #0F172A', paddingTop: '2px', textAlign: 'center' }}>
+          <strong>Conferido por:</strong> <span>_______________</span>
+        </div>
+        <div style={{ borderTop: '1px solid #0F172A', paddingTop: '2px', textAlign: 'center' }}>
+          <strong>Motorista / Placa:</strong> <span>_______________</span>
+        </div>
+      </div>
     </div>
   );
 

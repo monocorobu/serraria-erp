@@ -22,12 +22,13 @@
   line-height: 1.3;
   width: 100%;
   max-width: 860px;
-  min-height: auto;
+  min-height: 500px;
   margin: 0 auto;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
 }
 
 /* Densidades Dinâmicas para Acomodar Qualquer Quantidade de Itens */
@@ -55,7 +56,7 @@
   padding: 4px 6px;
 }
 .print-sheet.density-compact .print-footer-container {
-  margin-top: 6px;
+  margin-top: auto;
   padding: 4px 8px;
 }
 
@@ -79,7 +80,7 @@
   padding: 3px 6px;
 }
 .print-sheet.density-dense .print-footer-container {
-  margin-top: 4px;
+  margin-top: auto;
   padding: 3px 6px;
 }
 .print-sheet.density-dense .print-signatures-grid {
@@ -142,10 +143,10 @@
   margin-bottom: 8px;
   background-color: #F8FAFC;
   display: grid;
-  grid-template-columns: 1.3fr 1.3fr 1fr;
-  gap: 8px;
-  font-size: 9.5px;
-  line-height: 1.3;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 10px;
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .print-client-row {
@@ -214,7 +215,13 @@
   border: 1px solid #94A3B8;
   padding: 6px 10px;
   background-color: #F8FAFC;
-  margin-top: auto;
+  margin-top: auto !important;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+.patio-footer-container {
+  margin-top: auto !important;
   page-break-inside: avoid;
   break-inside: avoid;
 }
@@ -245,22 +252,36 @@
 .print-signatures-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
   margin-top: 6px;
 }
 
+.signature-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.signature-space {
+  height: 18px;
+}
+
 .signature-line {
-  border-top: 1px solid #0F172A;
+  border-top: 1.2px solid #0F172A;
   text-align: center;
-  font-size: 8.5px;
-  padding-top: 2px;
-  color: #334155;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding-top: 3px;
+  color: #0F172A;
   line-height: 1.2;
 }
 
 .signature-line span {
-  font-size: 7.5px;
-  color: #64748B;
+  font-size: 9px;
+  font-weight: 500;
+  color: #475569;
+  display: block;
+  margin-top: 1px;
 }
 
 .print-footer-right {
@@ -527,10 +548,13 @@
     margin: 0 auto !important;
     width: 200mm !important;
     max-width: 200mm !important;
-    max-height: 126mm !important;
+    height: 126mm !important;
+    min-height: 126mm !important;
+    max-height: 128mm !important;
+    overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: flex-start !important;
+    justify-content: space-between !important;
     background-color: #FFFFFF !important;
     color: #0F172A !important;
     page-break-after: avoid !important;
@@ -548,10 +572,12 @@
   }
 
   .print-footer-container,
+  .patio-footer-container,
   .print-signatures-grid,
   .print-terms,
   .patio-info-banner {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    margin-top: auto !important;
   }
 }

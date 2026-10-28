@@ -71,13 +71,14 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
         <div className="header-shortcuts" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             type="button"
+            className="header-cloud-btn"
             onClick={() => syncWithCloud(false)}
             title={cloudSyncStatus?.isConnected ? `Nuvem Neon sincronizada (${cloudSyncStatus.lastSync || 'agora'}). Clique para sincronizar agora.` : 'Modo local (clique para tentar sincronizar com o banco Neon)'}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '5px 12px',
+              padding: '5px 10px',
               fontSize: '11px',
               fontWeight: 600,
               borderRadius: '20px',
@@ -85,7 +86,8 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
               background: cloudSyncStatus?.isConnected ? '#F0FDF4' : '#F8FAFC',
               color: cloudSyncStatus?.isConnected ? '#15803D' : '#64748B',
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap'
             }}
           >
             <span style={{
@@ -94,13 +96,14 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
               borderRadius: '50%',
               background: cloudSyncStatus?.isConnected ? '#22C55E' : '#94A3B8',
               boxShadow: cloudSyncStatus?.isConnected ? '0 0 6px #22C55E' : 'none',
-              display: 'inline-block'
+              display: 'inline-block',
+              flexShrink: 0
             }} />
-            <span>{cloudSyncStatus?.isConnected ? 'Nuvem Conectada' : 'Modo Local'}</span>
+            <span className="header-cloud-text">{cloudSyncStatus?.isConnected ? 'Nuvem Conectada' : 'Modo Local'}</span>
           </button>
 
           <button 
-            className="shortcut-btn btn-primary" 
+            className="shortcut-btn btn-primary header-novo-btn" 
             id="btn-header-novo" 
             onClick={() => {
               setActiveTab('balcao');

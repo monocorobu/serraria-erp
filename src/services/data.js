@@ -16,6 +16,7 @@ const STORAGE_KEYS = {
   PAGAMENTOS_COMISSAO: 'serraria_pagamentos_comissao_v2',
   AUDITORIA_DESCONTOS: 'serraria_auditoria_descontos_v2',
   USUARIOS: 'serraria_usuarios_v1',
+  USUARIOS_EXCLUIDOS: 'serraria_usuarios_excluidos_v1',
   CATEGORIAS: 'serraria_categorias_v1'
 };
 
@@ -1458,6 +1459,10 @@ const DB = {
 
 
   // Helpers de Usuários e Autenticação Criptografada
+  getUsuariosExcluidos() {
+    return this.get(STORAGE_KEYS.USUARIOS_EXCLUIDOS, []);
+  },
+
   getUsuarios() {
     let list = this.get(STORAGE_KEYS.USUARIOS, SEED_USUARIOS);
     if (!Array.isArray(list) || list.length === 0) {
@@ -1465,7 +1470,13 @@ const DB = {
       this.set(STORAGE_KEYS.USUARIOS, list);
     }
 
-    // 1. Garante que a conta DEV master sempre exista no banco
+    // 1. Filtra contas marcadas como excluídas (tombstone)
+    const excluidos = this.getUsuariosExcluidos();
+    if (Array.isArray(excluidos) && excluidos.length > 0) {
+      list = list.filter(u => !excluidos.includes(u.id) && !excluidos.includes(u.username));
+    }
+
+    // 2. Garante que a conta DEV master sempre exista no banco
     const hasDev = list.some(u => 
       u.username === 'thales' || 
       (u.email && u.email.toLowerCase() === 'thalesgabriel.war@gmail.com')
@@ -1478,7 +1489,7 @@ const DB = {
       }
     }
 
-    // 2. Auto-migração: converte senhas legadas em texto plano para SHA-256 com salt dinâmico
+    // 3. Auto-migração: converte senhas legadas em texto plano para SHA-256 com salt dinâmico
     let migrated = false;
     list.forEach(u => {
       if (u.senha && (!u.hash || !u.salt)) {
@@ -1496,8 +1507,14 @@ const DB = {
   },
 
   salvarUsuario(usr) {
-    const list = this.getUsuarios();
     const cleanUser = { ...usr };
+    if (!cleanUser.id) cleanUser.id = 'usr_' + Date.now();
+
+    // Se o usuário estava registrado na lista de excluídos, remove pois foi expressamente recriado
+    const excluidos = this.getUsuariosExcluidos().filter(id => id !== cleanUser.id && id !== cleanUser.username);
+    this.set(STORAGE_KEYS.USUARIOS_EXCLUIDOS, excluidos);
+
+    const list = this.getUsuarios();
 
     // Proteção de Root DEV: a conta master jamais pode ter seu perfil rebaixado ou ser desativada
     const existing = list.find(u => u.id === cleanUser.id);
@@ -1517,7 +1534,6 @@ const DB = {
     if (idx >= 0) {
       list[idx] = Object.assign({}, list[idx], cleanUser);
     } else {
-      if (!cleanUser.id) cleanUser.id = 'usr_' + Date.now();
       list.push(cleanUser);
     }
     this.set(STORAGE_KEYS.USUARIOS, list);
@@ -1525,22 +1541,36 @@ const DB = {
   },
 
   excluirUsuario(id) {
+    // 1. Remove da lista ativa de usuários locais
     const list = this.getUsuarios().filter(u => {
       // Proteção de Root: a conta DEV jamais pode ser excluída
-      if (u.id === id && (u.perfil === 'DEV' || u.username === 'thales' || u.email === 'thalesgabriel.war@gmail.com')) {
+      if ((u.id === id || u.username === id) && (u.perfil === 'DEV' || u.username === 'thales' || u.email === 'thalesgabriel.war@gmail.com')) {
         return true;
       }
-      return u.id !== id;
+      return u.id !== id && u.username !== id;
     });
     this.set(STORAGE_KEYS.USUARIOS, list);
+
+    // 2. Registra o tombstone na lista de excluídos para impedir ressuscitação pelo merge da nuvem
+    const excluidos = this.getUsuariosExcluidos();
+    if (!excluidos.includes(id)) {
+      excluidos.push(id);
+      this.set(STORAGE_KEYS.USUARIOS_EXCLUIDOS, excluidos);
+    }
+    return true;
   },
 
   // Sincronização e Merge com Neon PostgreSQL
   mergeUsuarios(remoteUsers) {
     if (!Array.isArray(remoteUsers) || remoteUsers.length === 0) return this.getUsuarios();
-    const local = this.getUsuarios();
+    const excluidos = this.getUsuariosExcluidos();
+    const local = this.getUsuarios().filter(u => !excluidos.includes(u.id) && !excluidos.includes(u.username));
+
     remoteUsers.forEach(rem => {
       if (!rem || !rem.id) return;
+      // Se este usuário foi excluído localmente, NUNCA ressuscita
+      if (excluidos.includes(rem.id) || excluidos.includes(rem.username)) return;
+
       const idx = local.findIndex(l => l.id === rem.id || (rem.username && l.username === rem.username));
       if (idx >= 0) {
         if (local[idx].username === 'thales' || local[idx].perfil === 'DEV') return;

@@ -1478,6 +1478,13 @@ body {
   align-items: end;
 }
 
+@media (max-width: 1440px) {
+  .balcao-insert-grid {
+    grid-template-columns: minmax(200px, 3fr) 75px 82px 85px 95px 105px 115px;
+    gap: 8px;
+  }
+}
+
 @media (max-width: 1200px) {
   .balcao-insert-grid {
     grid-template-columns: 2fr 90px 95px 100px 110px 115px 130px;
@@ -1567,9 +1574,10 @@ body {
   align-items: stretch;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1440px) {
   .balcao-footer-grid {
     grid-template-columns: 1fr 1fr;
+    gap: 10px;
   }
 }
 
@@ -3204,6 +3212,298 @@ body {
   .kanban-board {
     grid-template-columns: 1fr !important;
     gap: 12px;
+  }
+}
+
+/* ==========================================================================
+   OTIMIZAÇÃO RESPONSIVA PARA MONITORES HD/COMPACTOS (1366x768 & NOTEBOOKS)
+   Garante área de respiro, elimina desalinhamentos e adapta layout para PDV
+   ========================================================================== */
+
+@media (max-width: 1440px) {
+  /* Sidebar compactada para liberar 50px de largura de trabalho */
+  .sidebar {
+    width: 210px !important;
+    min-width: 210px !important;
+  }
+
+  .sidebar-brand {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .brand-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .brand-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .brand-info h1 {
+    font-size: 13px;
+  }
+
+  .brand-info span {
+    font-size: 10px;
+  }
+
+  .sidebar-nav {
+    padding: 8px 6px;
+  }
+
+  .nav-section-title {
+    font-size: 9px;
+    padding: 8px 8px 3px 8px;
+    letter-spacing: 0.6px;
+  }
+
+  .nav-item {
+    padding: 6px 10px;
+    font-size: 12px;
+    gap: 8px;
+    margin-bottom: 1px;
+  }
+
+  .nav-item-left svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .nav-badge {
+    font-size: 9.5px;
+    padding: 2px 6px;
+  }
+
+  .sidebar-footer {
+    padding: 8px 12px;
+    font-size: 10.5px;
+    gap: 2px;
+  }
+
+  /* Cabeçalho superior refinado e alinhado */
+  .top-header {
+    padding: 6px 14px;
+    min-height: 48px;
+    gap: 10px;
+  }
+
+  .header-title {
+    font-size: 14px;
+  }
+
+  .header-subtitle {
+    font-size: 11px;
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .user-session-widget {
+    padding: 3px 8px;
+    gap: 6px;
+  }
+
+  .user-avatar-badge {
+    width: 26px;
+    height: 26px;
+    font-size: 10px;
+  }
+
+  .user-cargo-line {
+    display: none !important;
+  }
+
+  .user-display-name {
+    max-width: 110px;
+    font-size: 12px;
+  }
+
+  .badge-role-tag {
+    font-size: 8.5px;
+    padding: 1px 5px;
+  }
+
+  .btn-user-switch {
+    padding: 3px 6px;
+    font-size: 11px;
+    height: 26px;
+  }
+
+  .header-cloud-btn {
+    padding: 3px 8px !important;
+    font-size: 10.5px !important;
+  }
+
+  .header-novo-btn {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    height: 28px !important;
+  }
+
+  /* Área do Balcão e Espaçamento dos Cards */
+  .content-area-balcao {
+    padding: 8px 12px 12px 12px;
+  }
+
+  .balcao-client-card {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+  }
+
+  .balcao-client-card-header {
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+  }
+
+  .balcao-client-card-title {
+    font-size: 12px;
+  }
+
+  .balcao-client-row-1,
+  .balcao-client-row-2 {
+    gap: 8px;
+  }
+
+  .balcao-client-card .form-input,
+  .balcao-client-card .form-select {
+    height: 30px;
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+
+  .balcao-client-card .form-label {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+
+  /* Barra de Inserção Rápida alinhada a laser */
+  .balcao-insert-card {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+  }
+
+  .balcao-insert-grid {
+    grid-template-columns: minmax(180px, 3.5fr) 68px 78px 80px 88px 98px 110px !important;
+    gap: 6px !important;
+    align-items: end !important;
+  }
+
+  .balcao-insert-grid .form-label {
+    height: 16px;
+    line-height: 16px;
+    margin-bottom: 2px;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .balcao-insert-grid .form-input,
+  .balcao-insert-grid .product-combobox-input {
+    height: 32px !important;
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+  }
+
+  .balcao-insert-grid #fast-subtotal-preview {
+    height: 32px !important;
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+  }
+
+  .balcao-insert-grid #fast-add-btn {
+    height: 32px !important;
+    font-size: 12px !important;
+  }
+
+  /* Tabela de Itens com proporções equilibradas */
+  .balcao-items-card {
+    margin-bottom: 8px;
+  }
+
+  .balcao-items-card-header {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+
+  .balcao-items-card-header .panel-title {
+    font-size: 12px;
+  }
+
+  .balcao-items-card-body {
+    max-height: 220px;
+  }
+
+  .balcao-items-card-body .dense-table th {
+    padding: 6px 6px;
+    font-size: 10px;
+    letter-spacing: 0.1px;
+    white-space: nowrap;
+  }
+
+  .balcao-items-card-body .dense-table td {
+    padding: 4px 6px;
+    font-size: 11.5px;
+  }
+
+  .balcao-items-card-body .table-input {
+    height: 25px;
+    font-size: 11.5px;
+    padding: 1px 4px;
+  }
+
+  /* Rodapé 2x2: cada bloco ganha ~530px de espaço sem aperto */
+  .balcao-footer-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+
+  .balcao-footer-block {
+    padding: 10px 12px;
+  }
+
+  .balcao-footer-block-title {
+    font-size: 10.5px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+  }
+}
+
+/* Otimização de altura vertical (para telas como 1366x768 que possuem ~600px de viewport útil no navegador) */
+@media (max-height: 820px) {
+  .top-header {
+    padding: 4px 12px;
+    min-height: 44px;
+  }
+
+  .content-area-balcao {
+    padding: 6px 10px 8px 10px;
+  }
+
+  .balcao-client-card {
+    padding: 6px 10px;
+    margin-bottom: 6px;
+  }
+
+  .balcao-insert-card {
+    padding: 6px 10px;
+    margin-bottom: 6px;
+  }
+
+  .balcao-items-card {
+    margin-bottom: 6px;
+  }
+
+  .balcao-items-card-body {
+    max-height: 180px !important;
+  }
+
+  .balcao-footer-block {
+    padding: 8px 10px;
   }
 }
 

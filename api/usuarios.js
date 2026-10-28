@@ -84,28 +84,46 @@ export default async function handler(req, res) {
 
   // DELETE: Remove usuário (com proteção da conta master DEV)
   if (req.method === 'DELETE') {
-    const { id } = req.query || {};
+    let id = req.query?.id;
+    if (!id && req.body) {
+      try {
+        const parsed = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        id = parsed?.id;
+      } catch {}
+    }
+    if (!id && req.url) {
+      try {
+        const parsedUrl = new URL(req.url, 'http://localhost');
+        id = parsedUrl.searchParams.get('id');
+      } catch {}
+    }
+
     if (!id) {
       return res.status(400).json({ error: 'ID do usuário obrigatório' });
     }
+
+    const cleanId = String(id).trim();
 
     if (pool) {
       try {
         await pool.query(`
           DELETE FROM usuarios 
-          WHERE id = $1 
+          WHERE (id = $1 OR username = $1)
             AND username != 'thales' 
             AND (dados->>'perfil' != 'DEV' OR dados->>'perfil' IS NULL)
-        `, [id]);
-        return res.status(200).json({ success: true });
+        `, [cleanId]);
+        return res.status(200).json({ success: true, id: cleanId });
       } catch (err) {
         console.error('[API/usuarios] Database delete error:', err.message);
+        return res.status(500).json({ error: 'Erro ao excluir usuário no banco: ' + err.message });
       }
     }
 
     if (!inMemoryUsuarios) inMemoryUsuarios = [];
-    inMemoryUsuarios = inMemoryUsuarios.filter(u => u.id !== id || u.username === 'thales');
-    return res.status(200).json({ success: true });
+    inMemoryUsuarios = inMemoryUsuarios.filter(u => 
+      u && u.id !== cleanId && u.username !== cleanId || u.username === 'thales'
+    );
+    return res.status(200).json({ success: true, id: cleanId });
   }
 
   return res.status(405).json({ error: 'Method not allowed' });
