@@ -237,14 +237,18 @@ export const AppProvider = ({ children }) => {
       // 5. Diagnóstico de conectividade
       const syncCheck = await ApiClient.checkSync();
       if (syncCheck && syncCheck.connected) {
-        setCloudSyncStatus({ isConnected: true, lastSync: new Date().toLocaleTimeString('pt-BR') });
-        if (!silent) showToast('Sincronização com o Neon concluída!', 'success');
+        setCloudSyncStatus({ 
+          isConnected: true, 
+          provider: syncCheck.provider || 'PostgreSQL', 
+          lastSync: new Date().toLocaleTimeString('pt-BR') 
+        });
+        if (!silent) showToast(`Sincronização com ${syncCheck.provider || 'banco na nuvem'} concluída!`, 'success');
       } else {
-        setCloudSyncStatus({ isConnected: false, lastSync: null });
+        setCloudSyncStatus({ isConnected: false, provider: syncCheck?.provider || null, lastSync: null });
       }
     } catch (err) {
       console.warn('[Sync] Falha na sincronização:', err);
-      setCloudSyncStatus({ isConnected: false, lastSync: null });
+      setCloudSyncStatus({ isConnected: false, provider: null, lastSync: null });
     }
   }, [setOrders, setClients, setProducts, showToast]);
 

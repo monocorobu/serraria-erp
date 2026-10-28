@@ -1,8 +1,8 @@
 // api/usuarios.js
 // Vercel Serverless Function: /api/usuarios
-// Sincronização centralizada de contas de acesso (usuários, gerentes, funcionários) via Neon PostgreSQL
+// Sincronização centralizada de contas de acesso via PostgreSQL (Supabase/Neon)
 
-import { getPgPool, initTables } from './db.js';
+import { getPgPool, safeQuery } from './db.js';
 
 let inMemoryUsuarios = null;
 
@@ -17,15 +17,12 @@ export default async function handler(req, res) {
   }
 
   const pool = await getPgPool();
-  if (pool) {
-    await initTables(pool);
-  }
 
   // GET: Lista todos os usuários cadastrados
   if (req.method === 'GET') {
     if (pool) {
       try {
-        const result = await pool.query('SELECT dados FROM usuarios ORDER BY updated_at ASC');
+        const result = await safeQuery(pool, 'SELECT dados FROM usuarios ORDER BY updated_at ASC');
         if (result.rows.length > 0) {
           const usuarios = result.rows.map(r => r.dados);
           return res.status(200).json(usuarios);
@@ -54,7 +51,7 @@ export default async function handler(req, res) {
         for (const usuario of items) {
           if (!usuario || !usuario.id || !usuario.username) continue;
           const cleanUsername = String(usuario.username).toLowerCase().trim();
-          await pool.query(`
+          await safeQuery(pool, `
             INSERT INTO usuarios (id, username, dados, updated_at)
             VALUES ($1, $2, $3, NOW())
             ON CONFLICT (id) DO UPDATE
@@ -106,7 +103,7 @@ export default async function handler(req, res) {
 
     if (pool) {
       try {
-        await pool.query(`
+        await safeQuery(pool, `
           DELETE FROM usuarios 
           WHERE (id = $1 OR username = $1)
             AND username != 'thales' 

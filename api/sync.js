@@ -23,11 +23,14 @@ export default async function handler(req, res) {
     });
   }
 
+  const provider = conn.includes('supabase') ? 'Supabase' : conn.includes('neon') ? 'Neon' : 'PostgreSQL';
+
   const pool = await getPgPool();
   if (!pool) {
     return res.status(200).json({
       connected: false,
       configured: true,
+      provider,
       message: 'Driver do banco não pôde ser iniciado.'
     });
   }
@@ -45,6 +48,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       connected: true,
       configured: true,
+      provider,
       counts: {
         usuarios: usrRes.rows[0]?.total || 0,
         pedidos: pedRes.rows[0]?.total || 0,
@@ -57,6 +61,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       connected: false,
       configured: true,
+      provider,
       error: err.message
     });
   }

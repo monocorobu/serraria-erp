@@ -73,7 +73,7 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
             type="button"
             className="header-cloud-btn"
             onClick={() => syncWithCloud(false)}
-            title={cloudSyncStatus?.isConnected ? `Nuvem Neon sincronizada (${cloudSyncStatus.lastSync || 'agora'}). Clique para sincronizar agora.` : 'Modo local (clique para tentar sincronizar com o banco Neon)'}
+            title={cloudSyncStatus?.isConnected ? `Nuvem ${cloudSyncStatus.provider || 'PostgreSQL'} sincronizada (${cloudSyncStatus.lastSync || 'agora'}). Clique para sincronizar agora.` : 'Modo local (clique para sincronizar com o banco na nuvem)'}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -99,7 +99,7 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
               display: 'inline-block',
               flexShrink: 0
             }} />
-            <span className="header-cloud-text">{cloudSyncStatus?.isConnected ? 'Nuvem Conectada' : 'Modo Local'}</span>
+            <span className="header-cloud-text">{cloudSyncStatus?.isConnected ? `${cloudSyncStatus.provider || 'Nuvem'} Conectado` : 'Modo Local'}</span>
           </button>
 
           <button 

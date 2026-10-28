@@ -1,7 +1,7 @@
 // Vercel Serverless Function: /api/pedidos
-// Suporta persistência em Neon PostgreSQL e fallback em memória
+// Suporta persistência em PostgreSQL (Supabase/Neon) e fallback em memória
 
-import { getPgPool, initTables } from './db.js';
+import { getPgPool, safeQuery } from './db.js';
 
 let inMemoryPedidos = null;
 
@@ -16,9 +16,6 @@ export default async function handler(req, res) {
   }
 
   const pool = await getPgPool();
-  if (pool) {
-    await initTables(pool);
-  }
 
   if (req.method === 'GET') {
     const { id } = req.query || {};
@@ -26,12 +23,12 @@ export default async function handler(req, res) {
     if (pool) {
       try {
         if (id) {
-          const result = await pool.query('SELECT dados FROM pedidos WHERE id = $1', [id]);
+          const result = await safeQuery(pool, 'SELECT dados FROM pedidos WHERE id = $1', [id]);
           if (result.rows.length === 0) return res.status(404).json({ error: 'Pedido não encontrado' });
           return res.status(200).json(result.rows[0].dados);
         }
 
-        const result = await pool.query('SELECT dados FROM pedidos ORDER BY created_at DESC');
+        const result = await safeQuery(pool, 'SELECT dados FROM pedidos ORDER BY created_at DESC');
         const pedidos = result.rows.map(r => r.dados);
         return res.status(200).json(pedidos);
       } catch (err) {
@@ -66,7 +63,7 @@ export default async function handler(req, res) {
       try {
         for (const pedido of items) {
           if (!pedido || !pedido.id) continue;
-          await pool.query(`
+          await safeQuery(pool, `
             INSERT INTO pedidos (id, numero, dados, updated_at)
             VALUES ($1, $2, $3, NOW())
             ON CONFLICT (id) DO UPDATE

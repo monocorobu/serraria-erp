@@ -1,7 +1,7 @@
 // Vercel Serverless Function: /api/clientes
-// CRM de clientes e parceiros carpinteiros com persistência Neon PostgreSQL e fallback em memória
+// CRM de clientes e parceiros carpinteiros com persistência PostgreSQL (Supabase/Neon) e fallback em memória
 
-import { getPgPool, initTables } from './db.js';
+import { getPgPool, safeQuery } from './db.js';
 
 let inMemoryClientes = null;
 
@@ -16,14 +16,11 @@ export default async function handler(req, res) {
   }
 
   const pool = await getPgPool();
-  if (pool) {
-    await initTables(pool);
-  }
 
   if (req.method === 'GET') {
     if (pool) {
       try {
-        const result = await pool.query('SELECT dados FROM clientes ORDER BY id ASC');
+        const result = await safeQuery(pool, 'SELECT dados FROM clientes ORDER BY id ASC');
         if (result.rows.length > 0) {
           const clientes = result.rows.map(r => r.dados);
           return res.status(200).json(clientes);
@@ -50,11 +47,11 @@ export default async function handler(req, res) {
       try {
         for (const cliente of items) {
           if (!cliente || !cliente.id) continue;
-          await pool.query(`
+          await safeQuery(pool, `
             INSERT INTO clientes (id, nome, documento, telefone, dados, updated_at)
             VALUES ($1, $2, $3, $4, $5, NOW())
             ON CONFLICT (id) DO UPDATE
-            SET dados = $5, updated_at = NOW()
+            SET nome = $2, documento = $3, telefone = $4, dados = $5, updated_at = NOW()
           `, [cliente.id, cliente.nome || '', cliente.documento || '', cliente.telefone || '', JSON.stringify(cliente)]);
         }
 
