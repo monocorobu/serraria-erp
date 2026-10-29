@@ -220,7 +220,7 @@ export default function LoginScreen({ onLoginSuccess }) {
             </div>
 
             {/* LEMBRAR ACESSO */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '18px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-secondary)', userSelect: 'none' }}>
                 <input
                   type="checkbox"
@@ -228,8 +228,12 @@ export default function LoginScreen({ onLoginSuccess }) {
                   onChange={e => setRememberMe(e.target.checked)}
                   style={{ width: '15px', height: '15px' }}
                 />
-                <span>Lembrar meu acesso neste computador</span>
+                <span>Manter conectado durante o expediente</span>
               </label>
+              <div style={{ fontSize: '11px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '5px', paddingLeft: '23px' }}>
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Desconexão automática às 19:00 (requer login no dia seguinte).</span>
+              </div>
             </div>
 
             {/* BOTÃO ENTRAR */}

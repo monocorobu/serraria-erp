@@ -6,6 +6,21 @@ import { ApiClient } from '../services/api.js';
 const SESSION_KEY = 'serraria_sessao_ativa';
 
 /**
+ * Calcula o horário de expiração da sessão com corte diário às 19:00.
+ * Regra da Serraria:
+ * - Se o login foi realizado antes das 19:00, a sessão encerra pontualmente às 19:00:00 de hoje.
+ * - Se o login foi realizado às 19:00 ou após (acesso noturno extraordinário), a sessão é válida até as 19:00:00 do dia seguinte.
+ */
+export function calcularExpiracaoExpediente(dataLogin = new Date()) {
+  const exp = new Date(dataLogin);
+  if (dataLogin.getHours() >= 19) {
+    exp.setDate(exp.getDate() + 1);
+  }
+  exp.setHours(19, 0, 0, 0);
+  return exp.getTime();
+}
+
+/**
  * Custom Hook: useAuth
  * Controle de autenticação e controle de acesso baseado em papéis (RBAC):
  * - DEV: Acesso Supremo / Superusuário (Todas as permissões + root de engenharia)
@@ -20,7 +35,16 @@ export function useAuth(showToast) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.id) {
-          // Verificação de integridade da sessão contra adulteração no navegador
+          const now = Date.now();
+          // 1. Verificação de Expiração do Expediente (Corte Diário às 19:00)
+          const expiresAt = parsed.expires_at || (parsed.login_at ? calcularExpiracaoExpediente(new Date(parsed.login_at)) : 0);
+          if (now >= expiresAt) {
+            console.info('[Auth] Sessão anterior expirada pelo corte das 19:00. Necessário novo login.');
+            localStorage.removeItem(SESSION_KEY);
+            return null;
+          }
+
+          // 2. Verificação de integridade da sessão contra adulteração no navegador
           if (!Security.verifySessionIntegrity(parsed)) {
             console.warn('Alerta de segurança: violação de integridade na sessão. Sessão descartada.');
             localStorage.removeItem(SESSION_KEY);
@@ -41,7 +65,7 @@ export function useAuth(showToast) {
   });
 
   // Logout seguro: encerra a sessão ativa e limpa o armazenamento local
-  const logout = useCallback(() => {
+  const logout = useCallback((motivo = 'MANUAL') => {
     setCurrentUser(null);
     try {
       if (typeof localStorage !== 'undefined') {
@@ -51,17 +75,60 @@ export function useAuth(showToast) {
         sessionStorage.removeItem(SESSION_KEY);
       }
     } catch (e) {}
-    if (showToast) showToast('Sessão encerrada com sucesso.', 'info');
-  }, [showToast]);
 
-  // Validação contínua da conta ativa
-  useEffect(() => {
-    if (currentUser) {
-      const userDb = DB.getUsuarios().find(u => u.id === currentUser.id);
-      if (!userDb || !userDb.ativo) {
-        logout();
+    if (showToast) {
+      if (motivo === 'EXPEDIENTE') {
+        showToast('Expediente encerrado (19:00). A sessão foi finalizada por segurança. Até amanhã!', 'info');
+      } else if (motivo === 'DESATIVADO') {
+        showToast('Esta conta foi desativada pelo administrador.', 'warning');
+      } else {
+        showToast('Sessão encerrada com sucesso.', 'info');
       }
     }
+  }, [showToast]);
+
+  // Validação contínua da conta ativa e monitoramento do corte diário às 19:00
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const checarCorteExpediente = () => {
+      try {
+        const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+        if (!raw) {
+          logout();
+          return;
+        }
+
+        const session = JSON.parse(raw);
+        const now = Date.now();
+        const expiresAt = session.expires_at || (session.login_at ? calcularExpiracaoExpediente(new Date(session.login_at)) : 0);
+
+        if (now >= expiresAt) {
+          logout('EXPEDIENTE');
+          return;
+        }
+
+        const userDb = DB.getUsuarios().find(u => u.id === currentUser.id);
+        if (!userDb || !userDb.ativo) {
+          logout('DESATIVADO');
+        }
+      } catch (e) {
+        console.warn('[Auth] Erro ao validar expiração da sessão:', e);
+      }
+    };
+
+    // Checagem a cada 10 segundos para desconectar pontualmente às 19h
+    const timerId = setInterval(checarCorteExpediente, 10000);
+
+    // Checagem imediata ao focar na janela ou acordar o computador
+    window.addEventListener('focus', checarCorteExpediente);
+    document.addEventListener('visibilitychange', checarCorteExpediente);
+
+    return () => {
+      clearInterval(timerId);
+      window.removeEventListener('focus', checarCorteExpediente);
+      document.removeEventListener('visibilitychange', checarCorteExpediente);
+    };
   }, [currentUser, logout]);
 
   // Autenticação com verificação de credenciais criptografadas e proteção contra força bruta
@@ -131,7 +198,14 @@ export function useAuth(showToast) {
     // 3. Sanitização absoluta: NENHUMA senha ou hash permanece na sessão ou estado
     const safeUser = Security.sanitizeUser(user);
     const signature = Security.createSessionSignature(safeUser);
-    const sessionPayload = { ...safeUser, signature };
+    const loginNow = Date.now();
+    const expiresAt = calcularExpiracaoExpediente(new Date(loginNow));
+    const sessionPayload = { 
+      ...safeUser, 
+      signature, 
+      login_at: loginNow, 
+      expires_at: expiresAt 
+    };
 
     setCurrentUser(safeUser);
 
@@ -151,12 +225,19 @@ export function useAuth(showToast) {
 
   const switchUser = useCallback((user) => {
     if (!user || !user.ativo) {
-      logout();
+      logout('DESATIVADO');
       return;
     }
     const safeUser = Security.sanitizeUser(user);
     const signature = Security.createSessionSignature(safeUser);
-    const sessionPayload = { ...safeUser, signature };
+    const loginNow = Date.now();
+    const expiresAt = calcularExpiracaoExpediente(new Date(loginNow));
+    const sessionPayload = { 
+      ...safeUser, 
+      signature, 
+      login_at: loginNow, 
+      expires_at: expiresAt 
+    };
 
     setCurrentUser(safeUser);
     try {
