@@ -173,23 +173,46 @@ export const AppProvider = ({ children }) => {
   const { setProducts } = estoqueHook;
 
   const lastSyncedVersionsRef = useRef({});
+  const isSyncingRef = useRef(false);
+  const consecutiveFailuresRef = useRef(0);
+  const lastSyncTimestampRef = useRef(0);
+  const setConfigRef = useRef(precoBrutoHook.setConfig);
+  setConfigRef.current = precoBrutoHook.setConfig;
 
   // Sincronização centralizada inteligente e ultra-leve (Smart Differential Sync)
   // Faz 1 única chamada rápida de diagnóstico (/api/sync) e puxa apenas tabelas com versões alteradas
   // Consome menos de 5% da cota gratuita diária do Vercel e Supabase
   const syncWithCloud = useCallback(async (silent = false, forceFull = false) => {
+    // Evita múltiplas chamadas concorrentes encavaladas
+    if (isSyncingRef.current) return;
+    isSyncingRef.current = true;
+
     try {
       // 1. Diagnóstico e versões em UMA única chamada rápida
       const syncCheck = await ApiClient.checkSync();
       if (!syncCheck || !syncCheck.connected) {
-        setCloudSyncStatus({ isConnected: false, provider: syncCheck?.provider || null, lastSync: null });
+        consecutiveFailuresRef.current += 1;
+        // Só alterna para desconectado após 3 falhas consecutivas para não ficar oscilando
+        if (consecutiveFailuresRef.current >= 3) {
+          setCloudSyncStatus(prev => prev.isConnected ? { isConnected: false, provider: null, lastSync: null } : prev);
+        }
         return;
       }
 
-      setCloudSyncStatus({ 
-        isConnected: true, 
-        provider: syncCheck.provider || 'PostgreSQL', 
-        lastSync: new Date().toLocaleTimeString('pt-BR') 
+      // Sucesso na conexão
+      consecutiveFailuresRef.current = 0;
+      lastSyncTimestampRef.current = Date.now();
+
+      // Mantém a referência do estado estável para não forçar re-render na tela
+      setCloudSyncStatus(prev => {
+        if (prev.isConnected && prev.provider === (syncCheck.provider || 'PostgreSQL')) {
+          return prev;
+        }
+        return { 
+          isConnected: true, 
+          provider: syncCheck.provider || 'PostgreSQL', 
+          lastSync: new Date().toLocaleTimeString('pt-BR') 
+        };
       });
 
       const versions = syncCheck.versions || {};
@@ -250,7 +273,7 @@ export const AppProvider = ({ children }) => {
           const currentLocal = DB.getConfig();
           const mergedCfg = { ...currentLocal, ...remoteConfig };
           DB.salvarConfig(mergedCfg);
-          precoBrutoHook.setConfig(mergedCfg);
+          if (setConfigRef.current) setConfigRef.current(mergedCfg);
           last.config = versions.config;
         }
       }
@@ -312,24 +335,37 @@ export const AppProvider = ({ children }) => {
         showToast(`Sincronização com ${syncCheck.provider || 'banco na nuvem'} concluída!`, 'success');
       }
     } catch (err) {
+      consecutiveFailuresRef.current += 1;
       console.warn('[Sync] Falha na sincronização:', err);
-      setCloudSyncStatus({ isConnected: false, provider: null, lastSync: null });
+      // Só alterna para desconectado após 3 falhas consecutivas
+      if (consecutiveFailuresRef.current >= 3) {
+        setCloudSyncStatus(prev => prev.isConnected ? { isConnected: false, provider: null, lastSync: null } : prev);
+      }
+    } finally {
+      isSyncingRef.current = false;
     }
-  }, [setOrders, setClients, setProducts, precoBrutoHook, showToast]);
+  }, [setOrders, setClients, setProducts, showToast]);
 
-  // Executa sincronização em segundo plano periódica e reativa ao foco da janela
+  // Mantém referência estável para o timer em background
+  const syncWithCloudRef = useRef(syncWithCloud);
+  syncWithCloudRef.current = syncWithCloud;
+
+  // Executa sincronização periódica e em foco de forma calma, estável e sem loops
   useEffect(() => {
-    // Sincronização inicial completa
-    syncWithCloud(true, true);
+    // Sincronização inicial completa apenas no carregamento da tela
+    syncWithCloudRef.current(true, true);
 
-    // Auto-sync leve a cada 25 segundos (1 requisição ultrarrápida, dentro da cota grátis)
+    // Auto-sync leve a cada 30 segundos
     const intervalId = setInterval(() => {
-      syncWithCloud(true, false);
-    }, 25000);
+      syncWithCloudRef.current(true, false);
+    }, 30000);
 
-    // Auto-sync imediato quando o funcionário volta para a aba do navegador
+    // Auto-sync suave ao voltar para a aba do navegador (com debounce de 15 segundos)
     const handleFocus = () => {
-      syncWithCloud(true, false);
+      const now = Date.now();
+      if (now - lastSyncTimestampRef.current > 15000) {
+        syncWithCloudRef.current(true, false);
+      }
     };
     window.addEventListener('focus', handleFocus);
 
@@ -337,7 +373,7 @@ export const AppProvider = ({ children }) => {
       clearInterval(intervalId);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [syncWithCloud]);
+  }, []);
 
   const refreshAll = useCallback(() => {
     setEmployees(DB.getFuncionarios());

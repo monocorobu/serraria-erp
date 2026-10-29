@@ -73,7 +73,7 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
             type="button"
             className="header-cloud-btn"
             onClick={() => syncWithCloud(false, true)}
-            title={cloudSyncStatus?.isConnected ? `Nuvem ${cloudSyncStatus.provider || 'PostgreSQL'} sincronizada (${cloudSyncStatus.lastSync || 'agora'}). Clique para sincronizar agora.` : 'Modo local (clique para sincronizar com o banco na nuvem)'}
+            title={cloudSyncStatus?.isConnected ? `Banco na Nuvem Conectado (${cloudSyncStatus.lastSync || 'agora'}). Clique para sincronizar manualmente.` : 'Modo local (clique para sincronizar com o banco na nuvem)'}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -86,7 +86,6 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
               background: cloudSyncStatus?.isConnected ? '#F0FDF4' : '#F8FAFC',
               color: cloudSyncStatus?.isConnected ? '#15803D' : '#64748B',
               cursor: 'pointer',
-              transition: 'all 0.2s ease',
               whiteSpace: 'nowrap'
             }}
           >
@@ -95,11 +94,11 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
               height: '7px',
               borderRadius: '50%',
               background: cloudSyncStatus?.isConnected ? '#22C55E' : '#94A3B8',
-              boxShadow: cloudSyncStatus?.isConnected ? '0 0 6px #22C55E' : 'none',
+              boxShadow: cloudSyncStatus?.isConnected ? '0 0 4px #22C55E' : 'none',
               display: 'inline-block',
               flexShrink: 0
             }} />
-            <span className="header-cloud-text">{cloudSyncStatus?.isConnected ? `${cloudSyncStatus.provider || 'Nuvem'} Conectado` : 'Modo Local'}</span>
+            <span className="header-cloud-text">{cloudSyncStatus?.isConnected ? 'Nuvem Conectada' : 'Modo Local'}</span>
           </button>
 
           <button 
