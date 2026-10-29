@@ -625,8 +625,8 @@ export const PrintModal = () => {
                 <td className="font-mono">{it.codigo}</td>
                 <td><strong>{it.descricao}</strong></td>
                 <td className="align-center font-mono">{it.quantidade}</td>
-                <td className="align-center font-mono">{(it.tipo_calculo === 'ML' && parseFloat(it.largura_cm) > 0) ? `${it.largura_cm} cm` : '-'}</td>
-                <td className="align-center font-mono">{(it.tipo_calculo === 'ML' && parseFloat(it.comprimento_m) > 0) ? `${it.comprimento_m}m` : '-'}</td>
+                <td className="align-center font-mono">{(parseFloat(it.largura_cm) > 0) ? `${it.largura_cm} cm` : '-'}</td>
+                <td className="align-center font-mono">{(parseFloat(it.comprimento_m) > 0) ? `${it.comprimento_m}m` : '-'}</td>
                 <td className="align-right font-mono">
                   {CalcEngine.formatNumero(it.metragem_total, it.tipo_calculo === 'ML' ? 1 : 0)} {it.tipo_calculo === 'ML' ? 'ML' : it.tipo_calculo === 'M2' ? 'm²' : 'un'}
                 </td>
@@ -858,8 +858,8 @@ export const PrintModal = () => {
                   <td className="font-mono">{it.codigo}</td>
                   <td><strong>{it.descricao}</strong></td>
                   <td style={{ textAlign: 'center', fontWeight: 800 }}>{it.quantidade}</td>
-                  <td style={{ textAlign: 'center' }}>{(it.tipo_calculo === 'ML' && parseFloat(it.largura_cm) > 0) ? `${it.largura_cm}cm` : '-'}</td>
-                  <td style={{ textAlign: 'center' }}>{(it.tipo_calculo === 'ML' && parseFloat(it.comprimento_m) > 0) ? `${it.comprimento_m}m` : '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{(parseFloat(it.largura_cm) > 0) ? `${it.largura_cm}cm` : '-'}</td>
+                  <td style={{ textAlign: 'center' }}>{(parseFloat(it.comprimento_m) > 0) ? `${it.comprimento_m}m` : '-'}</td>
                   <td style={{ textAlign: 'right' }}>{it.metragem_total} {it.tipo_calculo}</td>
                 </tr>
               ))}

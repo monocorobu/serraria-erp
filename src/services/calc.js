@@ -225,6 +225,7 @@ export const CalcEngine = {
       peso_kg: parseFloat(pesoKg.toFixed(1)),
       espessura_cm: espessuraCm,
       largura_cm: larguraCm,
+      comprimento_m: comp,
       aparelhar: querAparelhar
     };
   },

@@ -280,6 +280,7 @@ export const BalcaoTab = () => {
   const [fastComprimento, setFastComprimento] = useState('');
   const [fastPreco, setFastPreco] = useState('0.00');
   const [fastAparelhar, setFastAparelhar] = useState(false);
+  const [fastTipoCalculo, setFastTipoCalculo] = useState('UN');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [senhaGerenteInput, setSenhaGerenteInput] = useState('');
   const productComboboxRef = useRef(null);
@@ -436,46 +437,40 @@ export const BalcaoTab = () => {
       .slice(0, 40);
   }, [fastProductSearch, products, selectedProduct]);
 
-  // Identifica se o produto selecionado exige medidas de corte (ML)
-  const isMadeiraLinear = Boolean(selectedProduct && selectedProduct.tipo_calculo === 'ML');
+  // Identifica se o produto selecionado ou item avulso exige cálculo linear (ML)
+  const isMadeiraLinear = Boolean(selectedProduct ? selectedProduct.tipo_calculo === 'ML' : fastTipoCalculo === 'ML');
 
   // Preview de subtotal na barra rápida
   const fastSubtotalPreview = useMemo(() => {
-    if (!selectedProduct) return 0;
-    const preco = parseFloat(fastPreco) || selectedProduct.preco_unitario || 0;
-    const isML = selectedProduct.tipo_calculo === 'ML';
-    const tempItem = {
-      quantidade: fastQtd,
-      largura_cm: isML ? (parseFloat(fastLargura) || selectedProduct.largura_cm || 0) : 0,
-      comprimento_m: isML ? (parseFloat(fastComprimento) || selectedProduct.comprimento_padrao_m || 0) : 0,
-      tipo_calculo: selectedProduct.tipo_calculo || 'UN',
-      valor_unitario: preco,
-      aparelhar: false
-    };
-    const c = CalcEngine.calcularItem(tempItem, selectedProduct);
-    return c.subtotal;
-  }, [selectedProduct, fastQtd, fastLargura, fastComprimento, fastPreco]);
+    const preco = parseFloat(fastPreco) || (selectedProduct ? selectedProduct.preco_unitario : 0) || 0;
+    const qtd = parseFloat(fastQtd) || 0;
+    if (qtd <= 0 || preco <= 0) return 0;
+    const isML = selectedProduct ? selectedProduct.tipo_calculo === 'ML' : fastTipoCalculo === 'ML';
+    if (isML) {
+      const comp = parseFloat(fastComprimento) || (selectedProduct ? selectedProduct.comprimento_padrao_m : 0) || 1;
+      return qtd * comp * preco;
+    }
+    return qtd * preco;
+  }, [selectedProduct, fastTipoCalculo, fastQtd, fastComprimento, fastPreco]);
 
-  // Selecionar produto rápido
+  // Selecionar produto rápido do catálogo
   const handleSelectFastProduct = (prod) => {
     setSelectedProduct(prod);
     setFastProductSearch(`${prod.codigo} - ${prod.nome}`);
     setFastPreco(prod.preco_unitario !== undefined ? Number(prod.preco_unitario).toFixed(2) : '0.00');
+    setFastTipoCalculo(prod.tipo_calculo || 'UN');
     setIsDropdownOpen(false);
     if (prod.tipo_calculo === 'ML') {
       setFastLargura(prod.largura_cm || '');
       setFastComprimento(prod.comprimento_padrao_m || 3.0);
     } else {
-      setFastLargura('-');
-      setFastComprimento('-');
+      setFastLargura(prod.largura_cm || '');
+      setFastComprimento(prod.comprimento_padrao_m || '');
     }
 
-    // Foco automático e conversa fluida: pula direto para a Quantidade
+    // Foco automático: pula direto para a Quantidade
     setTimeout(() => {
-      if (fastQtdInputRef.current) {
-        fastQtdInputRef.current.focus();
-        fastQtdInputRef.current.select();
-      }
+      focusInput(fastQtdInputRef);
     }, 60);
   };
 
@@ -486,71 +481,69 @@ export const BalcaoTab = () => {
       showToast('Digite a descrição do produto a adicionar.', 'warning');
       return;
     }
-    const itemCustom = {
-      id: 'custom_' + Date.now(),
-      codigo: 'AVULSO',
-      nome: nomeLimpo,
-      preco_unitario: 0,
-      tipo_calculo: 'UN',
-      estoque_atual: 999
-    };
-    setSelectedProduct(itemCustom);
+    setSelectedProduct(null);
     setFastProductSearch(nomeLimpo);
-    setFastPreco('0.00');
-    setFastLargura('-');
-    setFastComprimento('-');
+    setFastTipoCalculo('UN');
     setIsDropdownOpen(false);
     setTimeout(() => {
-      if (fastPrecoInputRef.current) {
-        fastPrecoInputRef.current.focus();
-        fastPrecoInputRef.current.select();
-      }
+      focusInput(fastQtdInputRef);
     }, 60);
-    showToast(`"${nomeLimpo}" selecionado como item avulso. Informe o preço unitário e a quantidade.`, 'info');
+    showToast(`"${nomeLimpo}": informe quantidade, medidas e valor.`, 'info');
   };
 
-  // Adicionar item ao pedido
+  // Adicionar item ao pedido (seja do catálogo ou item avulso digitado livremente)
   const handleAddItem = (e) => {
     if (e) e.preventDefault();
-    if (!selectedProduct) {
-      if (fastProductSearch.trim()) {
-        handleAdicionarItemAvulso(fastProductSearch);
-        return;
-      }
-      showToast('Selecione ou digite um produto antes de adicionar.', 'warning');
+    const nomeLimpo = (fastProductSearch || '').trim();
+    if (!selectedProduct && !nomeLimpo) {
+      showToast('Digite ou selecione um produto antes de adicionar.', 'warning');
+      focusInput(fastProductSearchInputRef);
       return;
     }
 
     const qtd = parseFloat(fastQtd) || 0;
     if (qtd <= 0) {
       showToast('Informe uma quantidade válida de peças.', 'warning');
+      focusInput(fastQtdInputRef);
       return;
     }
 
-    const isML = selectedProduct.tipo_calculo === 'ML';
-    const comp = isML ? (parseFloat(fastComprimento) || selectedProduct.comprimento_padrao_m || 0) : 0;
-    const larg = isML ? (parseFloat(fastLargura) || selectedProduct.largura_cm || 0) : 0;
-    const aceitaPlaina = selectedProduct.permite_plaina !== undefined
-      ? Boolean(selectedProduct.permite_plaina)
-      : (isML || selectedProduct.tipo_calculo === 'M2');
+    const preco = parseFloat(fastPreco) || (selectedProduct ? selectedProduct.preco_unitario : 0) || 0;
+    if (preco <= 0) {
+      showToast('Informe o valor unitário do item antes de adicionar.', 'warning');
+      focusInput(fastPrecoInputRef);
+      return;
+    }
+
+    const isML = selectedProduct ? selectedProduct.tipo_calculo === 'ML' : fastTipoCalculo === 'ML';
+    const comp = parseFloat(fastComprimento) || (selectedProduct ? selectedProduct.comprimento_padrao_m : 0) || 0;
+    const larg = parseFloat(fastLargura) || (selectedProduct ? selectedProduct.largura_cm : 0) || 0;
+    const descricaoFinal = selectedProduct ? selectedProduct.nome : nomeLimpo;
+    const codigoFinal = selectedProduct ? (selectedProduct.codigo || 'MAT') : 'AVULSO';
+
+    const aceitaPlaina = selectedProduct
+      ? (selectedProduct.permite_plaina !== undefined ? Boolean(selectedProduct.permite_plaina) : (isML || selectedProduct.tipo_calculo === 'M2'))
+      : Boolean(fastAparelhar || isML);
 
     const itemObj = {
       id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-      produto_id: selectedProduct.id,
-      codigo: selectedProduct.codigo || 'AVULSO',
-      descricao: selectedProduct.nome,
+      produto_id: selectedProduct ? selectedProduct.id : null,
+      codigo: codigoFinal,
+      descricao: descricaoFinal,
       largura_cm: larg,
-      acabamento: 'BRUTA',
-      aparelhar: aceitaPlaina ? Boolean(fastAparelhar) : false,
-      permite_plaina: aceitaPlaina,
-      tipo_calculo: selectedProduct.tipo_calculo || 'UN',
-      quantidade: qtd,
       comprimento_m: comp,
-      valor_unitario: parseFloat(fastPreco) || selectedProduct.preco_unitario || 0
+      acabamento: 'BRUTA',
+      aparelhar: Boolean(fastAparelhar),
+      permite_plaina: aceitaPlaina,
+      tipo_calculo: isML ? 'ML' : (selectedProduct?.tipo_calculo || 'UN'),
+      quantidade: qtd,
+      valor_unitario: preco
     };
 
-    const calc = CalcEngine.calcularItem(itemObj, selectedProduct);
+    const calc = CalcEngine.calcularItem(itemObj, selectedProduct || null);
     Object.assign(itemObj, calc);
+    if (larg > 0) itemObj.largura_cm = larg;
+    if (comp > 0) itemObj.comprimento_m = comp;
 
     setOrder(prev => ({
       ...prev,
@@ -559,7 +552,7 @@ export const BalcaoTab = () => {
 
     showToast(`+ ${itemObj.descricao} adicionado.`);
 
-    // Reset barra rápida
+    // Reset barra rápida para o próximo item
     setSelectedProduct(null);
     setFastProductSearch('');
     setFastQtd(1);
@@ -567,6 +560,8 @@ export const BalcaoTab = () => {
     setFastComprimento('');
     setFastPreco('0.00');
     setFastAparelhar(false);
+    setFastTipoCalculo('UN');
+    setIsDropdownOpen(false);
 
     // Retorna o foco para a busca de produto para digitar o próximo item
     setTimeout(() => {
@@ -1297,10 +1292,9 @@ export const BalcaoTab = () => {
                     e.preventDefault();
                     if (isDropdownOpen && produtosFiltrados.length > 0 && produtosFiltrados[activeProductIndex]) {
                       handleSelectFastProduct(produtosFiltrados[activeProductIndex]);
-                    } else if (selectedProduct) {
+                    } else {
+                      setIsDropdownOpen(false);
                       focusInput(fastQtdInputRef);
-                    } else if (fastProductSearch.trim()) {
-                      handleAdicionarItemAvulso(fastProductSearch);
                     }
                   } else if (e.key === 'Escape') {
                     setIsDropdownOpen(false);
@@ -1317,6 +1311,9 @@ export const BalcaoTab = () => {
                     setFastProductSearch('');
                     setSelectedProduct(null);
                     setFastPreco('0.00');
+                    setFastLargura('');
+                    setFastComprimento('');
+                    setFastTipoCalculo('UN');
                   }}
                 >
                   &times;
@@ -1356,26 +1353,57 @@ export const BalcaoTab = () => {
                     </span>
                   </span>
                   <span className="combobox-kbd-hints">
-                    <kbd>↑</kbd> <kbd>↓</kbd> navegar <kbd>↵ Enter</kbd> selecionar <kbd>Esc</kbd> fechar
+                    <kbd>↑</kbd> <kbd>↓</kbd> navegar <kbd>↵ Enter</kbd> selecionar / prosseguir <kbd>Esc</kbd> fechar
                   </span>
                 </div>
                 <div id="fast-produto-results" className="combobox-results-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {fastProductSearch.trim() && produtosFiltrados.length > 0 && (
+                    <div
+                      className="combobox-item custom-item-banner"
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        focusInput(fastQtdInputRef);
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        background: '#F0FDF4',
+                        borderBottom: '1px solid #BBF7D0',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        color: '#166534',
+                        fontWeight: 600,
+                        fontSize: '12px'
+                      }}
+                    >
+                      <span>
+                        ✍️ Usar descrição digitada: <strong>"{fastProductSearch}"</strong> (Item não cadastrado)
+                      </span>
+                      <span style={{ fontSize: '10.5px', background: '#DCFCE7', padding: '2px 7px', borderRadius: '4px', border: '1px solid #86EFAC', fontWeight: 700 }}>
+                        Prosseguir com medidas →
+                      </span>
+                    </div>
+                  )}
                   {produtosFiltrados.length === 0 ? (
                     <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
                       <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                        Nenhum produto cadastrado para "{fastProductSearch}"
+                        "{fastProductSearch}" não cadastrado no catálogo
                       </div>
-                      <div style={{ fontSize: '11px', marginBottom: '12px' }}>
-                        Deseja adicionar este material como item avulso ao orçamento?
+                      <div style={{ fontSize: '11px', marginBottom: '12px', color: 'var(--text-secondary)' }}>
+                        Você pode prosseguir normalmente preenchendo quantidade, medidas e valor.
                       </div>
                       {fastProductSearch.trim() && (
                         <button
                           type="button"
                           className="btn btn-sm btn-primary"
-                          onClick={() => handleAdicionarItemAvulso(fastProductSearch)}
+                          onClick={() => {
+                            setIsDropdownOpen(false);
+                            focusInput(fastQtdInputRef);
+                          }}
                           style={{ fontSize: '11.5px', padding: '6px 14px', fontWeight: 700 }}
                         >
-                          + Adicionar "{fastProductSearch}" ao Orçamento
+                          Continuar com "{fastProductSearch}" →
                         </button>
                       )}
                     </div>
@@ -1453,11 +1481,7 @@ export const BalcaoTab = () => {
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  if (isMadeiraLinear) {
-                    focusInput(fastLarguraInputRef);
-                  } else {
-                    focusInput(fastAddBtnRef);
-                  }
+                  focusInput(fastLarguraInputRef);
                 }
               }}
             />
@@ -1469,17 +1493,15 @@ export const BalcaoTab = () => {
               <span>Largura (cm):</span>
             </label>
             <input
-              type={isMadeiraLinear ? "number" : "text"}
+              type="number"
               id="fast-largura-input"
               ref={fastLarguraInputRef}
               className="form-input font-mono"
-              min="0.5"
-              step="0.5"
-              placeholder={isMadeiraLinear ? "Ex: 15" : "-"}
-              value={isMadeiraLinear ? fastLargura : "-"}
-              onChange={e => { if (isMadeiraLinear) setFastLargura(e.target.value); }}
-              disabled={!isMadeiraLinear}
-              style={!isMadeiraLinear ? { textAlign: 'center', backgroundColor: '#F8FAFC', color: 'var(--text-muted)', fontWeight: 700, cursor: 'not-allowed' } : {}}
+              min="0"
+              step="any"
+              placeholder="Ex: 80"
+              value={fastLargura}
+              onChange={e => setFastLargura(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -1495,21 +1517,19 @@ export const BalcaoTab = () => {
               <span>Comp. (m):</span>
             </label>
             <input
-              type={isMadeiraLinear ? "number" : "text"}
+              type="number"
               id="fast-comprimento-input"
               ref={fastCompInputRef}
               className="form-input font-mono"
-              min="0.1"
-              step="0.1"
-              placeholder={isMadeiraLinear ? "Ex: 3.0" : "-"}
-              value={isMadeiraLinear ? fastComprimento : "-"}
-              onChange={e => { if (isMadeiraLinear) setFastComprimento(e.target.value); }}
-              disabled={!isMadeiraLinear}
-              style={!isMadeiraLinear ? { textAlign: 'center', backgroundColor: '#F8FAFC', color: 'var(--text-muted)', fontWeight: 700, cursor: 'not-allowed' } : {}}
+              min="0"
+              step="any"
+              placeholder="Ex: 2.10"
+              value={fastComprimento}
+              onChange={e => setFastComprimento(e.target.value)}
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  focusInput(fastAddBtnRef);
+                  focusInput(fastPrecoInputRef);
                 }
               }}
             />
@@ -1529,7 +1549,7 @@ export const BalcaoTab = () => {
               onKeyDown={e => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  focusInput(fastAddBtnRef);
+                  handleAddItem();
                 }
               }}
             />
@@ -1573,7 +1593,7 @@ export const BalcaoTab = () => {
         </div>
 
         {/* FAIXA CONVERSACIONAL DE FEEDBACK E CONEXÃO ENTRE OS CAMPOS */}
-        {selectedProduct ? (
+        {selectedProduct || fastProductSearch.trim() ? (
           <div style={{
             marginTop: '10px',
             padding: '6px 12px',
@@ -1587,30 +1607,57 @@ export const BalcaoTab = () => {
             color: 'var(--text-secondary)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{
-                fontWeight: 700,
-                backgroundColor: isMadeiraLinear ? '#ECFDF5' : '#EFF6FF',
-                color: isMadeiraLinear ? '#047857' : '#1D4ED8',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}>
-                {isMadeiraLinear ? 'Madeira (ML)' : 'Item Unitário (UN)'}
-              </span>
+              {/* Seletor de Tipo de Cálculo (UN ou ML) */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Tipo:</span>
+                <button
+                  type="button"
+                  onClick={() => setFastTipoCalculo('UN')}
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: (selectedProduct ? selectedProduct.tipo_calculo === 'UN' : fastTipoCalculo === 'UN') ? '1px solid #3B82F6' : '1px solid #CBD5E1',
+                    backgroundColor: (selectedProduct ? selectedProduct.tipo_calculo === 'UN' : fastTipoCalculo === 'UN') ? '#EFF6FF' : '#FFFFFF',
+                    color: (selectedProduct ? selectedProduct.tipo_calculo === 'UN' : fastTipoCalculo === 'UN') ? '#1D4ED8' : 'var(--text-muted)'
+                  }}
+                  title="Cobrado por unidade/peça (ex: Porta, Janela, Ferragem)"
+                >
+                  Por Peça (UN)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFastTipoCalculo('ML')}
+                  style={{
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: (selectedProduct ? selectedProduct.tipo_calculo === 'ML' : fastTipoCalculo === 'ML') ? '1px solid #10B981' : '1px solid #CBD5E1',
+                    backgroundColor: (selectedProduct ? selectedProduct.tipo_calculo === 'ML' : fastTipoCalculo === 'ML') ? '#ECFDF5' : '#FFFFFF',
+                    color: (selectedProduct ? selectedProduct.tipo_calculo === 'ML' : fastTipoCalculo === 'ML') ? '#047857' : 'var(--text-muted)'
+                  }}
+                  title="Cobrado por metro linear (ex: Madeira em corte, Viga, Tábua)"
+                >
+                  Por Metro (ML)
+                </button>
+              </div>
+
               <span>
-                {isMadeiraLinear
-                  ? `Cálculo por corte: ${fastLargura || '0'}cm largura × ${fastComprimento || '0'}m comprimento`
-                  : 'Item por peça/unidade. Largura e comprimento não se aplicam (-).'}
+                {(selectedProduct ? selectedProduct.tipo_calculo === 'ML' : fastTipoCalculo === 'ML')
+                  ? `Cálculo linear: ${fastLargura ? fastLargura + 'cm larg. × ' : ''}${fastComprimento || '0'}m comp.`
+                  : `Item por unidade/peça ${fastLargura || fastComprimento ? `(${fastLargura ? fastLargura + 'cm' : ''} ${fastComprimento ? 'x ' + fastComprimento + 'm' : ''})` : ''}`}
               </span>
 
               {/* Tag / Checkbox de Plaina na Barra Rápida */}
               {(() => {
-                const aceitaPlaina = selectedProduct.permite_plaina !== undefined
-                  ? Boolean(selectedProduct.permite_plaina)
-                  : (isMadeiraLinear || selectedProduct.tipo_calculo === 'M2');
+                const isML = selectedProduct ? selectedProduct.tipo_calculo === 'ML' : fastTipoCalculo === 'ML';
+                const aceitaPlaina = selectedProduct
+                  ? (selectedProduct.permite_plaina !== undefined ? Boolean(selectedProduct.permite_plaina) : (isML || selectedProduct.tipo_calculo === 'M2'))
+                  : true;
 
                 if (!aceitaPlaina) {
                   return (
@@ -1634,7 +1681,10 @@ export const BalcaoTab = () => {
               })()}
             </div>
             <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-              {fastQtd} {fastQtd === 1 ? 'peça' : 'peças'} × {CalcEngine.formatBRL(parseFloat(fastPreco) || 0)} = <span style={{ color: '#047857', fontSize: '12.5px' }}>{CalcEngine.formatBRL(fastSubtotalPreview)}</span>
+              {fastQtd} {fastQtd === 1 ? 'peça' : 'peças'}
+              {(selectedProduct ? selectedProduct.tipo_calculo === 'ML' : fastTipoCalculo === 'ML') && parseFloat(fastComprimento) > 0 ? ` (${(fastQtd * (parseFloat(fastComprimento) || 1)).toFixed(1)}m)` : ''}
+              {' × '}
+              {CalcEngine.formatBRL(parseFloat(fastPreco) || (selectedProduct ? selectedProduct.preco_unitario : 0) || 0)} = <span style={{ color: '#047857', fontSize: '12.5px' }}>{CalcEngine.formatBRL(fastSubtotalPreview)}</span>
             </div>
           </div>
         ) : (
@@ -1646,8 +1696,8 @@ export const BalcaoTab = () => {
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <span>💡 Dica: Peças unitárias (ferragens, abraçadeiras) deixam largura e comprimento como <strong>(-)</strong> automaticamente.</span>
-            <span>Pressione <kbd style={{ padding: '1px 4px', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '3px' }}>↵ Enter</kbd> para adicionar</span>
+            <span>💡 Dica: Você pode selecionar um produto do catálogo ou digitar qualquer item livremente (ex: <strong>Porta de 80</strong>) com largura, comprimento e valor.</span>
+            <span>Pressione <kbd style={{ padding: '1px 4px', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '3px' }}>↵ Enter</kbd> para navegar e adicionar</span>
           </div>
         )}
       </div>
@@ -1734,11 +1784,12 @@ export const BalcaoTab = () => {
                         />
                       </td>
                       <td className="align-center">
-                        {it.tipo_calculo === 'ML' ? (
+                        {(it.tipo_calculo === 'ML' || it.codigo === 'AVULSO' || parseFloat(it.largura_cm) > 0) ? (
                           <input
                             type="number"
-                            step="0.5"
-                            className="table-input"
+                            step="any"
+                            className="table-input align-center"
+                            style={{ width: '60px', textAlign: 'center' }}
                             value={it.largura_cm || ''}
                             onChange={e => handleUpdateItemInline(it.id, 'largura_cm', e.target.value)}
                           />
@@ -1747,11 +1798,12 @@ export const BalcaoTab = () => {
                         )}
                       </td>
                       <td className="align-center">
-                        {it.tipo_calculo === 'ML' ? (
+                        {(it.tipo_calculo === 'ML' || it.codigo === 'AVULSO' || parseFloat(it.comprimento_m) > 0) ? (
                           <input
                             type="number"
-                            step="0.5"
-                            className="table-input"
+                            step="any"
+                            className="table-input align-center"
+                            style={{ width: '60px', textAlign: 'center' }}
                             value={it.comprimento_m || ''}
                             onChange={e => handleUpdateItemInline(it.id, 'comprimento_m', e.target.value)}
                           />
@@ -1786,7 +1838,20 @@ export const BalcaoTab = () => {
                       <td className="align-right font-mono">
                         {it.metragem_total} {it.tipo_calculo === 'ML' ? 'ML' : (it.tipo_calculo === 'M2' ? 'm²' : 'un')}
                       </td>
-                      <td className="align-right font-mono">{CalcEngine.formatBRL(it.valor_unitario)}</td>
+                      <td className="align-right font-mono">
+                        {it.codigo === 'AVULSO' ? (
+                          <input
+                            type="number"
+                            step="any"
+                            className="table-input align-right"
+                            style={{ width: '70px', textAlign: 'right' }}
+                            value={it.valor_unitario || ''}
+                            onChange={e => handleUpdateItemInline(it.id, 'valor_unitario', e.target.value)}
+                          />
+                        ) : (
+                          CalcEngine.formatBRL(it.valor_unitario)
+                        )}
+                      </td>
                       <td className="align-right font-mono" style={{ fontWeight: 700 }}>
                         {CalcEngine.formatBRL(it.subtotal)}
                       </td>
