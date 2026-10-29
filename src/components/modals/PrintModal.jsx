@@ -648,7 +648,7 @@ export const PrintModal = () => {
               <div style={{ marginTop: '2px', fontSize: '8px', fontWeight: 600 }}>
                 {p.resumo_financeiro.pagamentos_detalhe.map((pg, idx) => (
                   <span key={idx} style={{ display: 'inline-block', marginRight: '6px' }}>
-                    • {pg.tipo}{pg.tipo === 'Cartão de Crédito' && pg.parcelas > 1 ? ` (${pg.parcelas}x)` : ''}: {CalcEngine.formatBRL(pg.valor)}
+                    • {pg.tipo}{pg.tipo === 'Cartão de Crédito' && pg.parcelas > 1 ? ` (${pg.parcelas}x de ${CalcEngine.formatBRL(pg.valor_parcela || (pg.valor / pg.parcelas))})` : ''}: {CalcEngine.formatBRL(pg.valor)}
                   </span>
                 ))}
               </div>
@@ -712,9 +712,22 @@ export const PrintModal = () => {
               <span className="font-mono">{CalcEngine.formatBRL(totalDebito)}</span>
             </div>
             <div className="print-financial-line print-bruto-highlight">
-              <span>PREÇO BRUTO (A PRAZO):</span>
+              <span>PREÇO BRUTO (ATÉ 5X NO CARTÃO):</span>
               <span className="font-mono">{CalcEngine.formatBRL(totalBruto)}</span>
             </div>
+
+            {!isOrcamento && (p.resumo_financeiro?.acrescimo_cartao_valor > 0) && (
+              <div className="print-financial-line" style={{ color: '#1E40AF', fontSize: '9px', fontWeight: 700 }}>
+                <span>Acréscimo Cartão:</span>
+                <span className="font-mono">+{CalcEngine.formatBRL(p.resumo_financeiro.acrescimo_cartao_valor)}</span>
+              </div>
+            )}
+            {!isOrcamento && p.resumo_financeiro?.valor_total_cobrado && (
+              <div className="print-financial-line print-total-highlight" style={{ color: '#047857', borderTop: '1px dashed #CBD5E1', marginTop: '2px', paddingTop: '2px' }}>
+                <span>TOTAL FINAL PAGO:</span>
+                <span className="font-mono">{CalcEngine.formatBRL(p.resumo_financeiro.valor_total_cobrado)}</span>
+              </div>
+            )}
 
             {isOrcamento ? (
               <div className="print-status-tag" style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569' }}>

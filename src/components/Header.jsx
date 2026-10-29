@@ -72,7 +72,7 @@ export const Header = ({ onOpenMobile, onOpenAuth }) => {
           <button
             type="button"
             className="header-cloud-btn"
-            onClick={() => syncWithCloud(false)}
+            onClick={() => syncWithCloud(false, true)}
             title={cloudSyncStatus?.isConnected ? `Nuvem ${cloudSyncStatus.provider || 'PostgreSQL'} sincronizada (${cloudSyncStatus.lastSync || 'agora'}). Clique para sincronizar agora.` : 'Modo local (clique para sincronizar com o banco na nuvem)'}
             style={{
               display: 'inline-flex',

@@ -67,6 +67,79 @@ export const CalcEngine = {
     return parseFloat((valor * (1 + finalPct / 100)).toFixed(2));
   },
 
+  /**
+   * Retorna o percentual de acréscimo para N parcelas no cartão de crédito (máximo 5x).
+   * A regra da madeireira é: o percentual máximo configurado na central (ex: 20%)
+   * é dividido igualmente pelas 5 parcelas:
+   * 1x: (P / 5) * 1 = 4% (se P=20%)
+   * 2x: (P / 5) * 2 = 8%
+   * 3x: (P / 5) * 3 = 12%
+   * 4x: (P / 5) * 4 = 16%
+   * 5x: (P / 5) * 5 = 20%
+   */
+  getPercentualCartaoCredito(parcelas = 1, percentualMaximo = null) {
+    const pMax = percentualMaximo !== null ? parseFloat(percentualMaximo) : this.getPercentualPrecoBruto();
+    const finalPMax = isNaN(pMax) ? 20.0 : pMax;
+    const n = Math.min(5, Math.max(1, parseInt(parcelas) || 1));
+    const taxaPorParcela = finalPMax / 5;
+    return parseFloat((taxaPorParcela * n).toFixed(2));
+  },
+
+  /**
+   * Calcula o valor final com acréscimo e o valor de cada parcela para cartão de crédito
+   */
+  calcularCartaoCredito(valorBase, parcelas = 1, percentualMaximo = null) {
+    const base = Math.max(0, parseFloat(valorBase) || 0);
+    const n = Math.min(5, Math.max(1, parseInt(parcelas) || 1));
+    const pct = this.getPercentualCartaoCredito(n, percentualMaximo);
+    const totalComAcrescimo = parseFloat((base * (1 + pct / 100)).toFixed(2));
+    const valorParcela = parseFloat((totalComAcrescimo / n).toFixed(2));
+    const valorAcrescimo = parseFloat((totalComAcrescimo - base).toFixed(2));
+
+    return {
+      valor_base: base,
+      parcelas: n,
+      percentual: pct,
+      valor_acrescimo: valorAcrescimo,
+      valor_total: totalComAcrescimo,
+      valor_parcela: valorParcela
+    };
+  },
+
+  /**
+   * Calcula qualquer forma de pagamento (Pix, Dinheiro, Débito, Crédito)
+   * retornando valor cobrado, valor de parcela e taxa aplicada
+   */
+  calcularCobrancaForma(tipo, valorBase, parcelas = 1, customConfig = null) {
+    const base = Math.max(0, parseFloat(valorBase) || 0);
+    if (tipo === 'Cartão de Crédito') {
+      const pMax = customConfig?.percentual_preco_bruto ?? this.getPercentualPrecoBruto();
+      return this.calcularCartaoCredito(base, parcelas, pMax);
+    }
+    if (tipo === 'Cartão de Débito') {
+      const pDeb = customConfig?.percentual_taxa_debito ?? this.getPercentualTaxaDebito();
+      const total = this.calcularPrecoDebito(base, pDeb);
+      const acrescimo = parseFloat((total - base).toFixed(2));
+      return {
+        valor_base: base,
+        parcelas: 1,
+        percentual: pDeb,
+        valor_acrescimo: acrescimo,
+        valor_total: total,
+        valor_parcela: total
+      };
+    }
+    // Pix ou Dinheiro (sem acréscimo)
+    return {
+      valor_base: base,
+      parcelas: 1,
+      percentual: 0,
+      valor_acrescimo: 0,
+      valor_total: base,
+      valor_parcela: base
+    };
+  },
+
   calcularItem(item, produto) {
     const tipo = (produto && produto.tipo_calculo) || item.tipo_calculo || 'ML';
     const qtd = Math.max(0, parseFloat(item.quantidade) || 0);

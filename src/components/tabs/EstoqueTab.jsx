@@ -152,16 +152,17 @@ export const EstoqueTab = () => {
       id: '',
       codigo: proximoCodigo,
       nome: '',
-      categorias: categorias.length > 0 ? [categorias[0]] : [],
-      especie: 'Garapeira',
+      categorias: [],
+      especie: '',
       tipo_calculo: 'ML',
-      largura_cm: 12,
-      espessura_cm: 6,
-      comprimento_padrao_m: 4.5,
-      densidade_kg_m3: 750,
-      preco_unitario: 25.00,
-      estoque_atual: 50,
-      estoque_minimo: 10
+      permite_plaina: false,
+      largura_cm: '',
+      espessura_cm: '',
+      comprimento_padrao_m: '',
+      densidade_kg_m3: '',
+      preco_unitario: '',
+      estoque_atual: '',
+      estoque_minimo: ''
     });
     setNovaCatInline('');
     setModalProduto({ isOpen: true, isEdit: false });
@@ -180,6 +181,7 @@ export const EstoqueTab = () => {
       categorias: pCats,
       especie: prod.especie || 'Garapeira',
       tipo_calculo: prod.tipo_calculo || 'ML',
+      permite_plaina: prod.permite_plaina !== undefined ? Boolean(prod.permite_plaina) : (prod.tipo_calculo === 'ML' || prod.tipo_calculo === 'M2'),
       largura_cm: prod.largura_cm || 0,
       espessura_cm: prod.espessura_cm || 0,
       comprimento_padrao_m: prod.comprimento_padrao_m || 3.0,
@@ -237,6 +239,7 @@ export const EstoqueTab = () => {
       ...formProduto,
       id: formProduto.id || ('prod_' + Date.now()),
       nome: nomeLimpo,
+      permite_plaina: Boolean(formProduto.permite_plaina),
       categorias: formProduto.categorias.length > 0 ? formProduto.categorias : ['Geral'],
       categoria: formProduto.categorias[0] || 'Geral',
       preco_unitario: Math.max(0, parseFloat(formProduto.preco_unitario) || 0),
@@ -507,6 +510,11 @@ export const EstoqueTab = () => {
                       <td>
                         <strong>{p.nome}</strong>
                         {p.especie && <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '6px' }}>({p.especie})</span>}
+                        {p.permite_plaina ? (
+                          <span className="badge-tag" style={{ marginLeft: '6px', fontSize: '9.5px', background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', padding: '1px 5px', fontWeight: 700 }} title="Aceita plaina / aparelhamento">
+                            Plaina
+                          </span>
+                        ) : null}
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
@@ -812,6 +820,45 @@ export const EstoqueTab = () => {
                       onChange={e => setFormProduto(prev => ({ ...prev, espessura_cm: e.target.value }))}
                     />
                   </div>
+                </div>
+
+                {/* PERMISSÃO DE PLAINA / APARELHAMENTO */}
+                <div style={{
+                  padding: '8px 12px',
+                  background: formProduto.permite_plaina ? '#F0FDF4' : '#F8FAFC',
+                  border: `1.5px solid ${formProduto.permite_plaina ? '#86EFAC' : '#E2E8F0'}`,
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px'
+                }}>
+                  <div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input 
+                        type="checkbox" 
+                        style={{ width: '18px', height: '18px', accentColor: '#059669', cursor: 'pointer' }}
+                        checked={Boolean(formProduto.permite_plaina)}
+                        onChange={e => setFormProduto(prev => ({ ...prev, permite_plaina: e.target.checked }))}
+                      />
+                      <span style={{ fontWeight: 700, fontSize: '13px', color: formProduto.permite_plaina ? '#15803D' : 'var(--text-primary)' }}>
+                        Aceita Plaina / Aparelhamento na Serraria
+                      </span>
+                    </label>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginLeft: '26px', marginTop: '2px' }}>
+                      Se marcado, os atendentes poderão marcar a opção "Plainar" para esta madeira no balcão de vendas.
+                    </span>
+                  </div>
+                  <span className="badge-tag" style={{
+                    backgroundColor: formProduto.permite_plaina ? '#DCFCE7' : '#F1F5F9',
+                    color: formProduto.permite_plaina ? '#166534' : 'var(--text-muted)',
+                    border: `1.5px solid ${formProduto.permite_plaina ? '#86EFAC' : '#CBD5E1'}`,
+                    fontWeight: 700,
+                    fontSize: '11px',
+                    padding: '3px 8px'
+                  }}>
+                    {formProduto.permite_plaina ? 'Plaina Habilitada' : 'Sem Plaina'}
+                  </span>
                 </div>
 
                 {/* ESTOQUE */}

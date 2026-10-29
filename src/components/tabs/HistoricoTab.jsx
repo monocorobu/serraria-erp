@@ -73,7 +73,7 @@ export const HistoricoTab = () => {
     texto += `Gostaria de saber se você conseguiu analisar a nossa proposta do *Orçamento #${num}*:\n`;
     texto += `• *À Vista (Pix/Dinheiro):* ${total}\n`;
     texto += `• *No Débito / Cartão:* ${totalDebito}\n`;
-    texto += `• *Preço Bruto (A Prazo / Parcelado):* ${totalBruto}\n\n`;
+    texto += `• *Preço Bruto (até 5x no cartão):* ${totalBruto}\n\n`;
     texto += `Temos os lotes de madeira selecionados no pátio prontos para corte e carregamento. Consegue nos dar um retorno para programarmos esta semana? Obrigado!`;
 
     const url = `https://api.whatsapp.com/send?phone=${phoneParam}&text=${encodeURIComponent(texto)}`;
@@ -243,7 +243,7 @@ export const HistoricoTab = () => {
                         <div style={{ fontSize: '10px', fontWeight: 'normal', color: '#B45309' }} title="No Débito / Cartão">
                           Déb: {CalcEngine.formatBRL(totalDebito)}
                         </div>
-                        <div style={{ fontSize: '10px', fontWeight: 'normal', color: '#2563EB' }} title="Preço Bruto / A Prazo">
+                        <div style={{ fontSize: '10px', fontWeight: 'normal', color: '#2563EB' }} title="Preço Bruto (até 5x no cartão)">
                           Bruto: {CalcEngine.formatBRL(totalBruto)}
                         </div>
                       </td>

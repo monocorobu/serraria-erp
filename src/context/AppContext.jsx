@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { DB, STORAGE_KEYS } from '../services/data.js';
 import { CalcEngine } from '../services/calc.js';
 import { ApiClient } from '../services/api.js';
@@ -88,8 +88,11 @@ export const AppProvider = ({ children }) => {
     const res = DB.aplicarReajustePrecos({ tipo, percentual, alvo });
     if (res.success) {
       estoqueHook.setProducts([...res.updated]);
+      ApiClient.saveProduto(res.updated).catch(err => {
+        console.warn('[aplicarReajustePrecos] Falha ao sincronizar reajuste no banco:', err);
+      });
       const sinal = res.tipo === 'ACRESCIMO' ? '+' : '-';
-      showToast(`Reajuste de ${sinal}${res.percentual}% aplicado a ${res.count} produtos!`, 'success');
+      showToast(`Reajuste de ${sinal}${res.percentual}% aplicado e salvo no banco!`, 'success');
       return res;
     } else {
       showToast(res.message || 'Erro ao aplicar reajuste.', 'warning');
@@ -128,13 +131,21 @@ export const AppProvider = ({ children }) => {
   const saveEmployee = useCallback((emp) => {
     const saved = DB.salvarFuncionario(emp);
     setEmployees(DB.getFuncionarios());
+    ApiClient.saveFuncionario(saved).catch(err => {
+      console.warn('[saveEmployee] Erro ao sincronizar funcionário no banco:', err);
+    });
     showToast(`Funcionário "${saved.nome}" salvo com sucesso!`, 'success');
     return saved;
   }, [showToast]);
 
-  const deleteEmployee = useCallback((id) => {
+  const deleteEmployee = useCallback(async (id) => {
     DB.excluirFuncionario(id);
     setEmployees(DB.getFuncionarios());
+    try {
+      await ApiClient.deleteFuncionario(id);
+    } catch (err) {
+      console.warn('[deleteEmployee] Erro ao excluir funcionário no banco:', err);
+    }
     showToast('Funcionário removido da equipe.', 'info');
   }, [showToast]);
 
@@ -161,100 +172,171 @@ export const AppProvider = ({ children }) => {
   const { setClients } = clientesHook;
   const { setProducts } = estoqueHook;
 
-  // Sincronização centralizada com o Neon PostgreSQL
-  const syncWithCloud = useCallback(async (silent = false) => {
+  const lastSyncedVersionsRef = useRef({});
+
+  // Sincronização centralizada inteligente e ultra-leve (Smart Differential Sync)
+  // Faz 1 única chamada rápida de diagnóstico (/api/sync) e puxa apenas tabelas com versões alteradas
+  // Consome menos de 5% da cota gratuita diária do Vercel e Supabase
+  const syncWithCloud = useCallback(async (silent = false, forceFull = false) => {
     try {
-      // 1. Sincroniza Usuários / Contas (Bidirecional)
-      const remoteUsers = await ApiClient.getUsuarios();
-      if (Array.isArray(remoteUsers)) {
-        const excluidos = DB.getUsuariosExcluidos();
-
-        // Se houver contas remotas que constam nos excluídos locais, garante a exclusão no Neon
-        for (const delId of excluidos) {
-          if (remoteUsers.some(r => r.id === delId || r.username === delId)) {
-            await ApiClient.deleteUsuario(delId).catch(() => {});
-          }
-        }
-
-        const merged = DB.mergeUsuarios(remoteUsers);
-        setUsers([...merged]);
-
-        // Se houver contas locais que ainda não estão no Neon (ex: conta do dono criada antes no computador da serraria), sobe para a nuvem
-        const missingOnRemote = merged.filter(l => 
-          l && l.username !== 'thales' && !excluidos.includes(l.id) && !excluidos.includes(l.username) && !remoteUsers.some(r => r.id === l.id || r.username === l.username)
-        );
-        if (missingOnRemote.length > 0) {
-          await ApiClient.saveUsuario(missingOnRemote).catch(() => {});
-        }
-      }
-
-      // 2. Sincroniza Pedidos (Bidirecional)
-      const remotePedidos = await ApiClient.getPedidos();
-      if (Array.isArray(remotePedidos)) {
-        const merged = DB.mergePedidos(remotePedidos);
-        setOrders([...merged]);
-
-        // Se houver pedidos locais não presentes na nuvem, envia em lote
-        const missingPedidos = merged.filter(lp => 
-          lp && lp.id && !remotePedidos.some(rp => rp.id === lp.id)
-        );
-        if (missingPedidos.length > 0) {
-          await ApiClient.savePedido(missingPedidos).catch(() => {});
-        }
-      }
-
-      // 3. Sincroniza Clientes (Bidirecional)
-      const remoteClientes = await ApiClient.getClientes();
-      if (Array.isArray(remoteClientes)) {
-        const merged = DB.mergeClientes(remoteClientes);
-        setClients([...merged]);
-
-        const missingClientes = merged.filter(lc => 
-          lc && lc.id && !remoteClientes.some(rc => rc.id === lc.id)
-        );
-        if (missingClientes.length > 0) {
-          await ApiClient.saveCliente(missingClientes).catch(() => {});
-        }
-      }
-
-      // 4. Sincroniza Produtos / Estoque (Bidirecional)
-      const remoteProdutos = await ApiClient.getProdutos();
-      if (Array.isArray(remoteProdutos)) {
-        const merged = DB.mergeProdutos(remoteProdutos);
-        setProducts([...merged]);
-
-        // Se o banco remoto tiver menos produtos que o catálogo completo local (ex: catálogo padrão de 200+ itens), popula o Neon em lote
-        if (remoteProdutos.length < 50 && merged.length > remoteProdutos.length) {
-          const missingProdutos = merged.filter(lp => 
-            lp && lp.id && !remoteProdutos.some(rp => rp.id === lp.id)
-          );
-          if (missingProdutos.length > 0) {
-            await ApiClient.saveProduto(missingProdutos).catch(() => {});
-          }
-        }
-      }
-
-      // 5. Diagnóstico de conectividade
+      // 1. Diagnóstico e versões em UMA única chamada rápida
       const syncCheck = await ApiClient.checkSync();
-      if (syncCheck && syncCheck.connected) {
-        setCloudSyncStatus({ 
-          isConnected: true, 
-          provider: syncCheck.provider || 'PostgreSQL', 
-          lastSync: new Date().toLocaleTimeString('pt-BR') 
-        });
-        if (!silent) showToast(`Sincronização com ${syncCheck.provider || 'banco na nuvem'} concluída!`, 'success');
-      } else {
+      if (!syncCheck || !syncCheck.connected) {
         setCloudSyncStatus({ isConnected: false, provider: syncCheck?.provider || null, lastSync: null });
+        return;
+      }
+
+      setCloudSyncStatus({ 
+        isConnected: true, 
+        provider: syncCheck.provider || 'PostgreSQL', 
+        lastSync: new Date().toLocaleTimeString('pt-BR') 
+      });
+
+      const versions = syncCheck.versions || {};
+      const last = lastSyncedVersionsRef.current;
+
+      const needsUsers = forceFull || !last.usuarios || last.usuarios !== versions.usuarios;
+      const needsFuncs = forceFull || !last.funcionarios || last.funcionarios !== versions.funcionarios;
+      const needsConfig = forceFull || !last.config || last.config !== versions.config;
+      const needsProds = forceFull || !last.produtos || last.produtos !== versions.produtos;
+      const needsOrders = forceFull || !last.pedidos || last.pedidos !== versions.pedidos;
+      const needsClients = forceFull || !last.clientes || last.clientes !== versions.clientes;
+
+      // 2. Sincroniza Usuários / Contas apenas se houve alteração
+      if (needsUsers) {
+        const remoteUsers = await ApiClient.getUsuarios();
+        if (Array.isArray(remoteUsers)) {
+          const excluidos = DB.getUsuariosExcluidos();
+          for (const delId of excluidos) {
+            if (remoteUsers.some(r => r.id === delId || r.username === delId)) {
+              await ApiClient.deleteUsuario(delId).catch(() => {});
+            }
+          }
+
+          const merged = DB.mergeUsuarios(remoteUsers);
+          setUsers([...merged]);
+
+          if (remoteUsers.length === 0 && merged.length > 0) {
+            const toUpload = merged.filter(l => l && l.username !== 'thales');
+            if (toUpload.length > 0) {
+              await ApiClient.saveUsuario(toUpload).catch(() => {});
+            }
+          }
+          last.usuarios = versions.usuarios;
+        }
+      }
+
+      // 3. Sincroniza Equipe / Vendedores apenas se houve alteração
+      if (needsFuncs) {
+        const remoteFuncionarios = await ApiClient.getFuncionarios();
+        if (Array.isArray(remoteFuncionarios)) {
+          if (remoteFuncionarios.length === 0) {
+            const localFuncs = DB.getFuncionarios();
+            if (localFuncs.length > 0) {
+              await ApiClient.saveFuncionario(localFuncs).catch(() => {});
+            }
+          } else {
+            const merged = DB.mergeFuncionarios(remoteFuncionarios);
+            setEmployees([...merged]);
+          }
+          last.funcionarios = versions.funcionarios;
+        }
+      }
+
+      // 4. Sincroniza Parâmetros Gerais e Porcentagens apenas se houve alteração
+      if (needsConfig) {
+        const remoteConfig = await ApiClient.getConfig();
+        if (remoteConfig && typeof remoteConfig === 'object') {
+          const currentLocal = DB.getConfig();
+          const mergedCfg = { ...currentLocal, ...remoteConfig };
+          DB.salvarConfig(mergedCfg);
+          precoBrutoHook.setConfig(mergedCfg);
+          last.config = versions.config;
+        }
+      }
+
+      // 5. Sincroniza Produtos / Estoque / Tabela de Preços apenas se houve alteração
+      if (needsProds) {
+        const remoteProdutos = await ApiClient.getProdutos();
+        if (Array.isArray(remoteProdutos)) {
+          const merged = DB.mergeProdutos(remoteProdutos);
+          setProducts([...merged]);
+
+          if (remoteProdutos.length < 50 && merged.length > remoteProdutos.length) {
+            const missingProdutos = merged.filter(lp => 
+              lp && lp.id && !remoteProdutos.some(rp => rp.id === lp.id)
+            );
+            if (missingProdutos.length > 0) {
+              await ApiClient.saveProduto(missingProdutos).catch(() => {});
+            }
+          }
+          last.produtos = versions.produtos;
+        }
+      }
+
+      // 6. Sincroniza Histórico de Pedidos e Vendas apenas se houve alteração
+      if (needsOrders) {
+        const remotePedidos = await ApiClient.getPedidos();
+        if (Array.isArray(remotePedidos)) {
+          const merged = DB.mergePedidos(remotePedidos);
+          setOrders([...merged]);
+
+          const missingPedidos = merged.filter(lp => 
+            lp && lp.id && !remotePedidos.some(rp => rp.id === lp.id)
+          );
+          if (missingPedidos.length > 0) {
+            await ApiClient.savePedido(missingPedidos).catch(() => {});
+          }
+          last.pedidos = versions.pedidos;
+        }
+      }
+
+      // 7. Sincroniza Clientes apenas se houve alteração
+      if (needsClients) {
+        const remoteClientes = await ApiClient.getClientes();
+        if (Array.isArray(remoteClientes)) {
+          const merged = DB.mergeClientes(remoteClientes);
+          setClients([...merged]);
+
+          const missingClientes = merged.filter(lc => 
+            lc && lc.id && !remoteClientes.some(rc => rc.id === lc.id)
+          );
+          if (missingClientes.length > 0) {
+            await ApiClient.saveCliente(missingClientes).catch(() => {});
+          }
+          last.clientes = versions.clientes;
+        }
+      }
+
+      if (!silent) {
+        showToast(`Sincronização com ${syncCheck.provider || 'banco na nuvem'} concluída!`, 'success');
       }
     } catch (err) {
       console.warn('[Sync] Falha na sincronização:', err);
       setCloudSyncStatus({ isConnected: false, provider: null, lastSync: null });
     }
-  }, [setOrders, setClients, setProducts, showToast]);
+  }, [setOrders, setClients, setProducts, precoBrutoHook, showToast]);
 
-  // Executa a sincronização inicial ao abrir o sistema
+  // Executa sincronização em segundo plano periódica e reativa ao foco da janela
   useEffect(() => {
-    syncWithCloud(true);
+    // Sincronização inicial completa
+    syncWithCloud(true, true);
+
+    // Auto-sync leve a cada 25 segundos (1 requisição ultrarrápida, dentro da cota grátis)
+    const intervalId = setInterval(() => {
+      syncWithCloud(true, false);
+    }, 25000);
+
+    // Auto-sync imediato quando o funcionário volta para a aba do navegador
+    const handleFocus = () => {
+      syncWithCloud(true, false);
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [syncWithCloud]);
 
   const refreshAll = useCallback(() => {

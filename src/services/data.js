@@ -1561,27 +1561,48 @@ const DB = {
     return true;
   },
 
-  // Sincronização e Merge com Neon PostgreSQL
+  // Sincronização e Merge com Neon / Supabase PostgreSQL
   mergeUsuarios(remoteUsers) {
     if (!Array.isArray(remoteUsers) || remoteUsers.length === 0) return this.getUsuarios();
     const excluidos = this.getUsuariosExcluidos();
-    const local = this.getUsuarios().filter(u => !excluidos.includes(u.id) && !excluidos.includes(u.username));
+    const local = this.getUsuarios();
 
+    const result = [];
+
+    // Preserva o DEV Master Thales sempre
+    const devAccount = local.find(u => u.username === 'thales') || SEED_USUARIOS.find(u => u.username === 'thales');
+    if (devAccount) {
+      result.push(devAccount);
+    }
+
+    // O banco é a verdade absoluta: apenas contas presentes no banco permanecem
     remoteUsers.forEach(rem => {
-      if (!rem || !rem.id) return;
-      // Se este usuário foi excluído localmente, NUNCA ressuscita
+      if (!rem || !rem.id || !rem.username) return;
+      if (rem.username === 'thales') return;
       if (excluidos.includes(rem.id) || excluidos.includes(rem.username)) return;
 
-      const idx = local.findIndex(l => l.id === rem.id || (rem.username && l.username === rem.username));
-      if (idx >= 0) {
-        if (local[idx].username === 'thales' || local[idx].perfil === 'DEV') return;
-        local[idx] = { ...local[idx], ...rem };
-      } else {
-        local.push(rem);
+      // Preserva hash e salt locais se já existirem (pois a API omite a senha por segurança)
+      const localMatch = local.find(l => l.id === rem.id || l.username === rem.username);
+      const merged = { ...rem };
+      if (localMatch) {
+        if (localMatch.hash && !merged.hash) merged.hash = localMatch.hash;
+        if (localMatch.salt && !merged.salt) merged.salt = localMatch.salt;
       }
+      result.push(merged);
     });
-    this.set(STORAGE_KEYS.USUARIOS, local);
-    return local;
+
+    this.set(STORAGE_KEYS.USUARIOS, result);
+    return result;
+  },
+
+  mergeFuncionarios(remoteFuncionarios) {
+    if (!Array.isArray(remoteFuncionarios)) return this.getFuncionarios();
+    if (remoteFuncionarios.length === 0) return this.getFuncionarios();
+
+    // O banco é a autoridade máxima para equipe de funcionários e vendedores
+    const result = remoteFuncionarios.filter(f => f && f.id && f.nome);
+    this.set(STORAGE_KEYS.FUNCIONARIOS, result);
+    return result;
   },
 
   mergePedidos(remotePedidos) {
@@ -1619,6 +1640,19 @@ const DB = {
   mergeProdutos(remoteProdutos) {
     if (!Array.isArray(remoteProdutos) || remoteProdutos.length === 0) return this.getProdutos();
     const local = this.getProdutos();
+
+    // Se o banco remoto contiver o catálogo completo (ao menos 50 itens cadastrados),
+    // o banco é a autoridade e itens excluídos no banco devem sumir localmente
+    if (remoteProdutos.length >= 50) {
+      const result = remoteProdutos.map(rem => {
+        const localMatch = local.find(l => l.id === rem.id);
+        return localMatch ? { ...localMatch, ...rem } : rem;
+      });
+      this.set(STORAGE_KEYS.PRODUTOS, result);
+      return result;
+    }
+
+    // Caso incremental para poucos produtos
     remoteProdutos.forEach(rem => {
       if (!rem || !rem.id) return;
       const idx = local.findIndex(l => l.id === rem.id || (rem.codigo && l.codigo === rem.codigo));
@@ -1761,6 +1795,12 @@ const DB = {
       }
       if (!p.categoria && p.categorias.length > 0) {
         p.categoria = p.categorias[0];
+        alterado = true;
+      }
+      if (p.permite_plaina === undefined) {
+        const ehMadeira = p.tipo_calculo === 'ML' || p.tipo_calculo === 'M2' ||
+          ['garapeira', 'cumaru', 'cedrinho', 'pinus', 'eucalipto', 'itauba', 'peroba', 'cambara'].some(esp => (p.especie || '').toLowerCase().includes(esp));
+        p.permite_plaina = Boolean(ehMadeira);
         alterado = true;
       }
     });

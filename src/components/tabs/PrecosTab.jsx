@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext.jsx';
 import { CalcEngine } from '../../services/calc.js';
 import { DB, STORAGE_KEYS } from '../../services/data.js';
+import { ApiClient } from '../../services/api.js';
 import { GerenciadorCategoriasModal } from '../modals/GerenciadorCategoriasModal.jsx';
 import Pagination from '../common/Pagination.jsx';
 
@@ -173,9 +174,21 @@ export const PrecosTab = () => {
   // Edição direta de preço na linha da tabela
   const handleEditarPrecoDirect = (productId, novoPreco) => {
     const val = Math.max(0, parseFloat(novoPreco) || 0);
-    const updated = products.map(p => p.id === productId ? { ...p, preco_unitario: val } : p);
+    let targetProd = null;
+    const updated = products.map(p => {
+      if (p.id === productId) {
+        targetProd = { ...p, preco_unitario: val };
+        return targetProd;
+      }
+      return p;
+    });
     DB.set(STORAGE_KEYS.PRODUTOS, updated);
     setProducts([...updated]);
+    if (targetProd) {
+      ApiClient.saveProduto(targetProd).catch(err => {
+        console.warn('[PrecosTab] Erro ao sincronizar preço alterado:', err);
+      });
+    }
   };
 
   return (
@@ -486,7 +499,14 @@ export const PrecosTab = () => {
                       <td className="font-mono" style={{ fontWeight: 700, color: 'var(--primary-green)' }}>
                         {p.codigo}
                       </td>
-                      <td><strong>{p.nome}</strong></td>
+                      <td>
+                        <strong>{p.nome}</strong>
+                        {p.permite_plaina ? (
+                          <span className="badge-tag" style={{ marginLeft: '6px', fontSize: '9.5px', background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', padding: '1px 5px', fontWeight: 700 }} title="Aceita plaina / aparelhamento">
+                            Plaina
+                          </span>
+                        ) : null}
+                      </td>
                       <td>
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                           {pCats.length > 0 ? (

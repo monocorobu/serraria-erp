@@ -186,6 +186,12 @@ export const BalcaoTab = () => {
     if (editingOrderId) {
       const found = orders.find(o => o.id === editingOrderId);
       if (found) {
+        const rawForma = found.resumo_financeiro?.forma_pagamento_tipo || found.forma_pagamento || 'Pix';
+        let normForma = 'Pix';
+        if (rawForma.includes('Crédito')) normForma = 'Cartão de Crédito';
+        else if (rawForma.includes('Débito')) normForma = 'Cartão de Débito';
+        else if (rawForma.includes('Dinheiro')) normForma = 'Dinheiro';
+
         setOrder({
           ...JSON.parse(JSON.stringify(found)),
           vendedor_id: found.vendedor_id || found.comissao_vendedor_id || (defaultSeller ? defaultSeller.id : ''),
@@ -197,12 +203,17 @@ export const BalcaoTab = () => {
           desconto_tipo: found.resumo_financeiro?.desconto_tipo || 'VALOR',
           desconto_valor: found.resumo_financeiro?.desconto_valor || 0,
           desconto_autorizado: found.resumo_financeiro?.desconto_autorizado || false,
-          forma_pagamento: found.resumo_financeiro?.forma_pagamento || found.forma_pagamento || 'Pix',
+          forma_pagamento: normForma,
           cartao_parcelas: found.resumo_financeiro?.cartao_parcelas || found.cartao_parcelas || 1,
           pagamento_dividido: Boolean(found.resumo_financeiro?.pagamento_dividido || found.pagamento_dividido),
           pagamentos: (found.resumo_financeiro?.pagamentos_detalhe && found.resumo_financeiro.pagamentos_detalhe.length > 0)
-            ? found.resumo_financeiro.pagamentos_detalhe.map((pg, idx) => ({ id: `pag_${idx + 1}`, tipo: pg.tipo || 'Pix', valor: pg.valor || 0, parcelas: pg.parcelas || 1 }))
-            : (found.pagamentos || [{ id: 'pag_1', tipo: found.forma_pagamento || 'Pix', valor: found.resumo_financeiro?.valor_total || 0, parcelas: found.cartao_parcelas || 1 }]),
+            ? found.resumo_financeiro.pagamentos_detalhe.map((pg, idx) => ({
+                id: `pag_${idx + 1}`,
+                tipo: pg.tipo || 'Pix',
+                valor: pg.valor_base !== undefined ? pg.valor_base : (pg.valor || 0),
+                parcelas: pg.parcelas || 1
+              }))
+            : (found.pagamentos || [{ id: 'pag_1', tipo: normForma, valor: found.resumo_financeiro?.valor_total || 0, parcelas: found.cartao_parcelas || 1 }]),
           valor_sinal: found.resumo_financeiro?.valor_sinal || 0,
           observacoes: found.observacoes_venda || ''
         });
@@ -268,6 +279,7 @@ export const BalcaoTab = () => {
   const [fastLargura, setFastLargura] = useState('');
   const [fastComprimento, setFastComprimento] = useState('');
   const [fastPreco, setFastPreco] = useState('0.00');
+  const [fastAparelhar, setFastAparelhar] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [senhaGerenteInput, setSenhaGerenteInput] = useState('');
   const productComboboxRef = useRef(null);
@@ -518,6 +530,9 @@ export const BalcaoTab = () => {
     const isML = selectedProduct.tipo_calculo === 'ML';
     const comp = isML ? (parseFloat(fastComprimento) || selectedProduct.comprimento_padrao_m || 0) : 0;
     const larg = isML ? (parseFloat(fastLargura) || selectedProduct.largura_cm || 0) : 0;
+    const aceitaPlaina = selectedProduct.permite_plaina !== undefined
+      ? Boolean(selectedProduct.permite_plaina)
+      : (isML || selectedProduct.tipo_calculo === 'M2');
 
     const itemObj = {
       id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
@@ -526,7 +541,8 @@ export const BalcaoTab = () => {
       descricao: selectedProduct.nome,
       largura_cm: larg,
       acabamento: 'BRUTA',
-      aparelhar: false,
+      aparelhar: aceitaPlaina ? Boolean(fastAparelhar) : false,
+      permite_plaina: aceitaPlaina,
       tipo_calculo: selectedProduct.tipo_calculo || 'UN',
       quantidade: qtd,
       comprimento_m: comp,
@@ -550,6 +566,7 @@ export const BalcaoTab = () => {
     setFastLargura('');
     setFastComprimento('');
     setFastPreco('0.00');
+    setFastAparelhar(false);
 
     // Retorna o foco para a busca de produto para digitar o próximo item
     setTimeout(() => {
@@ -707,6 +724,25 @@ export const BalcaoTab = () => {
     return parseFloat((totais.valor_total - totalPagamentosAlocado).toFixed(2));
   }, [totais.valor_total, totalPagamentosAlocado]);
 
+  // Cálculo consolidado de cobrança real para pagamentos divididos
+  const resumoCobrancaDividida = useMemo(() => {
+    if (!order.pagamento_dividido || !order.pagamentos) {
+      return { totalCobrado: totais.valor_total, totalAcrescimo: 0 };
+    }
+    let totalCobrado = 0;
+    let totalAcrescimo = 0;
+    order.pagamentos.forEach(pg => {
+      const parc = pg.tipo === 'Cartão de Crédito' ? Math.min(5, Math.max(1, parseInt(pg.parcelas) || 1)) : 1;
+      const c = CalcEngine.calcularCobrancaForma(pg.tipo, pg.valor, parc, config);
+      totalCobrado += c.valor_total;
+      totalAcrescimo += c.valor_acrescimo;
+    });
+    return {
+      totalCobrado: parseFloat(totalCobrado.toFixed(2)),
+      totalAcrescimo: parseFloat(totalAcrescimo.toFixed(2))
+    };
+  }, [order.pagamento_dividido, order.pagamentos, totais.valor_total, config]);
+
   // Montar objeto de pedido completo para salvar / imprimir
   const buildCompleteOrder = (statusFinal = 'ORCAMENTO') => {
     if (!order.itens.length) {
@@ -755,33 +791,73 @@ export const BalcaoTab = () => {
     // Montagem da forma de pagamento e detalhe de parcelas/divisões
     let formaPagamentoFinal = order.forma_pagamento || 'Pix';
     let pagamentosDetalhe = [];
+    let valorTotalCobrado = totais.valor_total;
+    let totalAcrescimoCartao = 0;
 
     if (order.pagamento_dividido && order.pagamentos && order.pagamentos.length > 0) {
       pagamentosDetalhe = order.pagamentos
         .filter(pg => (parseFloat(pg.valor) || 0) > 0)
-        .map(pg => ({
-          tipo: pg.tipo,
-          valor: parseFloat(pg.valor) || 0,
-          parcelas: pg.tipo === 'Cartão de Crédito' ? Math.min(5, Math.max(1, parseInt(pg.parcelas) || 1)) : 1
-        }));
+        .map(pg => {
+          const parc = pg.tipo === 'Cartão de Crédito' ? Math.min(5, Math.max(1, parseInt(pg.parcelas) || 1)) : 1;
+          const c = CalcEngine.calcularCobrancaForma(pg.tipo, pg.valor, parc, config);
+          totalAcrescimoCartao += c.valor_acrescimo;
+          return {
+            tipo: pg.tipo,
+            valor_base: parseFloat(pg.valor) || 0,
+            parcelas: c.parcelas,
+            percentual_taxa: c.percentual,
+            valor_acrescimo: c.valor_acrescimo,
+            valor_parcela: c.valor_parcela,
+            valor: c.valor_total
+          };
+        });
+
+      valorTotalCobrado = pagamentosDetalhe.reduce((acc, p) => acc + (p.valor || 0), 0);
+      valorTotalCobrado = parseFloat(valorTotalCobrado.toFixed(2));
+      totalAcrescimoCartao = parseFloat(totalAcrescimoCartao.toFixed(2));
 
       if (pagamentosDetalhe.length > 0) {
         formaPagamentoFinal = pagamentosDetalhe
           .map(pg => {
-            const parcStr = pg.tipo === 'Cartão de Crédito' && pg.parcelas > 1 ? ` (${pg.parcelas}x)` : '';
-            return `${pg.tipo}${parcStr}: ${CalcEngine.formatBRL(pg.valor)}`;
+            if (pg.tipo === 'Cartão de Crédito') {
+              const parcStr = pg.parcelas > 1 
+                ? ` (${pg.parcelas}x de ${CalcEngine.formatBRL(pg.valor_parcela)})` 
+                : ` (1x de ${CalcEngine.formatBRL(pg.valor)})`;
+              return `${pg.tipo}${parcStr}: ${CalcEngine.formatBRL(pg.valor)}`;
+            }
+            if (pg.tipo === 'Cartão de Débito') {
+              return `${pg.tipo} (+${pg.percentual_taxa}%): ${CalcEngine.formatBRL(pg.valor)}`;
+            }
+            return `${pg.tipo}: ${CalcEngine.formatBRL(pg.valor)}`;
           })
           .join(' + ');
       }
     } else {
-      const parc = order.forma_pagamento === 'Cartão de Crédito' ? Math.min(5, Math.max(1, parseInt(order.cartao_parcelas) || 1)) : 1;
-      const parcStr = order.forma_pagamento === 'Cartão de Crédito' && parc > 1 ? ` (${parc}x)` : '';
-      formaPagamentoFinal = `${order.forma_pagamento}${parcStr}`;
+      const parc = order.forma_pagamento === 'Cartão de Crédito' 
+        ? Math.min(5, Math.max(1, parseInt(order.cartao_parcelas) || 1)) 
+        : 1;
+      const c = CalcEngine.calcularCobrancaForma(order.forma_pagamento, totais.valor_total, parc, config);
+      valorTotalCobrado = c.valor_total;
+      totalAcrescimoCartao = c.valor_acrescimo;
+
+      if (order.forma_pagamento === 'Cartão de Crédito') {
+        const parcStr = parc > 1 ? ` (${parc}x de ${CalcEngine.formatBRL(c.valor_parcela)})` : ` (1x)`;
+        formaPagamentoFinal = `Cartão de Crédito${parcStr}: ${CalcEngine.formatBRL(c.valor_total)}`;
+      } else if (order.forma_pagamento === 'Cartão de Débito') {
+        formaPagamentoFinal = `Cartão de Débito (+${c.percentual}%): ${CalcEngine.formatBRL(c.valor_total)}`;
+      } else {
+        formaPagamentoFinal = `${order.forma_pagamento}: ${CalcEngine.formatBRL(c.valor_total)}`;
+      }
+
       pagamentosDetalhe = [
         {
           tipo: order.forma_pagamento,
-          valor: totais.valor_total,
-          parcelas: parc
+          valor_base: totais.valor_total,
+          parcelas: parc,
+          percentual_taxa: c.percentual,
+          valor_acrescimo: c.valor_acrescimo,
+          valor_parcela: c.valor_parcela,
+          valor: c.valor_total
         }
       ];
     }
@@ -805,15 +881,18 @@ export const BalcaoTab = () => {
       desconto_percentual: totais.desconto_percentual,
       desconto_autorizado: order.desconto_autorizado,
       valor_total: totais.valor_total,
+      valor_total_cobrado: valorTotalCobrado,
+      acrescimo_cartao_valor: totalAcrescimoCartao,
       percentual_bruto: totais.percentual_bruto,
       valor_total_bruto: totais.valor_total_bruto,
       percentual_debito: totais.percentual_debito,
       valor_total_debito: totais.valor_total_debito,
       forma_pagamento: formaPagamentoFinal,
+      forma_pagamento_tipo: order.forma_pagamento,
       pagamento_dividido: Boolean(order.pagamento_dividido),
       pagamentos_detalhe: pagamentosDetalhe,
       cartao_parcelas: order.cartao_parcelas || 1,
-      valor_sinal: isPago ? totais.valor_total : 0,
+      valor_sinal: isPago ? valorTotalCobrado : 0,
       saldo_a_receber: 0,
       comissao_vendedor_pct: comissaoPct,
       comissao_vendedor_valor: valorComissao
@@ -1519,13 +1598,40 @@ export const BalcaoTab = () => {
                 alignItems: 'center',
                 gap: '4px'
               }}>
-                {isMadeiraLinear ? '🌲 Madeira (ML)' : '📦 Item Unitário (UN)'}
+                {isMadeiraLinear ? 'Madeira (ML)' : 'Item Unitário (UN)'}
               </span>
               <span>
                 {isMadeiraLinear
                   ? `Cálculo por corte: ${fastLargura || '0'}cm largura × ${fastComprimento || '0'}m comprimento`
                   : 'Item por peça/unidade. Largura e comprimento não se aplicam (-).'}
               </span>
+
+              {/* Tag / Checkbox de Plaina na Barra Rápida */}
+              {(() => {
+                const aceitaPlaina = selectedProduct.permite_plaina !== undefined
+                  ? Boolean(selectedProduct.permite_plaina)
+                  : (isMadeiraLinear || selectedProduct.tipo_calculo === 'M2');
+
+                if (!aceitaPlaina) {
+                  return (
+                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '1px 6px', borderRadius: '4px' }}>
+                      Sem plaina
+                    </span>
+                  );
+                }
+
+                return (
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer', margin: 0, fontWeight: 700, fontSize: '11px', color: fastAparelhar ? '#15803D' : '#334155', background: fastAparelhar ? '#DCFCE7' : '#FFFFFF', border: `1px solid ${fastAparelhar ? '#86EFAC' : '#CBD5E1'}`, padding: '1px 7px', borderRadius: '4px' }}>
+                    <input
+                      type="checkbox"
+                      checked={fastAparelhar}
+                      onChange={e => setFastAparelhar(e.target.checked)}
+                      style={{ width: '13px', height: '13px', accentColor: '#059669', cursor: 'pointer' }}
+                    />
+                    <span>Aparelhar / Plainar</span>
+                  </label>
+                );
+              })()}
             </div>
             <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
               {fastQtd} {fastQtd === 1 ? 'peça' : 'peças'} × {CalcEngine.formatBRL(parseFloat(fastPreco) || 0)} = <span style={{ color: '#047857', fontSize: '12.5px' }}>{CalcEngine.formatBRL(fastSubtotalPreview)}</span>
@@ -1654,19 +1760,28 @@ export const BalcaoTab = () => {
                         )}
                       </td>
                       <td className="align-center">
-                        {(it.tipo_calculo === 'ML' || it.tipo_calculo === 'M2') ? (
-                          <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', margin: 0 }}>
-                            <input
-                              type="checkbox"
-                              style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--brand-primary)' }}
-                              checked={Boolean(it.aparelhar)}
-                              onChange={e => handleUpdateItemInline(it.id, 'aparelhar', e.target.checked)}
-                              title={it.aparelhar ? 'Marcado para aparelhar / plainar' : 'Marcar para aparelhar / plainar'}
-                            />
-                          </label>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>-</span>
-                        )}
+                        {(() => {
+                          const prod = products.find(p => p.id === it.produto_id);
+                          const aceitaPlaina = it.permite_plaina !== undefined 
+                            ? Boolean(it.permite_plaina)
+                            : (prod ? (prod.permite_plaina !== undefined ? Boolean(prod.permite_plaina) : (it.tipo_calculo === 'ML' || it.tipo_calculo === 'M2')) : (it.tipo_calculo === 'ML' || it.tipo_calculo === 'M2'));
+
+                          if (!aceitaPlaina) {
+                            return <span style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600 }} title="Este material não aceita plaina / aparelhamento">-</span>;
+                          }
+
+                          return (
+                            <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', margin: 0 }}>
+                              <input
+                                type="checkbox"
+                                style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: 'var(--brand-primary)' }}
+                                checked={Boolean(it.aparelhar)}
+                                onChange={e => handleUpdateItemInline(it.id, 'aparelhar', e.target.checked)}
+                                title={it.aparelhar ? 'Marcado para aparelhar / plainar' : 'Marcar para aparelhar / plainar'}
+                              />
+                            </label>
+                          );
+                        })()}
                       </td>
                       <td className="align-right font-mono">
                         {it.metragem_total} {it.tipo_calculo === 'ML' ? 'ML' : (it.tipo_calculo === 'M2' ? 'm²' : 'un')}
@@ -1917,10 +2032,10 @@ export const BalcaoTab = () => {
               </span>
             </div>
 
-            {/* Preço Bruto / A Prazo */}
+            {/* Preço Bruto / Até 5x no Cartão */}
             <div style={{ padding: '5px 10px', background: '#EFF6FF', border: '1px solid #93C5FD', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#1E40AF', textTransform: 'uppercase' }}>A PRAZO (ATÉ 5X):</div>
+                <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#1E40AF', textTransform: 'uppercase' }}>BRUTO (ATÉ 5X NO CARTÃO):</div>
                 <div style={{ fontSize: '9px', color: '#2563EB' }}>CARTÃO CRÉDITO</div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -1974,7 +2089,7 @@ export const BalcaoTab = () => {
 
           {!order.pagamento_dividido ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center', flex: 1 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: order.forma_pagamento === 'Cartão de Crédito' ? '1fr 95px' : '1fr', gap: '6px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: order.forma_pagamento === 'Cartão de Crédito' ? '1fr 140px' : '1fr', gap: '6px' }}>
                 <select
                   className="form-select"
                   style={{ height: '30px', fontWeight: 600, fontSize: '12px' }}
@@ -1997,16 +2112,19 @@ export const BalcaoTab = () => {
                 {order.forma_pagamento === 'Cartão de Crédito' && (
                   <select
                     className="form-select font-mono"
-                    style={{ height: '30px', fontWeight: 700, fontSize: '11.5px' }}
+                    style={{ height: '30px', fontWeight: 700, fontSize: '11px' }}
                     value={order.cartao_parcelas || 1}
                     onChange={e => setOrder(prev => ({ ...prev, cartao_parcelas: parseInt(e.target.value) || 1 }))}
-                    title="Parcelas no Cartão (Máximo 5x)"
+                    title="Parcelas no Cartão de Crédito (Máximo 5x)"
                   >
-                    <option value={1}>1x (À vista)</option>
-                    <option value={2}>2x</option>
-                    <option value={3}>3x</option>
-                    <option value={4}>4x</option>
-                    <option value={5}>5x (Máx)</option>
+                    {[1, 2, 3, 4, 5].map(n => {
+                      const pCalc = CalcEngine.calcularCartaoCredito(totais.valor_total, n, config?.percentual_preco_bruto);
+                      return (
+                        <option key={n} value={n}>
+                          {n}x (+{pCalc.percentual}%) — {n > 1 ? `${n}x ${CalcEngine.formatBRL(pCalc.valor_parcela)}` : CalcEngine.formatBRL(pCalc.valor_total)}
+                        </option>
+                      );
+                    })}
                   </select>
                 )}
               </div>
@@ -2030,101 +2148,170 @@ export const BalcaoTab = () => {
                 )}
                 {order.forma_pagamento === 'Cartão de Débito' && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>💳 Cobrar no <strong>Débito</strong>:</span>
+                    <span>💳 Cobrar no <strong>Débito (+{totais.percentual_debito}%)</strong>:</span>
                     <strong className="font-mono" style={{ fontSize: '13.5px', color: '#92400E' }}>{CalcEngine.formatBRL(totais.valor_total_debito)}</strong>
                   </div>
                 )}
-                {order.forma_pagamento === 'Cartão de Crédito' && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>💳 Crédito <strong>{order.cartao_parcelas || 1}x</strong>:</span>
-                    <strong className="font-mono" style={{ fontSize: '13.5px', color: '#1E40AF' }}>
-                      {CalcEngine.formatBRL(totais.valor_total_bruto)}
-                      {(order.cartao_parcelas || 1) > 1 && (
-                        <span style={{ fontSize: '10.5px', color: '#1E40AF', fontWeight: 600, marginLeft: '4px' }}>
-                          ({order.cartao_parcelas}x {CalcEngine.formatBRL(totais.valor_total_bruto / order.cartao_parcelas)})
-                        </span>
-                      )}
-                    </strong>
-                  </div>
-                )}
+                {order.forma_pagamento === 'Cartão de Crédito' && (() => {
+                  const creditCalc = CalcEngine.calcularCartaoCredito(totais.valor_total, order.cartao_parcelas || 1, config?.percentual_preco_bruto);
+                  return (
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>💳 Crédito <strong>{creditCalc.parcelas}x (+{creditCalc.percentual}%)</strong>:</span>
+                        <strong className="font-mono" style={{ fontSize: '13.5px', color: '#1E40AF' }}>
+                          {CalcEngine.formatBRL(creditCalc.valor_total)}
+                        </strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2px', fontSize: '11px', color: '#1E40AF' }}>
+                        <span>Passar na maquininha:</span>
+                        <strong className="font-mono">
+                          {creditCalc.parcelas > 1 ? (
+                            <span>{creditCalc.parcelas}x de <span style={{ textDecoration: 'underline' }}>{CalcEngine.formatBRL(creditCalc.valor_parcela)}</span></span>
+                          ) : (
+                            <span>1x de {CalcEngine.formatBRL(creditCalc.valor_total)}</span>
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ maxHeight: '115px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div style={{ maxHeight: '135px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '4px', paddingRight: '2px' }}>
                 {(order.pagamentos || []).map((pg, idx) => {
                   const isCred = pg.tipo === 'Cartão de Crédito';
+                  const isDeb = pg.tipo === 'Cartão de Débito';
                   const parc = isCred ? Math.min(5, Math.max(1, parseInt(pg.parcelas) || 1)) : 1;
+                  const cobranca = CalcEngine.calcularCobrancaForma(pg.tipo, pg.valor, parc, config);
+
                   return (
-                    <div key={pg.id || idx} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <select
-                        className="form-select"
-                        style={{ height: '28px', fontSize: '11.5px', flex: 1 }}
-                        value={pg.tipo}
-                        onChange={e => handleUpdatePaymentLine(pg.id, 'tipo', e.target.value)}
-                      >
-                        <option value="Pix">Pix</option>
-                        <option value="Dinheiro">Dinheiro</option>
-                        <option value="Cartão de Débito">Cartão de Débito</option>
-                        <option value="Cartão de Crédito">Cartão de Crédito</option>
-                      </select>
-
-                      {isCred && (
+                    <div key={pg.id || idx} style={{
+                      background: '#FFFFFF',
+                      border: '1px solid #E2E8F0',
+                      borderRadius: '5px',
+                      padding: '3px 5px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <select
-                          className="form-select font-mono"
-                          style={{ height: '28px', fontSize: '11px', width: '65px' }}
-                          value={parc}
-                          onChange={e => handleUpdatePaymentLine(pg.id, 'parcelas', e.target.value)}
+                          className="form-select"
+                          style={{ height: '26px', fontSize: '11px', flex: 1, fontWeight: 600, padding: '1px 4px' }}
+                          value={pg.tipo}
+                          onChange={e => handleUpdatePaymentLine(pg.id, 'tipo', e.target.value)}
                         >
-                          <option value={1}>1x</option>
-                          <option value={2}>2x</option>
-                          <option value={3}>3x</option>
-                          <option value={4}>4x</option>
-                          <option value={5}>5x</option>
+                          <option value="Pix">Pix</option>
+                          <option value="Dinheiro">Dinheiro</option>
+                          <option value="Cartão de Débito">Cartão de Débito</option>
+                          <option value="Cartão de Crédito">Cartão de Crédito</option>
                         </select>
-                      )}
 
-                      <input
-                        type="number"
-                        step="0.50"
-                        min="0"
-                        className="form-input font-mono"
-                        style={{ height: '28px', width: '90px', padding: '2px 6px', textAlign: 'right', fontWeight: 700 }}
-                        value={pg.valor === 0 ? '' : (pg.valor ?? '')}
-                        placeholder="R$ 0,00"
-                        onChange={e => handleUpdatePaymentLine(pg.id, 'valor', e.target.value)}
-                      />
+                        {isCred && (
+                          <select
+                            className="form-select font-mono"
+                            style={{ height: '26px', fontSize: '10.5px', width: '82px', fontWeight: 700, padding: '1px 3px' }}
+                            value={parc}
+                            onChange={e => handleUpdatePaymentLine(pg.id, 'parcelas', e.target.value)}
+                            title="Parcelas no Cartão"
+                          >
+                            {[1, 2, 3, 4, 5].map(n => {
+                              const pct = CalcEngine.getPercentualCartaoCredito(n, config?.percentual_preco_bruto);
+                              return (
+                                <option key={n} value={n}>
+                                  {n}x (+{pct}%)
+                                </option>
+                              );
+                            })}
+                          </select>
+                        )}
 
-                      {(order.pagamentos || []).length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePaymentLine(pg.id)}
-                          style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', fontSize: '15px', padding: '0 3px' }}
-                          title="Remover"
-                        >
-                          &times;
-                        </button>
+                        <input
+                          type="number"
+                          step="0.50"
+                          min="0"
+                          className="form-input font-mono"
+                          style={{ height: '26px', width: '85px', padding: '1px 4px', textAlign: 'right', fontWeight: 700, fontSize: '11px' }}
+                          value={pg.valor === 0 ? '' : (pg.valor ?? '')}
+                          placeholder="R$ 0,00"
+                          onChange={e => handleUpdatePaymentLine(pg.id, 'valor', e.target.value)}
+                          title="Valor base desta forma"
+                        />
+
+                        {(order.pagamentos || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePaymentLine(pg.id)}
+                            style={{ background: 'none', border: 'none', color: '#DC2626', cursor: 'pointer', fontSize: '15px', padding: '0 2px', lineHeight: 1 }}
+                            title="Remover forma"
+                          >
+                            &times;
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Informativo dinâmico da parcela / maquininha */}
+                      {(parseFloat(pg.valor) || 0) > 0 && (
+                        <div style={{
+                          fontSize: '10px',
+                          padding: '1.5px 5px',
+                          borderRadius: '3px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          background: isCred ? '#EFF6FF' : isDeb ? '#FEF3C7' : '#F0FDF4',
+                          color: isCred ? '#1E40AF' : isDeb ? '#92400E' : '#166534',
+                          border: `1px solid ${isCred ? '#BFDBFE' : isDeb ? '#FDE68A' : '#BBF7D0'}`
+                        }}>
+                          {isCred && (
+                            <>
+                              <span>💳 <strong>Passar na maquininha:</strong></span>
+                              <span>
+                                <strong className="font-mono">
+                                  {parc > 1 ? `${parc}x de ${CalcEngine.formatBRL(cobranca.valor_parcela)}` : CalcEngine.formatBRL(cobranca.valor_total)}
+                                </strong>
+                                <span style={{ marginLeft: '3px', opacity: 0.85, fontSize: '9px' }}>
+                                  ({CalcEngine.formatBRL(cobranca.valor_total)} | +{cobranca.percentual}%)
+                                </span>
+                              </span>
+                            </>
+                          )}
+                          {isDeb && (
+                            <>
+                              <span>💳 <strong>Débito (+{cobranca.percentual}%):</strong></span>
+                              <strong className="font-mono">{CalcEngine.formatBRL(cobranca.valor_total)}</strong>
+                            </>
+                          )}
+                          {!isCred && !isDeb && (
+                            <>
+                              <span>{pg.tipo === 'Pix' ? '📱 Pix:' : '💵 Dinheiro:'}</span>
+                              <strong className="font-mono">{CalcEngine.formatBRL(cobranca.valor_total)}</strong>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
                 })}
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginTop: '1px' }}>
                 <button
                   type="button"
                   onClick={handleAddPaymentLine}
                   className="btn btn-sm btn-secondary"
-                  style={{ fontSize: '10.5px', padding: '2px 8px', height: '24px' }}
+                  style={{ fontSize: '10.5px', padding: '1px 7px', height: '22px' }}
                 >
                   + Forma
                 </button>
 
                 <div>
                   {Math.abs(diferencaAlocacao) < 0.01 ? (
-                    <span style={{ color: '#047857', fontWeight: 700 }}>✓ Total 100% OK</span>
+                    <span style={{ color: '#047857', fontWeight: 700 }}>✓ Distribuição 100% OK</span>
                   ) : diferencaAlocacao > 0 ? (
-                    <span style={{ color: '#D97706', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: '#D97706', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                       <span>Falta: <strong>{CalcEngine.formatBRL(diferencaAlocacao)}</strong></span>
                       <button
                         type="button"
@@ -2132,7 +2319,7 @@ export const BalcaoTab = () => {
                           const lastId = order.pagamentos?.[order.pagamentos.length - 1]?.id;
                           if (lastId) handleAutofillRemaining(lastId);
                         }}
-                        style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#92400E', borderRadius: '3px', padding: '1px 5px', fontSize: '10px', cursor: 'pointer', fontWeight: 600 }}
+                        style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#92400E', borderRadius: '3px', padding: '0 4px', fontSize: '9.5px', cursor: 'pointer', fontWeight: 600 }}
                       >
                         Completar
                       </button>
@@ -2142,6 +2329,30 @@ export const BalcaoTab = () => {
                   )}
                 </div>
               </div>
+
+              {resumoCobrancaDividida.totalAcrescimo > 0 && (
+                <div style={{
+                  background: '#F1F5F9',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '4px',
+                  padding: '3px 6px',
+                  fontSize: '10.5px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)' }}>Acréscimo Cartões: </span>
+                    <strong style={{ color: '#1E40AF' }}>+{CalcEngine.formatBRL(resumoCobrancaDividida.totalAcrescimo)}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', marginRight: '3px' }}>Total a Receber:</span>
+                    <strong className="font-mono" style={{ fontSize: '12px', color: '#047857' }}>
+                      {CalcEngine.formatBRL(resumoCobrancaDividida.totalCobrado)}
+                    </strong>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -85,5 +85,42 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, count: items.length });
   }
 
+  // DELETE: Remove cliente do banco
+  if (req.method === 'DELETE') {
+    let id = req.query?.id;
+    if (!id && req.body) {
+      try {
+        const parsed = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        id = parsed?.id;
+      } catch {}
+    }
+    if (!id && req.url) {
+      try {
+        const parsedUrl = new URL(req.url, 'http://localhost');
+        id = parsedUrl.searchParams.get('id');
+      } catch {}
+    }
+
+    if (!id) {
+      return res.status(400).json({ error: 'ID do cliente obrigatório' });
+    }
+
+    const cleanId = String(id).trim().slice(0, 60);
+
+    if (pool) {
+      try {
+        await safeQuery(pool, 'DELETE FROM clientes WHERE id = $1', [cleanId]);
+        return res.status(200).json({ success: true, id: cleanId });
+      } catch (err) {
+        console.error('[API/clientes] Database delete error:', err.message);
+        return res.status(500).json({ error: 'Erro ao excluir cliente do banco.' });
+      }
+    }
+
+    if (!inMemoryClientes) inMemoryClientes = [];
+    inMemoryClientes = inMemoryClientes.filter(c => c && c.id !== cleanId);
+    return res.status(200).json({ success: true, id: cleanId });
+  }
+
   return res.status(405).json({ error: 'Method not allowed' });
 }

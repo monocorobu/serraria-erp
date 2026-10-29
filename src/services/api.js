@@ -94,6 +94,20 @@ export const ApiClient = {
     return null;
   },
 
+  async deleteProduto(id) {
+    try {
+      const res = await fetch(`/api/produtos?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      // Offline fallback
+    }
+    return null;
+  },
+
   // --- CONFIGURAÇÃO ---
   async getConfig() {
     try {
@@ -136,6 +150,59 @@ export const ApiClient = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cliente)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      // Offline fallback
+    }
+    return null;
+  },
+
+  async deleteCliente(id) {
+    try {
+      const res = await fetch(`/api/clientes?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      // Offline fallback
+    }
+    return null;
+  },
+
+  // --- FUNCIONÁRIOS & EQUIPE ---
+  async getFuncionarios() {
+    try {
+      const res = await fetch('/api/funcionarios');
+      if (res.ok) return await res.json();
+    } catch (e) {
+      // Offline fallback
+    }
+    return null;
+  },
+
+  async saveFuncionario(funcionario) {
+    try {
+      const res = await fetch('/api/funcionarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(funcionario)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      // Offline fallback
+    }
+    return null;
+  },
+
+  async deleteFuncionario(id) {
+    try {
+      const res = await fetch(`/api/funcionarios?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
       });
       if (res.ok) return await res.json();
     } catch (e) {

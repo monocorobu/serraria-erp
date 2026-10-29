@@ -50,8 +50,6 @@ export const GerenteTab = () => {
     desconto_maximo_livre: config.desconto_maximo_livre !== undefined ? config.desconto_maximo_livre : 5.0,
     percentual_preco_bruto: config.percentual_preco_bruto !== undefined ? config.percentual_preco_bruto : 20.0,
     percentual_taxa_debito: config.percentual_taxa_debito !== undefined ? config.percentual_taxa_debito : 2.5,
-    taxa_plaina_padrao_ml: config.taxa_plaina_padrao_ml || 3.50,
-    taxa_plaina_padrao_m2: config.taxa_plaina_padrao_m2 || 8.00,
     meta_faturamento_mensal: config.meta_faturamento_mensal || 150000,
     nome_madeireira: config.nome_madeireira || 'Serraria e Madeireira Bom Jesus',
     cnpj_madeireira: config.cnpj_madeireira || '16.482.988/0001-02',
@@ -67,8 +65,6 @@ export const GerenteTab = () => {
         desconto_maximo_livre: config.desconto_maximo_livre !== undefined ? config.desconto_maximo_livre : 5.0,
         percentual_preco_bruto: config.percentual_preco_bruto !== undefined ? config.percentual_preco_bruto : 20.0,
         percentual_taxa_debito: config.percentual_taxa_debito !== undefined ? config.percentual_taxa_debito : 2.5,
-        taxa_plaina_padrao_ml: config.taxa_plaina_padrao_ml || 3.50,
-        taxa_plaina_padrao_m2: config.taxa_plaina_padrao_m2 || 8.00,
         meta_faturamento_mensal: config.meta_faturamento_mensal || 150000,
         nome_madeireira: config.nome_madeireira || 'Serraria e Madeireira Bom Jesus',
         cnpj_madeireira: config.cnpj_madeireira || '16.482.988/0001-02',
@@ -153,8 +149,6 @@ export const GerenteTab = () => {
       desconto_maximo_livre: parseFloat(paramsForm.desconto_maximo_livre) || 5.0,
       percentual_preco_bruto: parseFloat(paramsForm.percentual_preco_bruto) || 20.0,
       percentual_taxa_debito: parseFloat(paramsForm.percentual_taxa_debito) || 2.5,
-      taxa_plaina_padrao_ml: parseFloat(paramsForm.taxa_plaina_padrao_ml) || 3.50,
-      taxa_plaina_padrao_m2: parseFloat(paramsForm.taxa_plaina_padrao_m2) || 8.00,
       meta_faturamento_mensal: parseFloat(paramsForm.meta_faturamento_mensal) || 150000
     };
 
@@ -323,10 +317,10 @@ export const GerenteTab = () => {
       return;
     }
 
-    // Se for conta de Administrador Geral sendo excluída por alguém que não é DEV:
-    const isMainAdmin = usr.id === 'usr_admin' || usr.username === 'admin';
-    if (isMainAdmin && !isDev) {
-      showToast('Apenas a conta de Desenvolvedor (DEV) possui privilégio para excluir o Administrador Geral.', 'error');
+    // Garante que o sistema nunca fique sem nenhum Administrador
+    const adminCount = users.filter(u => (u.perfil === 'ADMIN' || u.perfil === 'DEV') && u.ativo !== false).length;
+    if ((usr.perfil === 'ADMIN' || usr.username === 'admin') && adminCount <= 1 && !isDev) {
+      showToast('O sistema precisa manter ao menos uma conta de Administrador ativa.', 'error');
       setModalExcluirUsuario({ isOpen: false, usuario: null });
       return;
     }
@@ -382,7 +376,7 @@ export const GerenteTab = () => {
             <div className="panel-header">
               <span className="panel-title">
                 <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                Política de Preço Bruto (Venda a Prazo / Cartão)
+                Política de Preço Bruto (Até 5x no Cartão)
               </span>
             </div>
             <div className="panel-body">
@@ -454,7 +448,7 @@ export const GerenteTab = () => {
             <div className="panel-header">
               <span className="panel-title">
                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                Precificação & Taxas de Cartão (Débito e A Prazo)
+                Precificação & Taxas de Cartão (Débito e Até 5x no Cartão)
               </span>
             </div>
             <div className="panel-body">
@@ -473,7 +467,7 @@ export const GerenteTab = () => {
                   </span>
                 </div>
                 <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: 600 }}>Acréscimo Preço Bruto / A Prazo (%):</label>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Acréscimo Cartão 5x / Preço Bruto (%):</label>
                   <input 
                     type="number" 
                     step="0.5" 
@@ -482,44 +476,35 @@ export const GerenteTab = () => {
                     onChange={e => setParamsForm(prev => ({ ...prev, percentual_preco_bruto: e.target.value }))}
                   />
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                    Acréscimo comercial para vendas a prazo ou parceladas no crédito (Padrão: <code>20.0%</code>).
+                    Taxa máxima do cartão em 5x. Cada parcela adiciona 1/5 desta taxa (ex: se 20% ➔ 1x: 4%, 2x: 8%, 3x: 12%, 4x: 16%, 5x: 20%).
                   </span>
+                  <div style={{ marginTop: '5px', padding: '3px 8px', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '10.5px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {[1, 2, 3, 4, 5].map(n => {
+                      const p = parseFloat(paramsForm.percentual_preco_bruto) || 0;
+                      const pctN = ((p / 5) * n).toFixed(1);
+                      return (
+                        <span key={n} style={{ color: '#1E40AF', fontWeight: 600 }}>
+                          {n}x: <strong>+{pctN}%</strong>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* PAINEL DE TAXAS OPERACIONAIS */}
+          {/* PAINEL DE METAS OPERACIONAIS */}
           <div className="panel" style={{ marginBottom: '16px' }}>
             <div className="panel-header">
               <span className="panel-title">
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                Taxas Operacionais de Madeira & Metas
+                Metas Operacionais da Serraria
               </span>
             </div>
             <div className="panel-body">
-              <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-                <div className="form-group">
-                  <label className="form-label">Taxa Plaina / Benefic. (R$/ML):</label>
-                  <input 
-                    type="number" 
-                    step="0.50" 
-                    className="form-input font-mono" 
-                    value={paramsForm.taxa_plaina_padrao_ml}
-                    onChange={e => setParamsForm(prev => ({ ...prev, taxa_plaina_padrao_ml: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Taxa Plaina Área (R$/M²):</label>
-                  <input 
-                    type="number" 
-                    step="0.50" 
-                    className="form-input font-mono" 
-                    value={paramsForm.taxa_plaina_padrao_m2}
-                    onChange={e => setParamsForm(prev => ({ ...prev, taxa_plaina_padrao_m2: e.target.value }))}
-                  />
-                </div>
-                <div className="form-group">
+              <div className="form-grid" style={{ gridTemplateColumns: '1fr 1.5fr', alignItems: 'center' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Meta Mensal da Serraria (R$):</label>
                   <input 
                     type="number" 
@@ -528,6 +513,17 @@ export const GerenteTab = () => {
                     value={paramsForm.meta_faturamento_mensal}
                     onChange={e => setParamsForm(prev => ({ ...prev, meta_faturamento_mensal: e.target.value }))}
                   />
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginTop: '4px' }}>
+                    Utilizada no cálculo de progresso da barra superior e relatórios.
+                  </span>
+                </div>
+                <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderLeft: '4px solid #16A34A', borderRadius: '8px', padding: '12px 14px', fontSize: '12px', color: '#166534' }}>
+                  <div style={{ fontWeight: 700, color: '#14532D', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    Taxa de Plaina / Aparelhamento: 100% Manual no Balcão
+                  </div>
+                  <span>
+                    O valor/porcentagem da plaina agora é informado diretamente pelo operador no momento do fechamento do pedido no Balcão (aplicando exclusivamente sobre as peças que possuem o check <strong>[✓ Plaina]</strong>).
+                  </span>
                 </div>
               </div>
             </div>

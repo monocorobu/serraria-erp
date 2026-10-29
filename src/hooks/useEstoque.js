@@ -26,6 +26,7 @@ export function useEstoque(showToast) {
   const deleteProduct = useCallback((prodId) => {
     DB.excluirProduto(prodId);
     setProducts(DB.getProdutos());
+    ApiClient.deleteProduto(prodId).catch(() => {});
     if (showToast) showToast('Produto removido do catálogo.', 'info');
   }, [showToast]);
 

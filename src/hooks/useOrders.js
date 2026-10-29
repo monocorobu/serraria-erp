@@ -39,6 +39,7 @@ export function useOrders(showToast, onOrderSaved) {
       const cancelled = { ...found, status: 'CANCELADO' };
       DB.salvarPedido(cancelled);
       setOrders(DB.getPedidos());
+      ApiClient.savePedido(cancelled).catch(() => {});
       if (showToast) showToast(`Pedido #${found.numero} cancelado com sucesso.`, 'info');
     }
   }, [showToast]);
@@ -140,7 +141,14 @@ export function useOrders(showToast, onOrderSaved) {
     texto += `\n*VALORES DA PROPOSTA:*`;
     texto += `\n• *À VISTA (Pix / Dinheiro):* ${total}`;
     texto += `\n• *NO DÉBITO / CARTÃO:* ${totalDebito}`;
-    texto += `\n• *PREÇO BRUTO (A Prazo / Cartão em até 12x):* ${totalBruto}`;
+    texto += `\n• *PREÇO BRUTO (até 5x no cartão):* ${totalBruto}`;
+
+    if (p.forma_pagamento || p.resumo_financeiro?.forma_pagamento) {
+      texto += `\n• *Pagamento Escolhido:* ${p.forma_pagamento || p.resumo_financeiro?.forma_pagamento}`;
+      if (p.resumo_financeiro?.valor_total_cobrado && p.resumo_financeiro.valor_total_cobrado !== (p.resumo_financeiro?.valor_total || 0)) {
+        texto += `\n• *Total a Receber:* ${CalcEngine.formatBRL(p.resumo_financeiro.valor_total_cobrado)}`;
+      }
+    }
     texto += `\n\n_${rodapePersonalizado}_\n`;
     texto += `${cfg?.nome_madeireira || 'Serraria Bom Jesus'} • ${cidadeEmpresa} • Contato: ${telEmpresa}`;
 

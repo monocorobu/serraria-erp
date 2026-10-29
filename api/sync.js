@@ -38,12 +38,13 @@ export default async function handler(req, res) {
   try {
     await initTables(pool);
 
-    const [usrRes, pedRes, prodRes, cliRes, funcRes] = await Promise.all([
-      pool.query('SELECT COUNT(*)::int as total FROM usuarios'),
-      pool.query('SELECT COUNT(*)::int as total FROM pedidos'),
-      pool.query('SELECT COUNT(*)::int as total FROM produtos'),
-      pool.query('SELECT COUNT(*)::int as total FROM clientes'),
-      pool.query('SELECT COUNT(*)::int as total FROM funcionarios')
+    const [usrRes, pedRes, prodRes, cliRes, funcRes, cfgRes] = await Promise.all([
+      pool.query("SELECT COUNT(*)::int as total, COALESCE(MAX(updated_at), '1970-01-01'::timestamp)::text as last_mod FROM usuarios"),
+      pool.query("SELECT COUNT(*)::int as total, COALESCE(MAX(updated_at), '1970-01-01'::timestamp)::text as last_mod FROM pedidos"),
+      pool.query("SELECT COUNT(*)::int as total, COALESCE(MAX(updated_at), '1970-01-01'::timestamp)::text as last_mod FROM produtos"),
+      pool.query("SELECT COUNT(*)::int as total, COALESCE(MAX(updated_at), '1970-01-01'::timestamp)::text as last_mod FROM clientes"),
+      pool.query("SELECT COUNT(*)::int as total, COALESCE(MAX(updated_at), '1970-01-01'::timestamp)::text as last_mod FROM funcionarios"),
+      pool.query("SELECT COALESCE(MAX(updated_at), '1970-01-01'::timestamp)::text as last_mod FROM sistema_config")
     ]);
 
     return res.status(200).json({
@@ -56,6 +57,14 @@ export default async function handler(req, res) {
         produtos: prodRes.rows[0]?.total || 0,
         clientes: cliRes.rows[0]?.total || 0,
         funcionarios: funcRes.rows[0]?.total || 0
+      },
+      versions: {
+        usuarios: usrRes.rows[0]?.last_mod || '',
+        pedidos: pedRes.rows[0]?.last_mod || '',
+        produtos: prodRes.rows[0]?.last_mod || '',
+        clientes: cliRes.rows[0]?.last_mod || '',
+        funcionarios: funcRes.rows[0]?.last_mod || '',
+        config: cfgRes.rows[0]?.last_mod || ''
       },
       timestamp: new Date().toISOString()
     });
