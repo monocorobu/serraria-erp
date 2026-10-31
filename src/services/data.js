@@ -1622,19 +1622,18 @@ const DB = {
   },
 
   mergeClientes(remoteClientes) {
-    if (!Array.isArray(remoteClientes) || remoteClientes.length === 0) return this.getClientes();
+    if (!Array.isArray(remoteClientes)) return this.getClientes();
+    if (remoteClientes.length === 0) return this.getClientes();
+
+    // O banco na nuvem é a autoridade mestre para a lista de clientes
     const local = this.getClientes();
-    remoteClientes.forEach(rem => {
-      if (!rem || !rem.id) return;
-      const idx = local.findIndex(l => l.id === rem.id);
-      if (idx >= 0) {
-        local[idx] = { ...local[idx], ...rem };
-      } else {
-        local.push(rem);
-      }
+    const result = remoteClientes.map(rem => {
+      const localMatch = local.find(l => l.id === rem.id);
+      return localMatch ? { ...localMatch, ...rem } : rem;
     });
-    this.set(STORAGE_KEYS.CLIENTES, local);
-    return local;
+
+    this.set(STORAGE_KEYS.CLIENTES, result);
+    return result;
   },
 
   mergeProdutos(remoteProdutos) {
@@ -2099,7 +2098,32 @@ const DB = {
   },
 
   salvarCliente(clienteData) {
+    if (clienteData && clienteData.id) {
+      const clientes = this.getClientes();
+      const idx = clientes.findIndex(c => c.id === clienteData.id);
+      if (idx >= 0) {
+        clientes[idx] = {
+          ...clientes[idx],
+          ...clienteData,
+          updated_at: new Date().toISOString()
+        };
+        this.set(STORAGE_KEYS.CLIENTES, clientes);
+        return clientes[idx];
+      }
+    }
     return this.garantirCliente(clienteData);
+  },
+
+  excluirCliente(clienteId) {
+    const list = this.getClientes().filter(c => c.id !== clienteId);
+    this.set(STORAGE_KEYS.CLIENTES, list);
+    return true;
+  },
+
+  excluirCarpinteiro(carpinteiroId) {
+    const list = this.getCarpinteiros().filter(c => c.id !== carpinteiroId);
+    this.set(STORAGE_KEYS.CARPINTEIROS, list);
+    return true;
   }
 };
 

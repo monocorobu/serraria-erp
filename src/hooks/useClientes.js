@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { DB } from '../services/data.js';
+import { DB, STORAGE_KEYS } from '../services/data.js';
 import { ApiClient } from '../services/api.js';
 
 /**
@@ -25,6 +25,15 @@ export function useClientes(showToast) {
     return saved;
   }, []);
 
+  // Excluir cliente localmente e no banco em nuvem
+  const deleteClient = useCallback((clientId) => {
+    DB.excluirCliente(clientId);
+    setClients(DB.getClientes());
+    ApiClient.deleteCliente(clientId).catch(() => {});
+    if (showToast) showToast('Cliente excluído com sucesso!', 'info');
+    return true;
+  }, [showToast]);
+
   // Salvar carpinteiro parceiro
   const saveCarpenter = useCallback((carpinteiroData) => {
     const list = DB.getCarpinteiros();
@@ -44,10 +53,18 @@ export function useClientes(showToast) {
       };
       list.push(saved);
     }
-    DB.set(DB.STORAGE_KEYS?.CARPINTEIROS || 'serraria_carpinteiros_v1', list);
+    DB.set(STORAGE_KEYS?.CARPINTEIROS || 'serraria_carpinteiros_v2', list);
     setCarpenters(list);
     if (showToast) showToast('Carpinteiro parceiro salvo com sucesso!', 'success');
     return saved;
+  }, [showToast]);
+
+  // Excluir carpinteiro parceiro
+  const deleteCarpenter = useCallback((carpenterId) => {
+    DB.excluirCarpinteiro(carpenterId);
+    setCarpenters(DB.getCarpinteiros());
+    if (showToast) showToast('Carpinteiro parceiro excluído com sucesso!', 'info');
+    return true;
   }, [showToast]);
 
   // Pagamento de comissão (vendedor ou carpinteiro)
@@ -72,7 +89,9 @@ export function useClientes(showToast) {
     carpenters,
     setCarpenters,
     saveClient,
+    deleteClient,
     saveCarpenter,
+    deleteCarpenter,
     payCommission
   };
 }

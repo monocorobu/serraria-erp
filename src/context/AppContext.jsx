@@ -318,14 +318,15 @@ export const AppProvider = ({ children }) => {
       if (needsClients) {
         const remoteClientes = await ApiClient.getClientes();
         if (Array.isArray(remoteClientes)) {
-          const merged = DB.mergeClientes(remoteClientes);
-          setClients([...merged]);
-
-          const missingClientes = merged.filter(lc => 
-            lc && lc.id && !remoteClientes.some(rc => rc.id === lc.id)
-          );
-          if (missingClientes.length > 0) {
-            await ApiClient.saveCliente(missingClientes).catch(() => {});
+          if (remoteClientes.length === 0) {
+            // Se o banco na nuvem ainda estiver vazio, inicializa com os clientes locais
+            const localClientes = DB.getClientes();
+            if (localClientes.length > 0) {
+              await ApiClient.saveCliente(localClientes).catch(() => {});
+            }
+          } else {
+            const merged = DB.mergeClientes(remoteClientes);
+            setClients([...merged]);
           }
           last.clientes = versions.clientes;
         }
@@ -438,7 +439,9 @@ export const AppProvider = ({ children }) => {
     carpenters: clientesHook.carpenters,
     setCarpenters: clientesHook.setCarpenters,
     saveClient: clientesHook.saveClient,
+    deleteClient: clientesHook.deleteClient,
     saveCarpenter: clientesHook.saveCarpenter,
+    deleteCarpenter: clientesHook.deleteCarpenter,
     payCommission: clientesHook.payCommission,
 
     // Usuário & Sessão RBAC (useAuth)

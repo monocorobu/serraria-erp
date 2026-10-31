@@ -59,11 +59,11 @@ export default async function handler(req, res) {
         funcionarios: funcRes.rows[0]?.total || 0
       },
       versions: {
-        usuarios: usrRes.rows[0]?.last_mod || '',
-        pedidos: pedRes.rows[0]?.last_mod || '',
-        produtos: prodRes.rows[0]?.last_mod || '',
-        clientes: cliRes.rows[0]?.last_mod || '',
-        funcionarios: funcRes.rows[0]?.last_mod || '',
+        usuarios: `${usrRes.rows[0]?.total || 0}_${usrRes.rows[0]?.last_mod || ''}`,
+        pedidos: `${pedRes.rows[0]?.total || 0}_${pedRes.rows[0]?.last_mod || ''}`,
+        produtos: `${prodRes.rows[0]?.total || 0}_${prodRes.rows[0]?.last_mod || ''}`,
+        clientes: `${cliRes.rows[0]?.total || 0}_${cliRes.rows[0]?.last_mod || ''}`,
+        funcionarios: `${funcRes.rows[0]?.total || 0}_${funcRes.rows[0]?.last_mod || ''}`,
         config: cfgRes.rows[0]?.last_mod || ''
       },
       timestamp: new Date().toISOString()

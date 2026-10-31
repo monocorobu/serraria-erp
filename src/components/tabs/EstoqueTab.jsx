@@ -468,25 +468,24 @@ export const EstoqueTab = () => {
       {/* TABELA DE ESTOQUE */}
       <div className="panel">
         <div className="table-responsive">
-          <table className="dense-table" style={{ width: '100%' }}>
+          <table className="dense-table estoque-table" style={{ width: '100%' }}>
             <thead>
               <tr>
-                <th style={{ width: '85px' }}>Código</th>
+                <th style={{ width: '70px', whiteSpace: 'nowrap' }}>Código</th>
                 <th>Descrição do Produto & Espécie</th>
-                <th style={{ width: '180px' }}>Categorias</th>
-                <th style={{ width: '100px' }} className="align-center">Bitola / Dim.</th>
-                <th style={{ width: '60px' }} className="align-center">Unid.</th>
-                <th style={{ width: '110px' }} className="align-right">Preço À Vista</th>
-                <th style={{ width: '115px' }} className="align-right">Preço Bruto (+{pctBruto}%)</th>
-                <th style={{ width: '110px' }} className="align-center">Saldo Atual</th>
-                <th style={{ width: '90px' }} className="align-center">Status</th>
-                <th style={{ width: '180px' }} className="align-center">Ações</th>
+                <th style={{ width: '135px' }}>Categorias</th>
+                <th style={{ width: '45px', whiteSpace: 'nowrap' }} className="align-center">Unid.</th>
+                <th style={{ width: '95px', whiteSpace: 'nowrap' }} className="align-right">Preço À Vista</th>
+                <th style={{ width: '105px', whiteSpace: 'nowrap' }} className="align-right">Preço Bruto (+{pctBruto}%)</th>
+                <th style={{ width: '80px', whiteSpace: 'nowrap' }} className="align-center">Saldo Atual</th>
+                <th style={{ width: '75px', whiteSpace: 'nowrap' }} className="align-center">Status</th>
+                <th style={{ width: '155px', whiteSpace: 'nowrap' }} className="align-center">Ações</th>
               </tr>
             </thead>
             <tbody>
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                  <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                     Nenhum produto encontrado com os filtros aplicados.
                   </td>
                 </tr>
@@ -504,12 +503,17 @@ export const EstoqueTab = () => {
 
                   return (
                     <tr key={p.id}>
-                      <td className="font-mono" style={{ fontWeight: 700, color: 'var(--primary-green)' }}>
+                      <td className="font-mono" style={{ fontWeight: 700, color: 'var(--primary-green)', whiteSpace: 'nowrap' }}>
                         {p.codigo}
                       </td>
                       <td>
                         <strong>{p.nome}</strong>
                         {p.especie && <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '6px' }}>({p.especie})</span>}
+                        {p.largura_cm ? (
+                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '6px', fontFamily: 'var(--font-mono)' }}>
+                            [{p.espessura_cm || 0}x{p.largura_cm}cm]
+                          </span>
+                        ) : null}
                         {p.permite_plaina ? (
                           <span className="badge-tag" style={{ marginLeft: '6px', fontSize: '9.5px', background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', padding: '1px 5px', fontWeight: 700 }} title="Aceita plaina / aparelhamento">
                             Plaina
@@ -517,10 +521,10 @@ export const EstoqueTab = () => {
                         ) : null}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
                           {pCats.length > 0 ? (
                             pCats.map(c => (
-                              <span key={c} className="category-chip" style={{ fontSize: '10px', padding: '1px 6px' }}>
+                              <span key={c} className="category-chip" style={{ fontSize: '10px', padding: '1px 5px', whiteSpace: 'nowrap' }}>
                                 {c}
                               </span>
                             ))
@@ -529,17 +533,14 @@ export const EstoqueTab = () => {
                           )}
                         </div>
                       </td>
-                      <td className="align-center font-mono" style={{ fontSize: '11.5px' }}>
-                        {p.largura_cm ? `${p.espessura_cm || 0}x${p.largura_cm}cm` : '-'}
-                      </td>
-                      <td className="align-center font-mono">{p.tipo_calculo}</td>
-                      <td className="align-right font-mono" style={{ fontWeight: 700, color: '#047857' }}>
+                      <td className="align-center font-mono" style={{ whiteSpace: 'nowrap' }}>{p.tipo_calculo}</td>
+                      <td className="align-right font-mono" style={{ fontWeight: 700, color: '#047857', whiteSpace: 'nowrap' }}>
                         {CalcEngine.formatBRL(precoAVista)}
                       </td>
-                      <td className="align-right font-mono" style={{ fontWeight: 700, color: '#1E40AF' }}>
+                      <td className="align-right font-mono" style={{ fontWeight: 700, color: '#1E40AF', whiteSpace: 'nowrap' }}>
                         {CalcEngine.formatBRL(precoBruto)}
                       </td>
-                      <td className="align-center font-mono" style={{ fontWeight: 800, fontSize: '13px' }}>
+                      <td className="align-center font-mono" style={{ fontWeight: 800, fontSize: '12.5px', whiteSpace: 'nowrap' }}>
                         {saldo} un
                       </td>
                       <td className="align-center">
@@ -558,11 +559,11 @@ export const EstoqueTab = () => {
                         )}
                       </td>
                       <td className="align-center">
-                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center', flexWrap: 'nowrap' }}>
                           <button 
                             type="button"
                             className="btn btn-sm btn-secondary" 
-                            style={{ fontSize: '11px', padding: '2px 7px' }}
+                            style={{ fontSize: '11px', padding: '2px 6px', height: '24px' }}
                             onClick={() => handleAbrirEditar(p)}
                             title="Editar Dados e Categorias do Produto"
                           >
@@ -571,7 +572,7 @@ export const EstoqueTab = () => {
                           <button 
                             type="button"
                             className="btn btn-sm btn-secondary" 
-                            style={{ fontSize: '11px', padding: '2px 7px' }}
+                            style={{ fontSize: '11px', padding: '2px 6px', height: '24px' }}
                             onClick={() => setModalAjuste({ isOpen: true, product: p, novoSaldo: saldo })}
                             title="Ajustar Saldo Físico em Estoque"
                           >
@@ -583,7 +584,8 @@ export const EstoqueTab = () => {
                               className="btn btn-sm" 
                               style={{ 
                                 fontSize: '11px', 
-                                padding: '2px 7px', 
+                                padding: '2px 6px', 
+                                height: '24px',
                                 background: '#FEE2E2', 
                                 color: '#DC2626', 
                                 border: '1px solid #FCA5A5',
