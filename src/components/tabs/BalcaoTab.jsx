@@ -1449,7 +1449,6 @@ export const BalcaoTab = () => {
 
                           {(p.especie || p.largura_cm > 0 || p.comprimento_padrao_m > 0 || p.tipo_calculo) && (
                             <div className="combobox-item-bottom" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                              {p.especie && <span>Madeira: <strong style={{ color: 'var(--text-secondary)' }}>{p.especie}</strong></span>}
                               {p.largura_cm > 0 && <span>Largura: <strong style={{ color: 'var(--text-secondary)' }}>{p.largura_cm}cm</strong></span>}
                               {p.comprimento_padrao_m > 0 && <span>Comprimento: <strong style={{ color: 'var(--text-secondary)' }}>{p.comprimento_padrao_m}m</strong></span>}
                               <span style={{ color: p.tipo_calculo === 'ML' ? '#047857' : (p.tipo_calculo === 'M2' ? '#2563EB' : 'var(--text-muted)'), fontWeight: 500 }}>

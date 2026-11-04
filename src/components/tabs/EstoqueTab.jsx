@@ -36,8 +36,7 @@ export const EstoqueTab = () => {
     codigo: '',
     nome: '',
     categorias: [],
-    especie: 'Garapeira',
-    tipo_calculo: 'ML',
+        tipo_calculo: 'ML',
     largura_cm: 12,
     espessura_cm: 6,
     comprimento_padrao_m: 4.5,
@@ -153,8 +152,7 @@ export const EstoqueTab = () => {
       codigo: proximoCodigo,
       nome: '',
       categorias: [],
-      especie: '',
-      tipo_calculo: 'ML',
+            tipo_calculo: 'ML',
       permite_plaina: false,
       largura_cm: '',
       espessura_cm: '',
@@ -383,7 +381,7 @@ export const EstoqueTab = () => {
               <input 
                 type="text" 
                 className="form-input" 
-                placeholder="Buscar por Código, Madeira, Espécie ou Categoria..."
+                placeholder="Buscar por Código, Nome ou Categoria..."
                 value={searchTerm}
                 onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               />
@@ -472,7 +470,7 @@ export const EstoqueTab = () => {
             <thead>
               <tr>
                 <th style={{ width: '70px', whiteSpace: 'nowrap' }}>Código</th>
-                <th>Descrição do Produto & Espécie</th>
+                <th>Descrição do Produto</th>
                 <th style={{ width: '135px' }}>Categorias</th>
                 <th style={{ width: '45px', whiteSpace: 'nowrap' }} className="align-center">Unid.</th>
                 <th style={{ width: '95px', whiteSpace: 'nowrap' }} className="align-right">Preço À Vista</th>
@@ -508,7 +506,6 @@ export const EstoqueTab = () => {
                       </td>
                       <td>
                         <strong>{p.nome}</strong>
-                        {p.especie && <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '6px' }}>({p.especie})</span>}
                         {p.largura_cm ? (
                           <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: '6px', fontFamily: 'var(--font-mono)' }}>
                             [{p.espessura_cm || 0}x{p.largura_cm}cm]
@@ -788,18 +785,8 @@ export const EstoqueTab = () => {
                   </div>
                 </div>
 
-                {/* DIMENSÕES E ESPÉCIE */}
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-                  <div className="form-group">
-                    <label className="form-label">Espécie / Material:</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
-                      placeholder="Ex: Garapeira, Tauari, Pinus..." 
-                      value={formProduto.especie}
-                      onChange={e => setFormProduto(prev => ({ ...prev, especie: e.target.value }))}
-                    />
-                  </div>
+                {/* DIMENSÕES (OPCIONAL PARA MADEIRAS) */}
+                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
                   <div className="form-group">
                     <label className="form-label">Largura (cm):</label>
                     <input 
@@ -807,6 +794,7 @@ export const EstoqueTab = () => {
                       step="0.5"
                       min="0"
                       className="form-input font-mono" 
+                      placeholder="Opcional (madeiras)"
                       value={formProduto.largura_cm}
                       onChange={e => setFormProduto(prev => ({ ...prev, largura_cm: e.target.value }))}
                     />
@@ -818,6 +806,7 @@ export const EstoqueTab = () => {
                       step="0.5"
                       min="0"
                       className="form-input font-mono" 
+                      placeholder="Opcional (madeiras)"
                       value={formProduto.espessura_cm}
                       onChange={e => setFormProduto(prev => ({ ...prev, espessura_cm: e.target.value }))}
                     />

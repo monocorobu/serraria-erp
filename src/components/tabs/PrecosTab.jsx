@@ -438,20 +438,7 @@ export const PrecosTab = () => {
               ))}
             </select>
 
-            {/* FILTRAR POR ESPÉCIE */}
-            <select
-              className="form-select"
-              value={especieFilter}
-              onChange={e => setEspecieFilter(e.target.value)}
-              style={{ width: '160px', fontSize: '12px', height: '32px' }}
-            >
-              <option value="TODAS">Todas as Espécies</option>
-              {especies.map(esp => (
-                <option key={esp} value={esp}>
-                  {esp} ({contagemPorEspecie[esp] || 0})
-                </option>
-              ))}
-            </select>
+            
 
             {/* FILTRAR POR TEXTO */}
             <input 
@@ -472,7 +459,6 @@ export const PrecosTab = () => {
                 <th style={{ width: '85px' }}>Código</th>
                 <th>Nome do Produto / Madeira</th>
                 <th style={{ width: '180px' }}>Categorias</th>
-                <th style={{ width: '110px' }}>Espécie</th>
                 <th style={{ width: '60px' }} className="align-center">Unid.</th>
                 <th style={{ width: '140px' }} className="align-right">Preço Unit. À Vista</th>
                 <th style={{ width: '150px' }} className="align-right">Preço Unit. Bruto (+{pctBruto}%)</th>
@@ -482,7 +468,7 @@ export const PrecosTab = () => {
             <tbody>
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                     Nenhum produto encontrado com os filtros aplicados.
                   </td>
                 </tr>
@@ -520,7 +506,6 @@ export const PrecosTab = () => {
                           )}
                         </div>
                       </td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{p.especie || '-'}</td>
                       <td className="align-center font-mono">{p.tipo_calculo}</td>
                       <td className="align-right">
                         {isAdmin ? (
