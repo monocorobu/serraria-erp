@@ -148,6 +148,12 @@ export function useOrders(showToast, onOrderSaved) {
       if (p.resumo_financeiro?.valor_total_cobrado && p.resumo_financeiro.valor_total_cobrado !== (p.resumo_financeiro?.valor_total || 0)) {
         texto += `\n• *Total a Receber:* ${CalcEngine.formatBRL(p.resumo_financeiro.valor_total_cobrado)}`;
       }
+    if ((p.resumo_financeiro?.saldo_a_receber || 0) > 0) {
+      if ((p.resumo_financeiro?.valor_sinal || 0) > 0) {
+        texto += `\n• *Sinal Pago no Balcão:* ${CalcEngine.formatBRL(p.resumo_financeiro.valor_sinal)}`;
+      }
+      texto += `\n• *A Pagar na Entrega (ao Motorista):* ${CalcEngine.formatBRL(p.resumo_financeiro.saldo_a_receber)}`;
+    }
     }
     texto += `\n\n_${rodapePersonalizado}_\n`;
     texto += `${cfg?.nome_madeireira || 'Serraria Bom Jesus'} • ${cidadeEmpresa} • Contato: ${telEmpresa}`;

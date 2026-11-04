@@ -188,7 +188,8 @@ export const BalcaoTab = () => {
       if (found) {
         const rawForma = found.resumo_financeiro?.forma_pagamento_tipo || found.forma_pagamento || 'Pix';
         let normForma = 'Pix';
-        if (rawForma.includes('Crédito')) normForma = 'Cartão de Crédito';
+        if (rawForma.includes('Entrega')) normForma = 'Pagar na Entrega';
+        else if (rawForma.includes('Crédito')) normForma = 'Cartão de Crédito';
         else if (rawForma.includes('Débito')) normForma = 'Cartão de Débito';
         else if (rawForma.includes('Dinheiro')) normForma = 'Dinheiro';
 
@@ -594,16 +595,39 @@ export const BalcaoTab = () => {
 
   // Cálculos de Totais em Tempo Real
   const totais = useMemo(() => {
+    let sinalAtual = 0;
+    if (order.pagamento_dividido) {
+      const temEntrega = (order.pagamentos || []).some(p => p.tipo === 'Pagar na Entrega');
+      if (temEntrega) {
+        sinalAtual = (order.pagamentos || [])
+          .filter(p => p.tipo !== 'Pagar na Entrega')
+          .reduce((acc, p) => acc + (parseFloat(p.valor) || 0), 0);
+      }
+    } else if (order.forma_pagamento === 'Pagar na Entrega') {
+      sinalAtual = Math.max(0, parseFloat(order.valor_sinal) || 0);
+    }
+
     return CalcEngine.calcularTotaisOrcamento(
       order.itens,
       order.frete_valor,
       order.desconto_valor,
       order.desconto_tipo,
-      0,
+      sinalAtual,
       order.plaina_pct,
       order.plaina_base
     );
-  }, [order.itens, order.frete_valor, order.desconto_valor, order.desconto_tipo, order.plaina_pct, order.plaina_base]);
+  }, [
+    order.itens,
+    order.frete_valor,
+    order.desconto_valor,
+    order.desconto_tipo,
+    order.plaina_pct,
+    order.plaina_base,
+    order.pagamento_dividido,
+    order.pagamentos,
+    order.forma_pagamento,
+    order.valor_sinal
+  ]);
 
   // Autorização do gerente para desconto
   const handleAutorizarDesconto = () => {
@@ -674,7 +698,7 @@ export const BalcaoTab = () => {
       const restante = Math.max(0, parseFloat((totais.valor_total - currentTotal).toFixed(2)));
       const nextId = `pag_${Date.now()}`;
       const existingTypes = currentPags.map(p => p.tipo);
-      const possibleTypes = ['Pix', 'Cartão de Crédito', 'Dinheiro', 'Cartão de Débito'];
+      const possibleTypes = ['Pix', 'Cartão de Crédito', 'Dinheiro', 'Cartão de Débito', 'Pagar na Entrega'];
       const suggestedType = possibleTypes.find(t => !existingTypes.includes(t)) || 'Cartão de Crédito';
       return {
         ...prev,
@@ -823,6 +847,9 @@ export const BalcaoTab = () => {
             if (pg.tipo === 'Cartão de Débito') {
               return `${pg.tipo} (+${pg.percentual_taxa}%): ${CalcEngine.formatBRL(pg.valor)}`;
             }
+            if (pg.tipo === 'Pagar na Entrega') {
+              return `Entrega (Cobrar): ${CalcEngine.formatBRL(pg.valor)}`;
+            }
             return `${pg.tipo}: ${CalcEngine.formatBRL(pg.valor)}`;
           })
           .join(' + ');
@@ -840,6 +867,14 @@ export const BalcaoTab = () => {
         formaPagamentoFinal = `Cartão de Crédito${parcStr}: ${CalcEngine.formatBRL(c.valor_total)}`;
       } else if (order.forma_pagamento === 'Cartão de Débito') {
         formaPagamentoFinal = `Cartão de Débito (+${c.percentual}%): ${CalcEngine.formatBRL(c.valor_total)}`;
+      } else if (order.forma_pagamento === 'Pagar na Entrega') {
+        const sinalVal = Math.max(0, parseFloat(order.valor_sinal) || 0);
+        const saldoVal = Math.max(0, parseFloat((totais.valor_total - sinalVal).toFixed(2)));
+        if (sinalVal > 0) {
+          formaPagamentoFinal = `Pagar na Entrega (Sinal ${CalcEngine.formatBRL(sinalVal)} + Cobrar ${CalcEngine.formatBRL(saldoVal)})`;
+        } else {
+          formaPagamentoFinal = `Pagar na Entrega: 100% (${CalcEngine.formatBRL(saldoVal)})`;
+        }
       } else {
         formaPagamentoFinal = `${order.forma_pagamento}: ${CalcEngine.formatBRL(c.valor_total)}`;
       }
@@ -856,6 +891,36 @@ export const BalcaoTab = () => {
         }
       ];
     }
+
+    let valorSinalFinal = 0;
+    let saldoReceberFinal = 0;
+
+    if (order.pagamento_dividido) {
+      const temEntrega = pagamentosDetalhe.some(p => p.tipo === 'Pagar na Entrega');
+      if (temEntrega) {
+        saldoReceberFinal = pagamentosDetalhe
+          .filter(p => p.tipo === 'Pagar na Entrega')
+          .reduce((acc, p) => acc + (p.valor || 0), 0);
+        valorSinalFinal = pagamentosDetalhe
+          .filter(p => p.tipo !== 'Pagar na Entrega')
+          .reduce((acc, p) => acc + (p.valor || 0), 0);
+      } else {
+        valorSinalFinal = isPago ? valorTotalCobrado : 0;
+        saldoReceberFinal = 0;
+      }
+    } else {
+      if (order.forma_pagamento === 'Pagar na Entrega') {
+        const sinalVal = Math.max(0, parseFloat(order.valor_sinal) || 0);
+        valorSinalFinal = sinalVal;
+        saldoReceberFinal = Math.max(0, parseFloat((valorTotalCobrado - sinalVal).toFixed(2)));
+      } else {
+        valorSinalFinal = isPago ? valorTotalCobrado : 0;
+        saldoReceberFinal = 0;
+      }
+    }
+
+    valorSinalFinal = parseFloat(valorSinalFinal.toFixed(2));
+    saldoReceberFinal = parseFloat(saldoReceberFinal.toFixed(2));
 
     orderCopy.forma_pagamento = formaPagamentoFinal;
     orderCopy.cartao_parcelas = order.cartao_parcelas || 1;
@@ -887,13 +952,14 @@ export const BalcaoTab = () => {
       pagamento_dividido: Boolean(order.pagamento_dividido),
       pagamentos_detalhe: pagamentosDetalhe,
       cartao_parcelas: order.cartao_parcelas || 1,
-      valor_sinal: isPago ? valorTotalCobrado : 0,
-      saldo_a_receber: 0,
+      valor_sinal: valorSinalFinal,
+      saldo_a_receber: saldoReceberFinal,
       comissao_vendedor_pct: comissaoPct,
       comissao_vendedor_valor: valorComissao
     };
 
     if (isPago) {
+      orderCopy.status = saldoReceberFinal > 0 ? 'APROVADO' : 'PAGO';
       const temPlaina = orderCopy.itens.some(i => i.aparelhar);
       orderCopy.etapa_patio = temPlaina ? 'CORTE_PLAINA' : 'SEPARACAO';
       orderCopy.checklist_patio = orderCopy.itens.map(it => ({
@@ -904,6 +970,7 @@ export const BalcaoTab = () => {
         requer_plaina: it.aparelhar
       }));
     } else {
+      orderCopy.status = 'ORCAMENTO';
       orderCopy.etapa_patio = 'NAO_ENVIADO';
     }
 
@@ -922,7 +989,11 @@ export const BalcaoTab = () => {
     const pedido = buildCompleteOrder('PAGO');
     if (!pedido) return;
     saveOrder(pedido);
-    showToast(`Venda #${pedido.numero} salva como PAGA com sucesso!`, 'success');
+    if ((pedido.resumo_financeiro?.saldo_a_receber || 0) > 0) {
+      showToast(`Venda #${pedido.numero} APROVADA com sucesso! A cobrar na entrega: ${CalcEngine.formatBRL(pedido.resumo_financeiro.saldo_a_receber)}`, 'success');
+    } else {
+      showToast(`Venda #${pedido.numero} salva como PAGA com sucesso!`, 'success');
+    }
   };
 
   const handleSalvarOrcamento = () => {
@@ -2171,6 +2242,7 @@ export const BalcaoTab = () => {
                   <option value="Dinheiro">Dinheiro (À Vista)</option>
                   <option value="Cartão de Débito">Cartão de Débito</option>
                   <option value="Cartão de Crédito">Cartão de Crédito (até 5x)</option>
+                  <option value="Pagar na Entrega">🚚 Pagar na Entrega (Motorista Recebe)</option>
                 </select>
 
                 {order.forma_pagamento === 'Cartão de Crédito' && (
@@ -2239,6 +2311,78 @@ export const BalcaoTab = () => {
                     </div>
                   );
                 })()}
+                {order.forma_pagamento === 'Pagar na Entrega' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#B45309', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        🚚 <span>A Cobrar na Entrega:</span>
+                      </span>
+                      <strong className="font-mono" style={{ fontSize: '13.5px', color: '#B45309' }}>
+                        {CalcEngine.formatBRL(Math.max(0, totais.valor_total - (parseFloat(order.valor_sinal) || 0)))}
+                      </strong>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', background: '#FFFFFF', padding: '3px 6px', borderRadius: '4px', border: '1px solid #CBD5E1' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Sinal pago no balcão:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600 }}>R$</span>
+                        <input
+                          type="number"
+                          step="0.50"
+                          min="0"
+                          max={totais.valor_total}
+                          className="form-input font-mono"
+                          style={{ height: '23px', width: '75px', padding: '1px 4px', textAlign: 'right', fontWeight: 700, fontSize: '11px' }}
+                          value={order.valor_sinal === 0 ? '' : (order.valor_sinal ?? '')}
+                          placeholder="0,00"
+                          onChange={e => {
+                            const val = Math.max(0, Math.min(totais.valor_total, parseFloat(e.target.value) || 0));
+                            setOrder(prev => ({ ...prev, valor_sinal: val }));
+                          }}
+                          title="Valor de entrada pago no balcão"
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        onClick={() => setOrder(prev => ({ ...prev, valor_sinal: 0 }))}
+                        style={{
+                          background: (!order.valor_sinal || order.valor_sinal === 0) ? '#FEF3C7' : '#F1F5F9',
+                          border: '1px solid #CBD5E1',
+                          color: (!order.valor_sinal || order.valor_sinal === 0) ? '#B45309' : 'var(--text-secondary)',
+                          borderRadius: '3px',
+                          padding: '1px 6px',
+                          fontSize: '9.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        100% na Entrega
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const metade = parseFloat((totais.valor_total / 2).toFixed(2));
+                          setOrder(prev => ({ ...prev, valor_sinal: metade }));
+                        }}
+                        style={{
+                          background: '#F1F5F9',
+                          border: '1px solid #CBD5E1',
+                          color: 'var(--text-secondary)',
+                          borderRadius: '3px',
+                          padding: '1px 6px',
+                          fontSize: '9.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        50% Sinal
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -2271,6 +2415,7 @@ export const BalcaoTab = () => {
                           <option value="Dinheiro">Dinheiro</option>
                           <option value="Cartão de Débito">Cartão de Débito</option>
                           <option value="Cartão de Crédito">Cartão de Crédito</option>
+                          <option value="Pagar na Entrega">Pagar na Entrega</option>
                         </select>
 
                         {isCred && (
@@ -2348,7 +2493,13 @@ export const BalcaoTab = () => {
                               <strong className="font-mono">{CalcEngine.formatBRL(cobranca.valor_total)}</strong>
                             </>
                           )}
-                          {!isCred && !isDeb && (
+                          {pg.tipo === 'Pagar na Entrega' && (
+                            <>
+                              <span>🚚 <strong>Cobrar na Entrega:</strong></span>
+                              <strong className="font-mono" style={{ color: '#B45309' }}>{CalcEngine.formatBRL(cobranca.valor_total)}</strong>
+                            </>
+                          )}
+                          {!isCred && !isDeb && pg.tipo !== 'Pagar na Entrega' && (
                             <>
                               <span>{pg.tipo === 'Pix' ? '📱 Pix:' : '💵 Dinheiro:'}</span>
                               <strong className="font-mono">{CalcEngine.formatBRL(cobranca.valor_total)}</strong>
@@ -2429,31 +2580,52 @@ export const BalcaoTab = () => {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, justifyContent: 'center' }}>
-            {/* Botão Primário: Salvar como Pago */}
-            <button
-              type="button"
-              className="btn"
-              onClick={handleSalvarPago}
-              style={{
-                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                color: '#FFFFFF',
-                fontWeight: 800,
-                fontSize: '13.5px',
-                border: 'none',
-                borderRadius: '6px',
-                height: '38px',
-                width: '100%',
-                boxShadow: '0 2px 4px rgba(5,150,105,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '7px',
-                cursor: 'pointer'
-              }}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.8"><polyline points="20 6 9 17 4 12" /></svg>
-              <span>Salvar como Pago</span>
-            </button>
+            {/* Botão Primário: Salvar como Pago ou Aprovar (Pagar na Entrega) */}
+            {(() => {
+              const isPagarNaEntrega = (order.forma_pagamento === 'Pagar na Entrega') || (order.pagamento_dividido && (order.pagamentos || []).some(p => p.tipo === 'Pagar na Entrega'));
+              const temSaldoEntrega = isPagarNaEntrega && (totais.saldo_a_receber > 0);
+
+              return (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={handleSalvarPago}
+                  style={{
+                    background: temSaldoEntrega
+                      ? 'linear-gradient(135deg, #D97706 0%, #B45309 100%)'
+                      : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                    color: '#FFFFFF',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    border: 'none',
+                    borderRadius: '6px',
+                    height: '38px',
+                    width: '100%',
+                    boxShadow: temSaldoEntrega 
+                      ? '0 2px 4px rgba(217,119,6,0.25)' 
+                      : '0 2px 4px rgba(5,150,105,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '7px',
+                    cursor: 'pointer'
+                  }}
+                  title={temSaldoEntrega ? 'Aprovar venda e enviar para expedição no pátio com cobrança na entrega' : 'Finalizar e salvar venda 100% paga'}
+                >
+                  {temSaldoEntrega ? (
+                    <>
+                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.5"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                      <span>Aprovar Venda (Pagar na Entrega)</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.8"><polyline points="20 6 9 17 4 12" /></svg>
+                      <span>Salvar como Pago</span>
+                    </>
+                  )}
+                </button>
+              );
+            })()}
 
             {/* Linha com Salvar Orçamento e Enviar WhatsApp */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>

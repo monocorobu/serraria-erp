@@ -226,9 +226,17 @@ export const HistoricoTab = () => {
                         </div>
                       </td>
                       <td className="align-center">
-                        <span className={`badge-tag ${p.status === 'ENTREGUE' ? 'badge-entregue' : (isOrcamento ? 'badge-orcamento' : 'badge-aprovado')}`}>
-                          {isOrcamento ? 'ORÇAMENTO' : (p.status === 'ENTREGUE' ? 'ENTREGUE' : 'PAGO')}
-                        </span>
+                        {(() => {
+                          const temSaldoEntrega = !isOrcamento && p.status !== 'ENTREGUE' && ((p.resumo_financeiro?.saldo_a_receber || 0) > 0);
+                          return (
+                            <span 
+                              className={`badge-tag ${p.status === 'ENTREGUE' ? 'badge-entregue' : (isOrcamento ? 'badge-orcamento' : 'badge-aprovado')}`}
+                              style={temSaldoEntrega ? { backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D' } : {}}
+                            >
+                              {isOrcamento ? 'ORÇAMENTO' : (p.status === 'ENTREGUE' ? 'ENTREGUE' : (temSaldoEntrega ? 'PAGAR ENTREGA' : 'PAGO'))}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="align-center">
                         <span className="badge-tag" style={{ fontSize: '10px' }}>
@@ -250,6 +258,10 @@ export const HistoricoTab = () => {
                       <td className="align-center">
                         {isOrcamento ? (
                           <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Orçamento</span>
+                        ) : ((p.resumo_financeiro?.saldo_a_receber || 0) > 0 && p.status !== 'ENTREGUE') ? (
+                          <span style={{ color: '#B45309', backgroundColor: '#FEF3C7', border: '1px solid #FCD34D', padding: '2px 7px', borderRadius: '4px', fontSize: '10.5px', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                            ⚠️ Na Entrega: {CalcEngine.formatBRL(p.resumo_financeiro.saldo_a_receber)}
+                          </span>
                         ) : (
                           <span style={{ color: '#047857', backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0', padding: '2px 7px', borderRadius: '4px', fontSize: '10.5px', fontWeight: 700, whiteSpace: 'nowrap' }}>
                             100% Pago ({p.forma_pagamento || p.resumo_financeiro?.forma_pagamento || 'Pix'})

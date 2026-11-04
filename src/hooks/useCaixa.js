@@ -10,7 +10,7 @@ export function useCaixa(orders) {
   const filteredOrders = useMemo(() => {
     const now = new Date();
     return orders.filter(p => {
-      if (p.status !== 'APROVADO' && p.status !== 'ENTREGUE') return false;
+      if (p.status !== 'APROVADO' && p.status !== 'PAGO' && p.status !== 'ENTREGUE') return false;
       if (periodo === 'TODOS') return true;
 
       const d = new Date(p.data_criacao || 0);

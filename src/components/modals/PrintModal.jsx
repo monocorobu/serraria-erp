@@ -575,7 +575,7 @@ export const PrintModal = () => {
             {isOrcamento ? `ORÇAMENTO Nº #${p.numero}` : `PEDIDO Nº #${p.numero}`}
           </div>
           <div className="print-doc-date">
-            Emissão: <strong>{dataCriacao}</strong> | Status: <strong>{isOrcamento ? `Válido até ${validadeAte}` : (p.status === 'ENTREGUE' ? 'ENTREGUE & QUITADO' : '100% PAGO')}</strong>
+            Emissão: <strong>{dataCriacao}</strong> | Status: <strong>{isOrcamento ? `Válido até ${validadeAte}` : (p.status === 'ENTREGUE' ? 'ENTREGUE & QUITADO' : ((p.resumo_financeiro?.saldo_a_receber || 0) > 0 ? `A COBRAR NA ENTREGA: ${CalcEngine.formatBRL(p.resumo_financeiro.saldo_a_receber)}` : '100% PAGO'))}</strong>
           </div>
         </div>
       </div>
@@ -722,7 +722,22 @@ export const PrintModal = () => {
                 <span className="font-mono">+{CalcEngine.formatBRL(p.resumo_financeiro.acrescimo_cartao_valor)}</span>
               </div>
             )}
-            {!isOrcamento && p.resumo_financeiro?.valor_total_cobrado && (
+            {!isOrcamento && ((p.resumo_financeiro?.saldo_a_receber || 0) > 0) && (
+              <>
+                {((p.resumo_financeiro?.valor_sinal || 0) > 0) && (
+                  <div className="print-financial-line" style={{ color: '#047857', fontSize: '9px', fontWeight: 700 }}>
+                    <span>SINAL / ENTRADA PAGO:</span>
+                    <span className="font-mono">{CalcEngine.formatBRL(p.resumo_financeiro.valor_sinal)}</span>
+                  </div>
+                )}
+                <div className="print-financial-line print-total-highlight" style={{ color: '#B45309', background: '#FEF3C7', border: '1px solid #FCD34D', padding: '2px 4px', borderRadius: '3px', marginTop: '2px' }}>
+                  <span>A PAGAR NA ENTREGA:</span>
+                  <span className="font-mono" style={{ fontWeight: 900, fontSize: '11px' }}>{CalcEngine.formatBRL(p.resumo_financeiro.saldo_a_receber)}</span>
+                </div>
+              </>
+            )}
+
+            {!isOrcamento && !((p.resumo_financeiro?.saldo_a_receber || 0) > 0) && p.resumo_financeiro?.valor_total_cobrado && (
               <div className="print-financial-line print-total-highlight" style={{ color: '#047857', borderTop: '1px dashed #CBD5E1', marginTop: '2px', paddingTop: '2px' }}>
                 <span>TOTAL FINAL PAGO:</span>
                 <span className="font-mono">{CalcEngine.formatBRL(p.resumo_financeiro.valor_total_cobrado)}</span>
@@ -732,6 +747,10 @@ export const PrintModal = () => {
             {isOrcamento ? (
               <div className="print-status-tag" style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', color: '#475569' }}>
                 PROPOSTA COMERCIAL — VÁLIDA POR {p.validade_dias || 7} DIAS
+              </div>
+            ) : ((p.resumo_financeiro?.saldo_a_receber || 0) > 0) ? (
+              <div className="print-status-tag" style={{ background: '#FFFBEB', border: '1.5px solid #F59E0B', color: '#B45309', fontWeight: 900 }}>
+                ⚠️ PAGAR NA ENTREGA — COBRAR {CalcEngine.formatBRL(p.resumo_financeiro.saldo_a_receber)}
               </div>
             ) : (
               <div className="print-status-tag paid">
@@ -780,9 +799,19 @@ export const PrintModal = () => {
         </div>
       </div>
 
-      <div style={{ backgroundColor: '#DCFCE7', border: '1.5px solid #15803D', color: '#15803D', fontSize: isCompact ? '9px' : '10px', fontWeight: 800, padding: isCompact ? '2px 4px' : '3px 6px', textAlign: 'center', marginBottom: isCompact ? '3px' : '4px', textTransform: 'uppercase' }}>
-        {isOrcamento ? 'ORÇAMENTO PRELIMINAR — CONFERÊNCIA DE MEDIDAS E QUANTIDADES' : 'PEDIDO 100% PAGO — CARGA LIBERADA PARA CORTE E ENTREGA'}
-      </div>
+      {isOrcamento ? (
+        <div style={{ backgroundColor: '#F1F5F9', border: '1.5px solid #CBD5E1', color: '#475569', fontSize: isCompact ? '9px' : '10px', fontWeight: 800, padding: isCompact ? '2px 4px' : '3px 6px', textAlign: 'center', marginBottom: isCompact ? '3px' : '4px', textTransform: 'uppercase' }}>
+          ORÇAMENTO PRELIMINAR — CONFERÊNCIA DE MEDIDAS E QUANTIDADES
+        </div>
+      ) : ((p.resumo_financeiro?.saldo_a_receber || 0) > 0) ? (
+        <div style={{ backgroundColor: '#FEF3C7', border: '1.5px solid #D97706', color: '#B45309', fontSize: isCompact ? '9px' : '10px', fontWeight: 800, padding: isCompact ? '2px 4px' : '3px 6px', textAlign: 'center', marginBottom: isCompact ? '3px' : '4px', textTransform: 'uppercase' }}>
+          ⚠️ ATENÇÃO MOTORISTA: COBRAR {CalcEngine.formatBRL(p.resumo_financeiro.saldo_a_receber)} NO ATO DA ENTREGA!
+        </div>
+      ) : (
+        <div style={{ backgroundColor: '#DCFCE7', border: '1.5px solid #15803D', color: '#15803D', fontSize: isCompact ? '9px' : '10px', fontWeight: 800, padding: isCompact ? '2px 4px' : '3px 6px', textAlign: 'center', marginBottom: isCompact ? '3px' : '4px', textTransform: 'uppercase' }}>
+          PEDIDO 100% PAGO — CARGA LIBERADA PARA CORTE E ENTREGA
+        </div>
+      )}
 
       <div className="patio-info-banner">
         <div>

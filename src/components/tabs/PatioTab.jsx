@@ -204,9 +204,16 @@ export const PatioTab = () => {
                         </div>
 
                         {/* STATUS DE PAGAMENTO */}
-                        <div style={{ backgroundColor: '#ECFDF5', color: '#047857', fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', marginBottom: '6px' }}>
-                          100% Pago ({p.forma_pagamento || p.resumo_financeiro?.forma_pagamento || 'Pix'})
-                        </div>
+                        {temSaldo ? (
+                          <div style={{ backgroundColor: '#FFFBEB', color: '#B45309', border: '1px solid #FCD34D', fontSize: '10.5px', fontWeight: 800, padding: '3px 6px', borderRadius: '3px', marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span>⚠️ Cobrar na Entrega:</span>
+                            <span className="font-mono">{CalcEngine.formatBRL(saldo)}</span>
+                          </div>
+                        ) : (
+                          <div style={{ backgroundColor: '#ECFDF5', color: '#047857', fontSize: '10.5px', fontWeight: 700, padding: '2px 6px', borderRadius: '3px', marginBottom: '6px' }}>
+                            100% Pago ({p.forma_pagamento || p.resumo_financeiro?.forma_pagamento || 'Pix'})
+                          </div>
+                        )}
 
                         {temPlaina && (
                           <div style={{ backgroundColor: '#EFF6FF', color: '#1E40AF', fontSize: '11px', fontWeight: 700, padding: '3px 6px', borderRadius: '3px', marginBottom: '8px' }}>
@@ -372,11 +379,23 @@ export const PatioTab = () => {
             </div>
 
             <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto', padding: '16px' }}>
-              {/* Status do pedido 100% pago */}
-              <div style={{ backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7', padding: '10px 14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span>Pedido 100% pago ({selectedRomaneioOrder.forma_pagamento || selectedRomaneioOrder.resumo_financeiro?.forma_pagamento || 'Pix'}) — Liberado para entrega e descarregamento.</span>
-              </div>
+              {/* Status do pedido: Cobrança na Entrega vs 100% Pago */}
+              {(selectedRomaneioOrder.resumo_financeiro?.saldo_a_receber || 0) > 0 ? (
+                <div style={{ backgroundColor: '#FFFBEB', color: '#92400E', border: '1.5px solid #F59E0B', padding: '10px 14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    <span>⚠️ AVISO AO MOTORISTA: Cobrar no ato da entrega antes de descarregar!</span>
+                  </div>
+                  <div className="font-mono" style={{ fontSize: '13.5px', fontWeight: 800, background: '#FFFFFF', padding: '2px 8px', borderRadius: '4px', border: '1px solid #FCD34D' }}>
+                    Cobrar: {CalcEngine.formatBRL(selectedRomaneioOrder.resumo_financeiro.saldo_a_receber)}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #6EE7B7', padding: '10px 14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Pedido 100% pago ({selectedRomaneioOrder.forma_pagamento || selectedRomaneioOrder.resumo_financeiro?.forma_pagamento || 'Pix'}) — Liberado para entrega e descarregamento.</span>
+                </div>
+              )}
 
               {/* Dados da Carga e Destino */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px', backgroundColor: 'var(--bg-secondary)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '11.5px' }}>
