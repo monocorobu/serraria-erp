@@ -396,6 +396,26 @@ export const CalcEngine = {
     return num.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' m³';
   },
 
+  calcularFormacaoPreco(custo, margemPct) {
+    const c = Math.max(0, parseFloat(custo) || 0);
+    const m = parseFloat(margemPct) || 0;
+    const precoVenda = parseFloat((c * (1 + m / 100)).toFixed(2));
+    const lucro = parseFloat((precoVenda - c).toFixed(2));
+    return {
+      custo: c,
+      margem_pct: m,
+      preco_venda: precoVenda,
+      lucro_reais: lucro
+    };
+  },
+
+  calcularMargemDePreco(custo, precoVenda) {
+    const c = Math.max(0, parseFloat(custo) || 0);
+    const v = Math.max(0, parseFloat(precoVenda) || 0);
+    if (c <= 0) return 0;
+    return parseFloat((((v - c) / c) * 100).toFixed(2));
+  },
+
   formatKg(valor) {
     const num = parseFloat(valor) || 0;
     return num.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' kg';

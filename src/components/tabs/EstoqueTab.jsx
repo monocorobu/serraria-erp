@@ -41,6 +41,8 @@ export const EstoqueTab = () => {
     espessura_cm: 6,
     comprimento_padrao_m: 4.5,
     densidade_kg_m3: 750,
+    preco_custo: '',
+    margem_lucro_pct: 30,
     preco_unitario: 24.50,
     estoque_atual: 100,
     estoque_minimo: 20
@@ -158,6 +160,8 @@ export const EstoqueTab = () => {
       espessura_cm: '',
       comprimento_padrao_m: '',
       densidade_kg_m3: '',
+      preco_custo: '',
+      margem_lucro_pct: 30,
       preco_unitario: '',
       estoque_atual: '',
       estoque_minimo: ''
@@ -172,6 +176,14 @@ export const EstoqueTab = () => {
       ? [...prod.categorias] 
       : (prod.categoria ? [prod.categoria] : []);
 
+    const pUnit = prod.preco_unitario || 0;
+    const pCusto = prod.preco_custo !== undefined ? prod.preco_custo : '';
+    let pMargem = prod.margem_lucro_pct !== undefined ? prod.margem_lucro_pct : '';
+
+    if (pMargem === '' && pCusto > 0 && pUnit > 0) {
+      pMargem = parseFloat((((pUnit - pCusto) / pCusto) * 100).toFixed(2));
+    }
+
     setFormProduto({
       id: prod.id,
       codigo: prod.codigo || '',
@@ -184,12 +196,72 @@ export const EstoqueTab = () => {
       espessura_cm: prod.espessura_cm || 0,
       comprimento_padrao_m: prod.comprimento_padrao_m || 3.0,
       densidade_kg_m3: prod.densidade_kg_m3 || 750,
-      preco_unitario: prod.preco_unitario || 0,
+      preco_custo: pCusto,
+      margem_lucro_pct: pMargem !== '' ? pMargem : 30,
+      preco_unitario: pUnit,
       estoque_atual: prod.estoque_atual || 0,
       estoque_minimo: prod.estoque_minimo || 10
     });
     setNovaCatInline('');
     setModalProduto({ isOpen: true, isEdit: true });
+  };
+
+  // Handlers do Formador de Preço (Custo Fornecedor + Margem % = Preço À Vista & Cartão)
+  const handleCustoChange = (novoCustoRaw) => {
+    setFormProduto(prev => {
+      const custo = novoCustoRaw === '' ? '' : Math.max(0, parseFloat(novoCustoRaw) || 0);
+      let novoPreco = prev.preco_unitario;
+
+      if (custo !== '' && prev.margem_lucro_pct !== '') {
+        const margem = parseFloat(prev.margem_lucro_pct) || 0;
+        novoPreco = parseFloat((custo * (1 + margem / 100)).toFixed(2));
+      } else if (custo !== '' && (parseFloat(novoPreco) || 0) > 0) {
+        const calcMargem = custo > 0 ? parseFloat((((novoPreco - custo) / custo) * 100).toFixed(2)) : 0;
+        return { ...prev, preco_custo: novoCustoRaw, margem_lucro_pct: calcMargem };
+      }
+
+      return {
+        ...prev,
+        preco_custo: novoCustoRaw,
+        preco_unitario: novoPreco
+      };
+    });
+  };
+
+  const handleMargemChange = (novaMargemRaw) => {
+    setFormProduto(prev => {
+      const margem = novaMargemRaw === '' ? '' : (parseFloat(novaMargemRaw) || 0);
+      let novoPreco = prev.preco_unitario;
+
+      if (prev.preco_custo !== '' && margem !== '') {
+        const custo = parseFloat(prev.preco_custo) || 0;
+        novoPreco = parseFloat((custo * (1 + margem / 100)).toFixed(2));
+      }
+
+      return {
+        ...prev,
+        margem_lucro_pct: novaMargemRaw,
+        preco_unitario: novoPreco
+      };
+    });
+  };
+
+  const handlePrecoUnitarioChange = (novoPrecoRaw) => {
+    setFormProduto(prev => {
+      const preco = novoPrecoRaw === '' ? '' : Math.max(0, parseFloat(novoPrecoRaw) || 0);
+      let novaMargem = prev.margem_lucro_pct;
+
+      if (prev.preco_custo !== '' && parseFloat(prev.preco_custo) > 0 && preco !== '') {
+        const custo = parseFloat(prev.preco_custo);
+        novaMargem = parseFloat((((preco - custo) / custo) * 100).toFixed(2));
+      }
+
+      return {
+        ...prev,
+        preco_unitario: novoPrecoRaw,
+        margem_lucro_pct: novaMargem
+      };
+    });
   };
 
   // Toggle categoria selecionada
@@ -240,6 +312,8 @@ export const EstoqueTab = () => {
       permite_plaina: Boolean(formProduto.permite_plaina),
       categorias: formProduto.categorias.length > 0 ? formProduto.categorias : ['Geral'],
       categoria: formProduto.categorias[0] || 'Geral',
+      preco_custo: formProduto.preco_custo === '' ? 0 : Math.max(0, parseFloat(formProduto.preco_custo) || 0),
+      margem_lucro_pct: formProduto.margem_lucro_pct === '' ? 0 : (parseFloat(formProduto.margem_lucro_pct) || 0),
       preco_unitario: Math.max(0, parseFloat(formProduto.preco_unitario) || 0),
       estoque_atual: Math.max(0, parseFloat(formProduto.estoque_atual) || 0),
       estoque_minimo: Math.max(0, parseFloat(formProduto.estoque_minimo) || 0),
@@ -285,6 +359,10 @@ export const EstoqueTab = () => {
     setModalAjuste({ isOpen: false, product: null, novoSaldo: 0 });
     showToast(`Estoque de "${modalAjuste.product.nome}" atualizado para ${modalAjuste.novoSaldo} un.`, 'success');
   };
+
+  const custoNum = parseFloat(formProduto.preco_custo) || 0;
+  const precoUnitNum = parseFloat(formProduto.preco_unitario) || 0;
+  const lucroEstimadoReais = (custoNum > 0 && precoUnitNum >= custoNum) ? parseFloat((precoUnitNum - custoNum).toFixed(2)) : 0;
 
   return (
     <div className="estoque-layout">
@@ -751,36 +829,153 @@ export const EstoqueTab = () => {
                   </div>
                 </div>
 
-                {/* TIPO DE CÁLCULO E PREÇOS */}
-                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
-                  <div className="form-group">
-                    <label className="form-label">Tipo de Cálculo:</label>
-                    <select 
-                      className="form-select"
-                      value={formProduto.tipo_calculo}
-                      onChange={e => setFormProduto(prev => ({ ...prev, tipo_calculo: e.target.value }))}
-                    >
-                      <option value="ML">ML (Metro Linear)</option>
-                      <option value="M2">M² (Metro Quadrado)</option>
-                      <option value="M3">M³ (Metro Cúbico)</option>
-                      <option value="UN">UN (Peça / Unidade)</option>
-                    </select>
+                {/* TIPO DE CÁLCULO / UNIDADE DE VENDA */}
+                <div className="form-group">
+                  <label className="form-label" style={{ fontWeight: 700 }}>Unidade de Medida / Tipo de Cálculo:</label>
+                  <select 
+                    className="form-select"
+                    value={formProduto.tipo_calculo}
+                    onChange={e => setFormProduto(prev => ({ ...prev, tipo_calculo: e.target.value }))}
+                    style={{ maxWidth: '340px', height: '34px', fontSize: '12.5px', fontWeight: 600 }}
+                  >
+                    <option value="UN">UN (Peça / Unidade / Ferragem)</option>
+                    <option value="ML">ML (Metro Linear - Vigas, Caibros, Ripas)</option>
+                    <option value="M2">M² (Metro Quadrado - Tábuas, Decks, Forros)</option>
+                    <option value="M3">M³ (Metro Cúbico - Volume de Madeira)</option>
+                  </select>
+                </div>
+
+                {/* PAINEL DE FORMAÇÃO DE PREÇO (CUSTO FORNECEDOR + MARGEM % = PREÇO À VISTA & CARTÃO) */}
+                <div style={{
+                  background: '#F8FAFC',
+                  border: '1.5px solid #CBD5E1',
+                  borderRadius: '8px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '16px' }}>🧮</span>
+                      <strong style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
+                        Formação de Preço de Venda
+                      </strong>
+                      <span style={{ fontSize: '10px', color: '#B45309', background: '#FEF3C7', border: '1px solid #FCD34D', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                        🔒 Uso Exclusivo Gerente
+                      </span>
+                    </div>
+                    {lucroEstimadoReais > 0 && (
+                      <span className="font-mono" style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>
+                        Lucro Líquido: +{CalcEngine.formatBRL(lucroEstimadoReais)} / {formProduto.tipo_calculo}
+                      </span>
+                    )}
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Preço À Vista (R$):</label>
-                    <input 
-                      type="number" 
-                      step="0.05" 
-                      min="0"
-                      className="form-input font-mono" 
-                      value={formProduto.preco_unitario}
-                      onChange={e => setFormProduto(prev => ({ ...prev, preco_unitario: e.target.value }))}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Preço Bruto (+{pctBruto}%):</label>
-                    <div className="form-input font-mono" style={{ backgroundColor: 'var(--bg-hover)', fontWeight: 700, color: '#1E40AF', display: 'flex', alignItems: 'center' }}>
-                      {CalcEngine.formatBRL(CalcEngine.calcularPrecoBruto(formProduto.preco_unitario, pctBruto))}
+
+                  {/* 4 JANELAS ALINHADAS */}
+                  <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                    {/* JANELA 1: PREÇO DO VENDEDOR / CUSTO */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontWeight: 700, fontSize: '11.5px', color: '#475569' }}>
+                        1. Preço Fornecedor / Custo (R$):
+                      </label>
+                      <input 
+                        type="number" 
+                        step="0.05" 
+                        min="0"
+                        placeholder="Ex: 30,00"
+                        className="form-input font-mono" 
+                        style={{ height: '34px', fontSize: '13px', fontWeight: 700, background: '#FFFFFF' }}
+                        value={formProduto.preco_custo === '' ? '' : formProduto.preco_custo}
+                        onChange={e => handleCustoChange(e.target.value)}
+                        title="Valor pago ao vendedor ou fornecedor da mercadoria"
+                      />
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                        Quanto você pagou
+                      </span>
+                    </div>
+
+                    {/* JANELA 2: PORCENTAGEM QUE VOCÊ GANHA / MARGEM */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <label className="form-label" style={{ fontWeight: 700, fontSize: '11.5px', color: '#475569' }}>
+                          2. Margem de Ganho (%):
+                        </label>
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <input 
+                          type="number" 
+                          step="1" 
+                          placeholder="Ex: 30"
+                          className="form-input font-mono" 
+                          style={{ height: '34px', fontSize: '13px', fontWeight: 700, paddingRight: '25px', background: '#FFFFFF' }}
+                          value={formProduto.margem_lucro_pct === '' ? '' : formProduto.margem_lucro_pct}
+                          onChange={e => handleMargemChange(e.target.value)}
+                          title="Porcentagem de lucro sobre o custo"
+                        />
+                        <span style={{ position: 'absolute', right: '8px', top: '7px', fontSize: '13px', fontWeight: 700, color: '#64748B' }}>
+                          %
+                        </span>
+                      </div>
+                      {/* Botões de atalho rápidos de margem */}
+                      <div style={{ display: 'flex', gap: '3px', marginTop: '3px', flexWrap: 'wrap' }}>
+                        {[20, 30, 40, 50, 100].map(m => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => handleMargemChange(m)}
+                            style={{
+                              background: parseFloat(formProduto.margem_lucro_pct) === m ? '#1E293B' : '#FFFFFF',
+                              color: parseFloat(formProduto.margem_lucro_pct) === m ? '#FFFFFF' : '#475569',
+                              border: '1px solid #CBD5E1',
+                              borderRadius: '3px',
+                              padding: '1px 5px',
+                              fontSize: '9.5px',
+                              fontWeight: 700,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            +{m}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* JANELA 3: PREÇO CERTO À VISTA (PIX / DINHEIRO) */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontWeight: 800, fontSize: '11.5px', color: '#047857' }}>
+                        3. Preço Venda À Vista (R$):
+                      </label>
+                      <input 
+                        type="number" 
+                        step="0.05" 
+                        min="0"
+                        className="form-input font-mono" 
+                        style={{ height: '34px', fontSize: '13.5px', fontWeight: 800, color: '#047857', border: '1.5px solid #10B981', background: '#ECFDF5' }}
+                        value={formProduto.preco_unitario === '' ? '' : formProduto.preco_unitario}
+                        onChange={e => handlePrecoUnitarioChange(e.target.value)}
+                        placeholder="0,00"
+                        title="Preço oficial de venda à vista (Pix e Dinheiro)"
+                      />
+                      <span style={{ fontSize: '10px', color: '#065F46', marginTop: '2px', display: 'block', fontWeight: 600 }}>
+                        Pix ou Dinheiro (Tabela)
+                      </span>
+                    </div>
+
+                    {/* JANELA 4: PREÇO NO CARTÃO (+20%) */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontWeight: 800, fontSize: '11.5px', color: '#1E40AF' }}>
+                        4. Preço no Cartão (+{pctBruto}%):
+                      </label>
+                      <div 
+                        className="form-input font-mono" 
+                        style={{ height: '34px', fontSize: '13.5px', fontWeight: 800, color: '#1E40AF', background: '#EFF6FF', border: '1.5px solid #93C5FD', display: 'flex', alignItems: 'center' }}
+                      >
+                        {CalcEngine.formatBRL(CalcEngine.calcularPrecoBruto(formProduto.preco_unitario, pctBruto))}
+                      </div>
+                      <span style={{ fontSize: '10px', color: '#1D4ED8', marginTop: '2px', display: 'block', fontWeight: 600 }}>
+                        Até 5x no Cartão de Crédito
+                      </span>
                     </div>
                   </div>
                 </div>

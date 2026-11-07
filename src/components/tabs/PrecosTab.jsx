@@ -29,6 +29,15 @@ export const PrecosTab = () => {
   const [reajusteAlvo, setReajusteAlvo] = useState('TODOS');
   const [isGerenciadorOpen, setIsGerenciadorOpen] = useState(false);
 
+  // Modal do Formador de Preço Individual (Custo Fornecedor + Margem %)
+  const [modalFormador, setModalFormador] = useState({
+    isOpen: false,
+    product: null,
+    preco_custo: '',
+    margem_lucro_pct: 30,
+    preco_unitario: 0
+  });
+
   // Modal de Confirmação do Reajuste
   const [modalConfirmacao, setModalConfirmacao] = useState({
     isOpen: false,
@@ -169,6 +178,113 @@ export const PrecosTab = () => {
       alvo: reajusteAlvo
     });
     setModalConfirmacao(prev => ({ ...prev, isOpen: false }));
+  };
+
+  // Handlers do Formador de Preço (Custo Fornecedor + Margem %)
+  const handleAbrirFormador = (prod) => {
+    const pUnit = prod.preco_unitario || 0;
+    const pCusto = prod.preco_custo !== undefined ? prod.preco_custo : '';
+    let pMargem = prod.margem_lucro_pct !== undefined ? prod.margem_lucro_pct : '';
+    if (pMargem === '' && pCusto > 0 && pUnit > 0) {
+      pMargem = parseFloat((((pUnit - pCusto) / pCusto) * 100).toFixed(2));
+    }
+    setModalFormador({
+      isOpen: true,
+      product: prod,
+      preco_custo: pCusto,
+      margem_lucro_pct: pMargem !== '' ? pMargem : 30,
+      preco_unitario: pUnit
+    });
+  };
+
+  const handleFormadorCustoChange = (novoCustoRaw) => {
+    setModalFormador(prev => {
+      const custo = novoCustoRaw === '' ? '' : Math.max(0, parseFloat(novoCustoRaw) || 0);
+      let novoPreco = prev.preco_unitario;
+
+      if (custo !== '' && prev.margem_lucro_pct !== '') {
+        const margem = parseFloat(prev.margem_lucro_pct) || 0;
+        novoPreco = parseFloat((custo * (1 + margem / 100)).toFixed(2));
+      } else if (custo !== '' && (parseFloat(novoPreco) || 0) > 0) {
+        const calcMargem = custo > 0 ? parseFloat((((novoPreco - custo) / custo) * 100).toFixed(2)) : 0;
+        return { ...prev, preco_custo: novoCustoRaw, margem_lucro_pct: calcMargem };
+      }
+
+      return {
+        ...prev,
+        preco_custo: novoCustoRaw,
+        preco_unitario: novoPreco
+      };
+    });
+  };
+
+  const handleFormadorMargemChange = (novaMargemRaw) => {
+    setModalFormador(prev => {
+      const margem = novaMargemRaw === '' ? '' : (parseFloat(novaMargemRaw) || 0);
+      let novoPreco = prev.preco_unitario;
+
+      if (prev.preco_custo !== '' && margem !== '') {
+        const custo = parseFloat(prev.preco_custo) || 0;
+        novoPreco = parseFloat((custo * (1 + margem / 100)).toFixed(2));
+      }
+
+      return {
+        ...prev,
+        margem_lucro_pct: novaMargemRaw,
+        preco_unitario: novoPreco
+      };
+    });
+  };
+
+  const handleFormadorPrecoUnitarioChange = (novoPrecoRaw) => {
+    setModalFormador(prev => {
+      const preco = novoPrecoRaw === '' ? '' : Math.max(0, parseFloat(novoPrecoRaw) || 0);
+      let novaMargem = prev.margem_lucro_pct;
+
+      if (prev.preco_custo !== '' && parseFloat(prev.preco_custo) > 0 && preco !== '') {
+        const custo = parseFloat(prev.preco_custo);
+        novaMargem = parseFloat((((preco - custo) / custo) * 100).toFixed(2));
+      }
+
+      return {
+        ...prev,
+        preco_unitario: novoPrecoRaw,
+        margem_lucro_pct: novaMargem
+      };
+    });
+  };
+
+  const handleSalvarFormadorPreco = () => {
+    if (!modalFormador.product) return;
+    const pId = modalFormador.product.id;
+    const novoPreco = Math.max(0, parseFloat(modalFormador.preco_unitario) || 0);
+    const novoCusto = modalFormador.preco_custo === '' ? 0 : Math.max(0, parseFloat(modalFormador.preco_custo) || 0);
+    const novaMargem = modalFormador.margem_lucro_pct === '' ? 0 : (parseFloat(modalFormador.margem_lucro_pct) || 0);
+
+    let targetProd = null;
+    const updated = products.map(p => {
+      if (p.id === pId) {
+        targetProd = {
+          ...p,
+          preco_unitario: novoPreco,
+          preco_custo: novoCusto,
+          margem_lucro_pct: novaMargem
+        };
+        return targetProd;
+      }
+      return p;
+    });
+
+    DB.set(STORAGE_KEYS.PRODUTOS, updated);
+    setProducts([...updated]);
+    if (targetProd) {
+      ApiClient.saveProduto(targetProd).catch(err => {
+        console.warn('[PrecosTab] Erro ao sincronizar preço alterado:', err);
+      });
+    }
+
+    showToast(`Preço de "${modalFormador.product.nome}" atualizado para ${CalcEngine.formatBRL(novoPreco)} com sucesso!`, 'success');
+    setModalFormador({ isOpen: false, product: null, preco_custo: '', margem_lucro_pct: 30, preco_unitario: 0 });
   };
 
   // Edição direta de preço na linha da tabela
@@ -509,15 +625,34 @@ export const PrecosTab = () => {
                       <td className="align-center font-mono">{p.tipo_calculo}</td>
                       <td className="align-right">
                         {isAdmin ? (
-                          <input 
-                            type="number" 
-                            step="0.10" 
-                            min="0"
-                            className="table-input font-mono" 
-                            style={{ width: '110px', textAlign: 'right', fontWeight: 800, color: '#047857' }}
-                            value={p.preco_unitario}
-                            onChange={e => handleEditarPrecoDirect(p.id, e.target.value)}
-                          />
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                              <input 
+                                type="number" 
+                                step="0.10" 
+                                min="0"
+                                className="table-input font-mono" 
+                                style={{ width: '92px', textAlign: 'right', fontWeight: 800, color: '#047857' }}
+                                value={p.preco_unitario}
+                                onChange={e => handleEditarPrecoDirect(p.id, e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-secondary"
+                                style={{ padding: '2px 5px', height: '26px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '2px', fontWeight: 700 }}
+                                onClick={() => handleAbrirFormador(p)}
+                                title="Formar Preço: Custo Fornecedor + Margem %"
+                              >
+                                ⚡
+                              </button>
+                            </div>
+                            {(p.preco_custo > 0 || p.margem_lucro_pct > 0) && (
+                              <div style={{ fontSize: '9.5px', color: '#64748B', marginTop: '2px', textAlign: 'right' }}>
+                                {p.preco_custo > 0 ? `Custo: ${CalcEngine.formatBRL(p.preco_custo)}` : ''}
+                                {p.margem_lucro_pct > 0 ? ` (+${p.margem_lucro_pct}%)` : ''}
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span className="font-mono" style={{ fontWeight: 800, color: '#047857', fontSize: '13px' }}>
                             {CalcEngine.formatBRL(precoAVista)}
@@ -544,6 +679,175 @@ export const PrecosTab = () => {
           itemLabel="produtos"
         />
       </div>
+
+      {/* MODAL FORMADOR DE PREÇO (CUSTO FORNECEDOR + MARGEM % = PREÇO À VISTA & CARTÃO) */}
+      {modalFormador.isOpen && modalFormador.product && (() => {
+        const custoF = parseFloat(modalFormador.preco_custo) || 0;
+        const precoF = parseFloat(modalFormador.preco_unitario) || 0;
+        const lucroF = (custoF > 0 && precoF >= custoF) ? parseFloat((precoF - custoF).toFixed(2)) : 0;
+        const precoBrutoF = CalcEngine.calcularPrecoBruto(modalFormador.preco_unitario, pctBruto);
+
+        return (
+          <div className="modal-overlay active" style={{ display: 'flex', zIndex: 1100 }}>
+            <div className="modal-container" style={{ maxWidth: '640px', width: '92%' }}>
+              <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <span className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🧮</span>
+                    <span>Formador de Preço de Venda</span>
+                  </span>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    <strong style={{ color: 'var(--primary-green)' }}>#{modalFormador.product.codigo}</strong> • <strong>{modalFormador.product.nome}</strong> ({modalFormador.product.tipo_calculo || 'UN'})
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  className="modal-close" 
+                  onClick={() => setModalFormador({ isOpen: false, product: null, preco_custo: '', margem_lucro_pct: 30, preco_unitario: 0 })}
+                  style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="modal-body" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ background: '#FFFBEB', border: '1px solid #FCD34D', padding: '8px 12px', borderRadius: '6px', fontSize: '11.5px', color: '#92400E', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>🔒 <strong>Uso exclusivo do Administrador:</strong> Informe o preço que pagou ao vendedor e sua porcentagem de ganho para calcular a tabela automaticamente.</span>
+                  {lucroF > 0 && (
+                    <span className="font-mono" style={{ fontWeight: 800, color: '#047857', background: '#FFFFFF', padding: '2px 8px', borderRadius: '4px', border: '1px solid #86EFAC', whiteSpace: 'nowrap', marginLeft: '6px' }}>
+                      Lucro: +{CalcEngine.formatBRL(lucroF)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                  {/* JANELA 1: PREÇO DO VENDEDOR / CUSTO */}
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: '11.5px', color: '#475569' }}>
+                      1. Preço Fornecedor / Custo (R$):
+                    </label>
+                    <input 
+                      type="number" 
+                      step="0.05" 
+                      min="0"
+                      placeholder="Ex: 30,00"
+                      className="form-input font-mono" 
+                      style={{ height: '36px', fontSize: '13.5px', fontWeight: 700, background: '#FFFFFF' }}
+                      value={modalFormador.preco_custo === '' ? '' : modalFormador.preco_custo}
+                      onChange={e => handleFormadorCustoChange(e.target.value)}
+                      title="Valor pago ao vendedor ou fornecedor da mercadoria"
+                      autoFocus
+                    />
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px', display: 'block' }}>
+                      Quanto você pagou
+                    </span>
+                  </div>
+
+                  {/* JANELA 2: MARGEM DE GANHO % */}
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 700, fontSize: '11.5px', color: '#475569' }}>
+                      2. Margem de Ganho (%):
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <input 
+                        type="number" 
+                        step="1" 
+                        placeholder="Ex: 30"
+                        className="form-input font-mono" 
+                        style={{ height: '36px', fontSize: '13.5px', fontWeight: 700, paddingRight: '25px', background: '#FFFFFF' }}
+                        value={modalFormador.margem_lucro_pct === '' ? '' : modalFormador.margem_lucro_pct}
+                        onChange={e => handleFormadorMargemChange(e.target.value)}
+                        title="Porcentagem de lucro sobre o custo"
+                      />
+                      <span style={{ position: 'absolute', right: '8px', top: '8px', fontSize: '13px', fontWeight: 700, color: '#64748B' }}>
+                        %
+                      </span>
+                    </div>
+                    {/* Botões rápidos */}
+                    <div style={{ display: 'flex', gap: '3px', marginTop: '3px', flexWrap: 'wrap' }}>
+                      {[20, 30, 40, 50, 100].map(m => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => handleFormadorMargemChange(m)}
+                          style={{
+                            background: parseFloat(modalFormador.margem_lucro_pct) === m ? '#1E293B' : '#FFFFFF',
+                            color: parseFloat(modalFormador.margem_lucro_pct) === m ? '#FFFFFF' : '#475569',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '3px',
+                            padding: '1px 5px',
+                            fontSize: '9.5px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          +{m}%
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* JANELA 3: PREÇO CERTO À VISTA */}
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 800, fontSize: '11.5px', color: '#047857' }}>
+                      3. Preço Venda À Vista (R$):
+                    </label>
+                    <input 
+                      type="number" 
+                      step="0.05" 
+                      min="0"
+                      className="form-input font-mono" 
+                      style={{ height: '36px', fontSize: '14px', fontWeight: 800, color: '#047857', border: '1.5px solid #10B981', background: '#ECFDF5' }}
+                      value={modalFormador.preco_unitario === '' ? '' : modalFormador.preco_unitario}
+                      onChange={e => handleFormadorPrecoUnitarioChange(e.target.value)}
+                      placeholder="0,00"
+                      title="Preço oficial de venda à vista (Pix e Dinheiro)"
+                    />
+                    <span style={{ fontSize: '10px', color: '#065F46', marginTop: '2px', display: 'block', fontWeight: 600 }}>
+                      Pix ou Dinheiro (Tabela)
+                    </span>
+                  </div>
+
+                  {/* JANELA 4: PREÇO NO CARTÃO (+20%) */}
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label" style={{ fontWeight: 800, fontSize: '11.5px', color: '#1E40AF' }}>
+                      4. Preço no Cartão (+{pctBruto}%):
+                    </label>
+                    <div 
+                      className="form-input font-mono" 
+                      style={{ height: '36px', fontSize: '14px', fontWeight: 800, color: '#1E40AF', background: '#EFF6FF', border: '1.5px solid #93C5FD', display: 'flex', alignItems: 'center' }}
+                    >
+                      {CalcEngine.formatBRL(precoBrutoF)}
+                    </div>
+                    <span style={{ fontSize: '10px', color: '#1D4ED8', marginTop: '2px', display: 'block', fontWeight: 600 }}>
+                      Até 5x no Cartão
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', padding: '12px 16px', background: '#F8FAFC', borderTop: '1px solid var(--border-light)' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setModalFormador({ isOpen: false, product: null, preco_custo: '', margem_lucro_pct: 30, preco_unitario: 0 })}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSalvarFormadorPreco}
+                  style={{ fontWeight: 800, background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span>Salvar Preço de Tabela</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* MODAL DE GERENCIAMENTO DE CATEGORIAS */}
       <GerenciadorCategoriasModal 
