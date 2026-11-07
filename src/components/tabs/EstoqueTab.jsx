@@ -23,6 +23,8 @@ export const EstoqueTab = () => {
   const [statusEstoqueFilter, setStatusEstoqueFilter] = useState('TODOS'); // 'TODOS' | 'ZERADOS' | 'BAIXO' | 'ATENCAO' | 'NORMAL'
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [statusAtualizacaoFilter, setStatusAtualizacaoFilter] = useState('TODOS'); // 'TODOS' | 'DESATUALIZADOS_30' | 'DESATUALIZADOS_60' | 'CRITICOS_90' | 'NUNCA' | 'RECENTES_30'
+  const [ordemAtualizacao, setOrdemAtualizacao] = useState('PADRAO'); // 'PADRAO' | 'ANTIGOS_PRIMEIRO' | 'RECENTES_PRIMEIRO'
   const [isGerenciadorOpen, setIsGerenciadorOpen] = useState(false);
 
   // Modal Produto (Novo ou Edição)
@@ -199,6 +201,7 @@ export const EstoqueTab = () => {
       preco_custo: pCusto,
       margem_lucro_pct: pMargem !== '' ? pMargem : 30,
       preco_unitario: pUnit,
+      atualizado_em: prod.atualizado_em,
       estoque_atual: prod.estoque_atual || 0,
       estoque_minimo: prod.estoque_minimo || 10
     });
@@ -315,6 +318,7 @@ export const EstoqueTab = () => {
       preco_custo: formProduto.preco_custo === '' ? 0 : Math.max(0, parseFloat(formProduto.preco_custo) || 0),
       margem_lucro_pct: formProduto.margem_lucro_pct === '' ? 0 : (parseFloat(formProduto.margem_lucro_pct) || 0),
       preco_unitario: Math.max(0, parseFloat(formProduto.preco_unitario) || 0),
+      atualizado_em: new Date().toISOString(),
       estoque_atual: Math.max(0, parseFloat(formProduto.estoque_atual) || 0),
       estoque_minimo: Math.max(0, parseFloat(formProduto.estoque_minimo) || 0),
       largura_cm: parseFloat(formProduto.largura_cm) || 0,
@@ -488,10 +492,48 @@ export const EstoqueTab = () => {
                 <option value="NORMAL">🟢 Saldo Normal</option>
               </select>
 
+              {/* FILTRAR POR TEMPO DE ATUALIZAÇÃO */}
+              <select 
+                className="form-select font-mono"
+                style={{ 
+                  width: '205px',
+                  fontSize: '11.5px',
+                  fontWeight: statusAtualizacaoFilter !== 'TODOS' ? 700 : 500,
+                  borderColor: statusAtualizacaoFilter !== 'TODOS' ? '#D97706' : '#CBD5E1',
+                  backgroundColor: statusAtualizacaoFilter !== 'TODOS' ? '#FFFBEB' : '#FFFFFF'
+                }}
+                value={statusAtualizacaoFilter}
+                onChange={e => {
+                  setStatusAtualizacaoFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                title="Filtrar produtos por tempo sem atualização de preço"
+              >
+                <option value="TODOS">🕒 Atualizações: Todas</option>
+                <option value="DESATUALIZADOS_30">⚠️ Sem atualizar há +30 dias</option>
+                <option value="DESATUALIZADOS_60">⚠️ Sem atualizar há +60 dias</option>
+                <option value="CRITICOS_90">🔴 Críticos (+90 dias / Nunca)</option>
+                <option value="NUNCA">⛔ Nunca Atualizados</option>
+                <option value="RECENTES_30">🟢 Recentes (≤ 30 dias)</option>
+              </select>
+
+              {/* ORDENAR POR ATUALIZAÇÃO */}
+              <select
+                className="form-select"
+                value={ordemAtualizacao}
+                onChange={e => { setOrdemAtualizacao(e.target.value); setCurrentPage(1); }}
+                style={{ width: '175px', fontSize: '11.5px' }}
+                title="Ordenar exibição de produtos"
+              >
+                <option value="PADRAO">Ordenar: Padrão</option>
+                <option value="ANTIGOS_PRIMEIRO">⏳ Mais antigos primeiro</option>
+                <option value="RECENTES_PRIMEIRO">✨ Mais recentes primeiro</option>
+              </select>
+
               {/* FILTRAR POR CATEGORIA DINÂMICA */}
               <select 
                 className="form-select"
-                style={{ width: '190px' }}
+                style={{ width: '175px', fontSize: '11.5px' }}
                 value={categoriaFilter}
                 onChange={e => { setCategoriaFilter(e.target.value); setCurrentPage(1); }}
               >
@@ -549,19 +591,20 @@ export const EstoqueTab = () => {
               <tr>
                 <th style={{ width: '70px', whiteSpace: 'nowrap' }}>Código</th>
                 <th>Descrição do Produto</th>
-                <th style={{ width: '135px' }}>Categorias</th>
+                <th style={{ width: '125px' }}>Categorias</th>
                 <th style={{ width: '45px', whiteSpace: 'nowrap' }} className="align-center">Unid.</th>
                 <th style={{ width: '95px', whiteSpace: 'nowrap' }} className="align-right">Preço À Vista</th>
-                <th style={{ width: '105px', whiteSpace: 'nowrap' }} className="align-right">Preço Bruto (+{pctBruto}%)</th>
-                <th style={{ width: '80px', whiteSpace: 'nowrap' }} className="align-center">Saldo Atual</th>
-                <th style={{ width: '75px', whiteSpace: 'nowrap' }} className="align-center">Status</th>
-                <th style={{ width: '155px', whiteSpace: 'nowrap' }} className="align-center">Ações</th>
+                <th style={{ width: '100px', whiteSpace: 'nowrap' }} className="align-right">Preço Bruto (+{pctBruto}%)</th>
+                <th style={{ width: '95px', whiteSpace: 'nowrap' }} className="align-center">Atualizado</th>
+                <th style={{ width: '75px', whiteSpace: 'nowrap' }} className="align-center">Saldo</th>
+                <th style={{ width: '70px', whiteSpace: 'nowrap' }} className="align-center">Status</th>
+                <th style={{ width: '145px', whiteSpace: 'nowrap' }} className="align-center">Ações</th>
               </tr>
             </thead>
             <tbody>
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                  <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                     Nenhum produto encontrado com os filtros aplicados.
                   </td>
                 </tr>
@@ -573,6 +616,7 @@ export const EstoqueTab = () => {
                   const isBaixo = saldo > 0 && saldo <= min;
                   const precoAVista = parseFloat(p.preco_unitario) || 0;
                   const precoBruto = CalcEngine.calcularPrecoBruto(precoAVista, pctBruto);
+                  const infoAtt = CalcEngine.formatarAtualizacao(p);
                   const pCats = Array.isArray(p.categorias) && p.categorias.length > 0 
                     ? p.categorias 
                     : (p.categoria ? [p.categoria] : []);
@@ -614,6 +658,26 @@ export const EstoqueTab = () => {
                       </td>
                       <td className="align-right font-mono" style={{ fontWeight: 700, color: '#1E40AF', whiteSpace: 'nowrap' }}>
                         {CalcEngine.formatBRL(precoBruto)}
+                      </td>
+                      <td className="align-center font-mono" style={{ whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: '10.5px', fontWeight: 700, color: infoAtt.cor }}>
+                          {infoAtt.dataFmt}
+                        </div>
+                        <span 
+                          style={{ 
+                            fontSize: '9px', 
+                            backgroundColor: infoAtt.bg, 
+                            color: infoAtt.cor, 
+                            border: `1px solid ${infoAtt.borda}`, 
+                            borderRadius: '3px', 
+                            padding: '0 4px',
+                            fontWeight: 600,
+                            display: 'inline-block',
+                            marginTop: '1px'
+                          }}
+                        >
+                          {infoAtt.label}
+                        </span>
                       </td>
                       <td className="align-center font-mono" style={{ fontWeight: 800, fontSize: '12.5px', whiteSpace: 'nowrap' }}>
                         {saldo} un
@@ -708,9 +772,22 @@ export const EstoqueTab = () => {
             onClick={e => e.stopPropagation()}
           >
             <div className="modal-header">
-              <span className="modal-title">
-                {modalProduto.isEdit ? `Editar Produto: ${formProduto.nome || formProduto.codigo}` : 'Novo Produto / Madeira'}
-              </span>
+              <div>
+                <span className="modal-title">
+                  {modalProduto.isEdit ? `Editar Produto: ${formProduto.nome || formProduto.codigo}` : 'Novo Produto / Madeira'}
+                </span>
+                {modalProduto.isEdit && (() => {
+                  const infoAtt = CalcEngine.formatarAtualizacao({ atualizado_em: formProduto.atualizado_em });
+                  return (
+                    <div style={{ fontSize: '11px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: 'var(--text-muted)' }}>Última atualização de preço/dados:</span>
+                      <span style={{ color: infoAtt.cor, fontWeight: 700, background: infoAtt.bg, border: `1px solid ${infoAtt.borda}`, padding: '0 5px', borderRadius: '3px' }}>
+                        🕒 {infoAtt.dataFmt} ({infoAtt.label})
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
               <button className="modal-close" onClick={() => setModalProduto({ isOpen: false, isEdit: false })}>&times;</button>
             </div>
             <form onSubmit={handleSalvarProduto} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>

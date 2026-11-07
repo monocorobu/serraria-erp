@@ -22,6 +22,8 @@ export const PrecosTab = () => {
   const [especieFilter, setEspecieFilter] = useState('TODAS');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [statusAtualizacaoFilter, setStatusAtualizacaoFilter] = useState('TODOS'); // 'TODOS' | 'DESATUALIZADOS_30' | 'DESATUALIZADOS_60' | 'CRITICOS_90' | 'NUNCA' | 'RECENTES_30'
+  const [ordemAtualizacao, setOrdemAtualizacao] = useState('PADRAO'); // 'PADRAO' | 'ANTIGOS_PRIMEIRO' | 'RECENTES_PRIMEIRO'
 
   // Estado do Reajuste Coletivo
   const [tipoReajuste, setTipoReajuste] = useState('ACRESCIMO'); // 'ACRESCIMO' ou 'DESCONTO'
@@ -119,11 +121,19 @@ export const PrecosTab = () => {
 
   // Produtos filtrados na tabela de preços
   const filteredProducts = useMemo(() => {
-    return products.filter(p => {
+    let result = products.filter(p => {
       if (especieFilter !== 'TODAS' && p.especie !== especieFilter) return false;
       if (categoriaFilter !== 'TODAS') {
         const pCats = Array.isArray(p.categorias) ? p.categorias : (p.categoria ? [p.categoria] : []);
         if (!pCats.includes(categoriaFilter)) return false;
+      }
+      if (statusAtualizacaoFilter !== 'TODOS') {
+        const dias = CalcEngine.getDiasSemAtualizacao(p);
+        if (statusAtualizacaoFilter === 'DESATUALIZADOS_30' && dias <= 30) return false;
+        if (statusAtualizacaoFilter === 'DESATUALIZADOS_60' && dias <= 60) return false;
+        if (statusAtualizacaoFilter === 'CRITICOS_90' && dias <= 90) return false;
+        if (statusAtualizacaoFilter === 'NUNCA' && p.atualizado_em) return false;
+        if (statusAtualizacaoFilter === 'RECENTES_30' && dias > 30) return false;
       }
       if (searchTerm.trim()) {
         const t = searchTerm.toLowerCase();
@@ -134,7 +144,15 @@ export const PrecosTab = () => {
       }
       return true;
     });
-  }, [products, especieFilter, categoriaFilter, searchTerm]);
+
+    if (ordemAtualizacao === 'ANTIGOS_PRIMEIRO') {
+      result.sort((a, b) => CalcEngine.getDiasSemAtualizacao(b) - CalcEngine.getDiasSemAtualizacao(a));
+    } else if (ordemAtualizacao === 'RECENTES_PRIMEIRO') {
+      result.sort((a, b) => CalcEngine.getDiasSemAtualizacao(a) - CalcEngine.getDiasSemAtualizacao(b));
+    }
+
+    return result;
+  }, [products, especieFilter, categoriaFilter, statusAtualizacaoFilter, ordemAtualizacao, searchTerm]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
@@ -268,7 +286,8 @@ export const PrecosTab = () => {
           ...p,
           preco_unitario: novoPreco,
           preco_custo: novoCusto,
-          margem_lucro_pct: novaMargem
+          margem_lucro_pct: novaMargem,
+          atualizado_em: new Date().toISOString()
         };
         return targetProd;
       }
@@ -293,7 +312,7 @@ export const PrecosTab = () => {
     let targetProd = null;
     const updated = products.map(p => {
       if (p.id === productId) {
-        targetProd = { ...p, preco_unitario: val };
+        targetProd = { ...p, preco_unitario: val, atualizado_em: new Date().toISOString() };
         return targetProd;
       }
       return p;
@@ -539,12 +558,48 @@ export const PrecosTab = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* FILTRAR POR TEMPO DE ATUALIZAÇÃO */}
+            <select
+              className="form-select font-mono"
+              value={statusAtualizacaoFilter}
+              onChange={e => { setStatusAtualizacaoFilter(e.target.value); setCurrentPage(1); }}
+              style={{ 
+                width: '215px', 
+                fontSize: '11.5px', 
+                height: '32px',
+                fontWeight: statusAtualizacaoFilter !== 'TODOS' ? 700 : 500,
+                borderColor: statusAtualizacaoFilter !== 'TODOS' ? '#D97706' : '#CBD5E1',
+                backgroundColor: statusAtualizacaoFilter !== 'TODOS' ? '#FFFBEB' : '#FFFFFF'
+              }}
+              title="Filtrar produtos por tempo sem atualização de preço"
+            >
+              <option value="TODOS">🕒 Atualizações: Todas</option>
+              <option value="DESATUALIZADOS_30">⚠️ Sem atualizar há +30 dias</option>
+              <option value="DESATUALIZADOS_60">⚠️ Sem atualizar há +60 dias</option>
+              <option value="CRITICOS_90">🔴 Críticos (+90 dias / Nunca)</option>
+              <option value="NUNCA">⛔ Nunca Atualizados</option>
+              <option value="RECENTES_30">🟢 Recentes (≤ 30 dias)</option>
+            </select>
+
+            {/* ORDENAR POR ATUALIZAÇÃO */}
+            <select
+              className="form-select"
+              value={ordemAtualizacao}
+              onChange={e => { setOrdemAtualizacao(e.target.value); setCurrentPage(1); }}
+              style={{ width: '185px', fontSize: '11.5px', height: '32px' }}
+              title="Ordenar exibição de produtos"
+            >
+              <option value="PADRAO">Ordenar: Padrão (Código)</option>
+              <option value="ANTIGOS_PRIMEIRO">⏳ Mais antigos primeiro</option>
+              <option value="RECENTES_PRIMEIRO">✨ Mais recentes primeiro</option>
+            </select>
+
             {/* FILTRAR POR CATEGORIA */}
             <select
               className="form-select"
               value={categoriaFilter}
               onChange={e => setCategoriaFilter(e.target.value)}
-              style={{ width: '180px', fontSize: '12px', height: '32px' }}
+              style={{ width: '175px', fontSize: '11.5px', height: '32px' }}
             >
               <option value="TODAS">Todas as Categorias</option>
               {categorias.map(cat => (
@@ -574,17 +629,18 @@ export const PrecosTab = () => {
               <tr>
                 <th style={{ width: '85px' }}>Código</th>
                 <th>Nome do Produto / Madeira</th>
-                <th style={{ width: '180px' }}>Categorias</th>
-                <th style={{ width: '60px' }} className="align-center">Unid.</th>
+                <th style={{ width: '160px' }}>Categorias</th>
+                <th style={{ width: '55px' }} className="align-center">Unid.</th>
                 <th style={{ width: '140px' }} className="align-right">Preço Unit. À Vista</th>
-                <th style={{ width: '150px' }} className="align-right">Preço Unit. Bruto (+{pctBruto}%)</th>
-                <th style={{ width: '100px' }} className="align-center">Estoque</th>
+                <th style={{ width: '145px' }} className="align-right">Preço Unit. Bruto (+{pctBruto}%)</th>
+                <th style={{ width: '120px' }} className="align-center">Última Atualização</th>
+                <th style={{ width: '85px' }} className="align-center">Estoque</th>
               </tr>
             </thead>
             <tbody>
               {paginatedProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                     Nenhum produto encontrado com os filtros aplicados.
                   </td>
                 </tr>
@@ -592,6 +648,7 @@ export const PrecosTab = () => {
                 paginatedProducts.map(p => {
                   const precoAVista = parseFloat(p.preco_unitario) || 0;
                   const precoBruto = CalcEngine.calcularPrecoBruto(precoAVista, pctBruto);
+                  const infoAtt = CalcEngine.formatarAtualizacao(p);
                   const pCats = Array.isArray(p.categorias) && p.categorias.length > 0 
                     ? p.categorias 
                     : (p.categoria ? [p.categoria] : []);
@@ -662,6 +719,27 @@ export const PrecosTab = () => {
                       <td className="align-right font-mono" style={{ fontWeight: 800, color: '#1E40AF', fontSize: '13px' }}>
                         {CalcEngine.formatBRL(precoBruto)}
                       </td>
+                      <td className="align-center font-mono">
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: infoAtt.cor }}>
+                          {infoAtt.dataFmt}
+                        </div>
+                        <span 
+                          style={{ 
+                            fontSize: '9.5px', 
+                            backgroundColor: infoAtt.bg, 
+                            color: infoAtt.cor, 
+                            border: `1px solid ${infoAtt.borda}`, 
+                            borderRadius: '3px', 
+                            padding: '1px 5px',
+                            fontWeight: 600,
+                            display: 'inline-block',
+                            marginTop: '1px',
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {infoAtt.label}
+                        </span>
+                      </td>
                       <td className="align-center font-mono">{p.estoque_atual || 0} un</td>
                     </tr>
                   );
@@ -696,8 +774,16 @@ export const PrecosTab = () => {
                     <span>🧮</span>
                     <span>Formador de Preço de Venda</span>
                   </span>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                     <strong style={{ color: 'var(--primary-green)' }}>#{modalFormador.product.codigo}</strong> • <strong>{modalFormador.product.nome}</strong> ({modalFormador.product.tipo_calculo || 'UN'})
+                    {(() => {
+                      const infoAtt = CalcEngine.formatarAtualizacao(modalFormador.product);
+                      return (
+                        <span style={{ fontSize: '11px', color: infoAtt.cor, fontWeight: 700, background: infoAtt.bg, border: `1px solid ${infoAtt.borda}`, padding: '1px 6px', borderRadius: '4px' }}>
+                          🕒 {infoAtt.dataFmt} ({infoAtt.label})
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <button 

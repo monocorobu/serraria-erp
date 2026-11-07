@@ -396,6 +396,98 @@ export const CalcEngine = {
     return num.toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' m³';
   },
 
+  getDiasSemAtualizacao(produto) {
+    if (!produto || !produto.atualizado_em) return 999;
+    const dt = new Date(produto.atualizado_em);
+    if (isNaN(dt.getTime())) return 999;
+    const diffMs = Date.now() - dt.getTime();
+    return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+  },
+
+  formatarAtualizacao(produto) {
+    if (!produto || !produto.atualizado_em) {
+      return {
+        dias: 999,
+        dataFmt: 'Nunca',
+        label: 'Nunca atualizado',
+        cor: '#DC2626',
+        bg: '#FEF2F2',
+        borda: '#FCA5A5',
+        status: 'CRITICO'
+      };
+    }
+    const dt = new Date(produto.atualizado_em);
+    if (isNaN(dt.getTime())) {
+      return {
+        dias: 999,
+        dataFmt: 'Sem data',
+        label: 'Sem data',
+        cor: '#DC2626',
+        bg: '#FEF2F2',
+        borda: '#FCA5A5',
+        status: 'CRITICO'
+      };
+    }
+
+    const diffMs = Date.now() - dt.getTime();
+    const dias = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    const dataFmt = dt.toLocaleDateString('pt-BR');
+
+    if (dias === 0) {
+      return {
+        dias,
+        dataFmt,
+        label: 'Hoje',
+        cor: '#059669',
+        bg: '#ECFDF5',
+        borda: '#A7F3D0',
+        status: 'RECENTE'
+      };
+    }
+    if (dias === 1) {
+      return {
+        dias,
+        dataFmt,
+        label: 'Ontem',
+        cor: '#059669',
+        bg: '#ECFDF5',
+        borda: '#A7F3D0',
+        status: 'RECENTE'
+      };
+    }
+    if (dias <= 30) {
+      return {
+        dias,
+        dataFmt,
+        label: `Há ${dias}d`,
+        cor: '#059669',
+        bg: '#ECFDF5',
+        borda: '#A7F3D0',
+        status: 'RECENTE'
+      };
+    }
+    if (dias <= 60) {
+      return {
+        dias,
+        dataFmt,
+        label: `Há ${dias}d`,
+        cor: '#D97706',
+        bg: '#FFFBEB',
+        borda: '#FCD34D',
+        status: 'ATENCAO'
+      };
+    }
+    return {
+      dias,
+      dataFmt,
+      label: dias > 365 ? 'Há +1 ano' : `Há ${dias}d`,
+      cor: '#DC2626',
+      bg: '#FEF2F2',
+      borda: '#FCA5A5',
+      status: 'DESATUALIZADO'
+    };
+  },
+
   calcularFormacaoPreco(custo, margemPct) {
     const c = Math.max(0, parseFloat(custo) || 0);
     const m = parseFloat(margemPct) || 0;

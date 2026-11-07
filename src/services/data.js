@@ -1451,7 +1451,7 @@ const DB = {
       count++;
       const precoAntigo = parseFloat(p.preco_unitario) || 0;
       const novoPreco = Math.max(0.01, parseFloat((precoAntigo * fator).toFixed(2)));
-      return { ...p, preco_unitario: novoPreco };
+      return { ...p, preco_unitario: novoPreco, atualizado_em: new Date().toISOString() };
     });
 
     this.set(STORAGE_KEYS.PRODUTOS, updated);
@@ -1865,6 +1865,7 @@ const DB = {
       });
     }
 
+    prod.atualizado_em = prod.atualizado_em || new Date().toISOString();
     const idx = list.findIndex(p => p.id === prod.id);
     if (idx >= 0) {
       list[idx] = Object.assign({}, list[idx], prod);
