@@ -18,11 +18,18 @@ export default async function handler(req, res) {
   const pool = await getPgPool();
 
   if (req.method === 'GET') {
+    const hojeIso = new Date().toISOString();
     if (pool) {
       try {
         const result = await safeQuery(pool, 'SELECT dados FROM produtos ORDER BY id ASC');
         if (result.rows.length > 0) {
-          const produtos = result.rows.map(r => r.dados);
+          const produtos = result.rows.map(r => {
+            const d = r.dados;
+            if (d && !d.atualizado_em) {
+              d.atualizado_em = hojeIso;
+            }
+            return d;
+          });
           return res.status(200).json(produtos);
         }
       } catch (err) {
@@ -31,6 +38,9 @@ export default async function handler(req, res) {
     }
 
     if (!inMemoryProdutos) inMemoryProdutos = [];
+    inMemoryProdutos.forEach(p => {
+      if (p && !p.atualizado_em) p.atualizado_em = hojeIso;
+    });
     return res.status(200).json(inMemoryProdutos);
   }
 
@@ -56,6 +66,7 @@ export default async function handler(req, res) {
           if (!chunk.length) continue;
 
           for (const produto of chunk) {
+            produto.atualizado_em = produto.atualizado_em || new Date().toISOString();
             const cleanId = String(produto.id).trim().slice(0, 60);
             const cleanCodigo = String(produto.codigo || '').trim().slice(0, 50);
             const cleanNome = String(produto.nome || '').trim().slice(0, 255);
@@ -79,6 +90,7 @@ export default async function handler(req, res) {
     if (!inMemoryProdutos) inMemoryProdutos = [];
     for (const produto of items) {
       if (!produto || !produto.id) continue;
+      produto.atualizado_em = produto.atualizado_em || new Date().toISOString();
       const idx = inMemoryProdutos.findIndex(p => p.id === produto.id);
       if (idx >= 0) {
         inMemoryProdutos[idx] = produto;

@@ -1640,12 +1640,17 @@ const DB = {
     if (!Array.isArray(remoteProdutos) || remoteProdutos.length === 0) return this.getProdutos();
     const local = this.getProdutos();
 
+    const hoje = new Date().toISOString();
     // Se o banco remoto contiver o catálogo completo (ao menos 50 itens cadastrados),
     // o banco é a autoridade e itens excluídos no banco devem sumir localmente
     if (remoteProdutos.length >= 50) {
       const result = remoteProdutos.map(rem => {
         const localMatch = local.find(l => l.id === rem.id);
-        return localMatch ? { ...localMatch, ...rem } : rem;
+        const item = localMatch ? { ...localMatch, ...rem } : { ...rem };
+        if (!item.atualizado_em) {
+          item.atualizado_em = localMatch?.atualizado_em || hoje;
+        }
+        return item;
       });
       this.set(STORAGE_KEYS.PRODUTOS, result);
       return result;
@@ -1657,8 +1662,11 @@ const DB = {
       const idx = local.findIndex(l => l.id === rem.id || (rem.codigo && l.codigo === rem.codigo));
       if (idx >= 0) {
         local[idx] = { ...local[idx], ...rem };
+        if (!local[idx].atualizado_em) local[idx].atualizado_em = hoje;
       } else {
-        local.push(rem);
+        const novo = { ...rem };
+        if (!novo.atualizado_em) novo.atualizado_em = hoje;
+        local.push(novo);
       }
     });
     this.set(STORAGE_KEYS.PRODUTOS, local);
@@ -1800,6 +1808,10 @@ const DB = {
         const ehMadeira = p.tipo_calculo === 'ML' || p.tipo_calculo === 'M2' ||
           ['garapeira', 'cumaru', 'cedrinho', 'pinus', 'eucalipto', 'itauba', 'peroba', 'cambara'].some(esp => (p.especie || '').toLowerCase().includes(esp));
         p.permite_plaina = Boolean(ehMadeira);
+        alterado = true;
+      }
+      if (!p.atualizado_em) {
+        p.atualizado_em = new Date().toISOString();
         alterado = true;
       }
     });

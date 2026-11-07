@@ -397,45 +397,26 @@ export const CalcEngine = {
   },
 
   getDiasSemAtualizacao(produto) {
-    if (!produto || !produto.atualizado_em) return 999;
-    const dt = new Date(produto.atualizado_em);
-    if (isNaN(dt.getTime())) return 999;
+    if (!produto) return 0;
+    const rawData = produto.atualizado_em || new Date().toISOString();
+    const dt = new Date(rawData);
+    if (isNaN(dt.getTime())) return 0;
     const diffMs = Date.now() - dt.getTime();
     return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
   },
 
   formatarAtualizacao(produto) {
-    if (!produto || !produto.atualizado_em) {
-      return {
-        dias: 999,
-        dataFmt: 'Nunca',
-        label: 'Nunca atualizado',
-        cor: '#DC2626',
-        bg: '#FEF2F2',
-        borda: '#FCA5A5',
-        status: 'CRITICO'
-      };
-    }
-    const dt = new Date(produto.atualizado_em);
-    if (isNaN(dt.getTime())) {
-      return {
-        dias: 999,
-        dataFmt: 'Sem data',
-        label: 'Sem data',
-        cor: '#DC2626',
-        bg: '#FEF2F2',
-        borda: '#FCA5A5',
-        status: 'CRITICO'
-      };
-    }
+    const rawData = (produto && produto.atualizado_em) ? produto.atualizado_em : new Date().toISOString();
+    const dt = new Date(rawData);
+    const validDt = !isNaN(dt.getTime()) ? dt : new Date();
 
-    const diffMs = Date.now() - dt.getTime();
+    const diffMs = Date.now() - validDt.getTime();
     const dias = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-    const dataFmt = dt.toLocaleDateString('pt-BR');
+    const dataFmt = validDt.toLocaleDateString('pt-BR');
 
     if (dias === 0) {
       return {
-        dias,
+        dias: 0,
         dataFmt,
         label: 'Hoje',
         cor: '#059669',
@@ -446,7 +427,7 @@ export const CalcEngine = {
     }
     if (dias === 1) {
       return {
-        dias,
+        dias: 1,
         dataFmt,
         label: 'Ontem',
         cor: '#059669',

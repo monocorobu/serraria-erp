@@ -510,11 +510,10 @@ export const EstoqueTab = () => {
                 title="Filtrar produtos por tempo sem atualização de preço"
               >
                 <option value="TODOS">🕒 Atualizações: Todas</option>
+                <option value="RECENTES_30">🟢 Recentes (≤ 30 dias)</option>
                 <option value="DESATUALIZADOS_30">⚠️ Sem atualizar há +30 dias</option>
                 <option value="DESATUALIZADOS_60">⚠️ Sem atualizar há +60 dias</option>
-                <option value="CRITICOS_90">🔴 Críticos (+90 dias / Nunca)</option>
-                <option value="NUNCA">⛔ Nunca Atualizados</option>
-                <option value="RECENTES_30">🟢 Recentes (≤ 30 dias)</option>
+                <option value="CRITICOS_90">🔴 Críticos (+90 dias)</option>
               </select>
 
               {/* ORDENAR POR ATUALIZAÇÃO */}
