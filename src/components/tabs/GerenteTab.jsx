@@ -432,7 +432,7 @@ export const GerenteTab = () => {
                   <label className="form-label">Teto de Desconto Livre para Vendedor (%):</label>
                   <input 
                     type="number" 
-                    step="0.5" 
+                    step="any" 
                     className="form-input font-mono" 
                     value={paramsForm.desconto_maximo_livre}
                     onChange={e => setParamsForm(prev => ({ ...prev, desconto_maximo_livre: e.target.value }))}
@@ -457,7 +457,7 @@ export const GerenteTab = () => {
                   <label className="form-label" style={{ fontWeight: 600 }}>Taxa no Débito / Cartão à Vista (%):</label>
                   <input 
                     type="number" 
-                    step="0.1" 
+                    step="any" 
                     className="form-input font-mono" 
                     value={paramsForm.percentual_taxa_debito}
                     onChange={e => setParamsForm(prev => ({ ...prev, percentual_taxa_debito: e.target.value }))}
@@ -470,7 +470,7 @@ export const GerenteTab = () => {
                   <label className="form-label" style={{ fontWeight: 600 }}>Acréscimo Cartão 5x / Preço Bruto (%):</label>
                   <input 
                     type="number" 
-                    step="0.5" 
+                    step="any" 
                     className="form-input font-mono" 
                     value={paramsForm.percentual_preco_bruto}
                     onChange={e => setParamsForm(prev => ({ ...prev, percentual_preco_bruto: e.target.value }))}
@@ -1041,7 +1041,7 @@ export const GerenteTab = () => {
                     <label className="form-label">Comissão sobre Vendas (%):</label>
                     <input
                       type="number"
-                      step="0.1"
+                      step="any"
                       min="0"
                       max="100"
                       className="form-input font-mono"
@@ -1066,7 +1066,7 @@ export const GerenteTab = () => {
                     <label className="form-label">Salário Base (R$):</label>
                     <input
                       type="number"
-                      step="50"
+                      step="any"
                       min="0"
                       className="form-input font-mono"
                       value={formFuncionario.salario_base}

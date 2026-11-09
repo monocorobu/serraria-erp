@@ -217,14 +217,16 @@ export const PrecosTab = () => {
 
   const handleFormadorCustoChange = (novoCustoRaw) => {
     setModalFormador(prev => {
-      const custo = novoCustoRaw === '' ? '' : Math.max(0, parseFloat(novoCustoRaw) || 0);
+      const cleanVal = String(novoCustoRaw ?? '').replace(',', '.');
+      const custo = cleanVal === '' ? '' : Math.max(0, parseFloat(cleanVal) || 0);
       let novoPreco = prev.preco_unitario;
 
       if (custo !== '' && prev.margem_lucro_pct !== '') {
-        const margem = parseFloat(prev.margem_lucro_pct) || 0;
+        const margem = parseFloat(String(prev.margem_lucro_pct).replace(',', '.')) || 0;
         novoPreco = parseFloat((custo * (1 + margem / 100)).toFixed(2));
-      } else if (custo !== '' && (parseFloat(novoPreco) || 0) > 0) {
-        const calcMargem = custo > 0 ? parseFloat((((novoPreco - custo) / custo) * 100).toFixed(2)) : 0;
+      } else if (custo !== '' && (parseFloat(String(novoPreco).replace(',', '.')) || 0) > 0) {
+        const precoNum = parseFloat(String(novoPreco).replace(',', '.'));
+        const calcMargem = custo > 0 ? parseFloat((((precoNum - custo) / custo) * 100).toFixed(2)) : 0;
         return { ...prev, preco_custo: novoCustoRaw, margem_lucro_pct: calcMargem };
       }
 
@@ -238,11 +240,12 @@ export const PrecosTab = () => {
 
   const handleFormadorMargemChange = (novaMargemRaw) => {
     setModalFormador(prev => {
-      const margem = novaMargemRaw === '' ? '' : (parseFloat(novaMargemRaw) || 0);
+      const cleanMargem = String(novaMargemRaw ?? '').replace(',', '.');
+      const margem = cleanMargem === '' ? '' : (parseFloat(cleanMargem) || 0);
       let novoPreco = prev.preco_unitario;
 
       if (prev.preco_custo !== '' && margem !== '') {
-        const custo = parseFloat(prev.preco_custo) || 0;
+        const custo = parseFloat(String(prev.preco_custo).replace(',', '.')) || 0;
         novoPreco = parseFloat((custo * (1 + margem / 100)).toFixed(2));
       }
 
@@ -256,11 +259,12 @@ export const PrecosTab = () => {
 
   const handleFormadorPrecoUnitarioChange = (novoPrecoRaw) => {
     setModalFormador(prev => {
-      const preco = novoPrecoRaw === '' ? '' : Math.max(0, parseFloat(novoPrecoRaw) || 0);
+      const cleanPreco = String(novoPrecoRaw ?? '').replace(',', '.');
+      const preco = cleanPreco === '' ? '' : Math.max(0, parseFloat(cleanPreco) || 0);
       let novaMargem = prev.margem_lucro_pct;
 
-      if (prev.preco_custo !== '' && parseFloat(prev.preco_custo) > 0 && preco !== '') {
-        const custo = parseFloat(prev.preco_custo);
+      if (prev.preco_custo !== '' && parseFloat(String(prev.preco_custo).replace(',', '.')) > 0 && preco !== '') {
+        const custo = parseFloat(String(prev.preco_custo).replace(',', '.'));
         novaMargem = parseFloat((((preco - custo) / custo) * 100).toFixed(2));
       }
 
@@ -275,9 +279,13 @@ export const PrecosTab = () => {
   const handleSalvarFormadorPreco = () => {
     if (!modalFormador.product) return;
     const pId = modalFormador.product.id;
-    const novoPreco = Math.max(0, parseFloat(modalFormador.preco_unitario) || 0);
-    const novoCusto = modalFormador.preco_custo === '' ? 0 : Math.max(0, parseFloat(modalFormador.preco_custo) || 0);
-    const novaMargem = modalFormador.margem_lucro_pct === '' ? 0 : (parseFloat(modalFormador.margem_lucro_pct) || 0);
+    const cleanPreco = String(modalFormador.preco_unitario ?? '').replace(',', '.');
+    const cleanCusto = String(modalFormador.preco_custo ?? '').replace(',', '.');
+    const cleanMargem = String(modalFormador.margem_lucro_pct ?? '').replace(',', '.');
+
+    const novoPreco = Math.max(0, parseFloat(cleanPreco) || 0);
+    const novoCusto = cleanCusto === '' ? 0 : Math.max(0, parseFloat(cleanCusto) || 0);
+    const novaMargem = cleanMargem === '' ? 0 : (parseFloat(cleanMargem) || 0);
 
     let targetProd = null;
     const updated = products.map(p => {
@@ -308,7 +316,8 @@ export const PrecosTab = () => {
 
   // Edição direta de preço na linha da tabela
   const handleEditarPrecoDirect = (productId, novoPreco) => {
-    const val = Math.max(0, parseFloat(novoPreco) || 0);
+    const cleanVal = String(novoPreco ?? '').replace(',', '.');
+    const val = Math.max(0, parseFloat(cleanVal) || 0);
     let targetProd = null;
     const updated = products.map(p => {
       if (p.id === productId) {
@@ -426,7 +435,7 @@ export const PrecosTab = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <input 
                   type="number" 
-                  step="0.5" 
+                  step="any" 
                   min="0.1"
                   max={tipoReajuste === 'DESCONTO' ? 99.9 : 1000}
                   className="form-input font-mono" 
@@ -685,7 +694,7 @@ export const PrecosTab = () => {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
                               <input 
                                 type="number" 
-                                step="0.10" 
+                                step="any" 
                                 min="0"
                                 className="table-input font-mono" 
                                 style={{ width: '92px', textAlign: 'right', fontWeight: 800, color: '#047857' }}
@@ -813,7 +822,7 @@ export const PrecosTab = () => {
                     </label>
                     <input 
                       type="number" 
-                      step="0.05" 
+                      step="any" 
                       min="0"
                       placeholder="Ex: 30,00"
                       className="form-input font-mono" 
@@ -836,7 +845,7 @@ export const PrecosTab = () => {
                     <div style={{ position: 'relative' }}>
                       <input 
                         type="number" 
-                        step="1" 
+                        step="any" 
                         placeholder="Ex: 30"
                         className="form-input font-mono" 
                         style={{ height: '36px', fontSize: '13.5px', fontWeight: 700, paddingRight: '25px', background: '#FFFFFF' }}
@@ -879,7 +888,7 @@ export const PrecosTab = () => {
                     </label>
                     <input 
                       type="number" 
-                      step="0.05" 
+                      step="any" 
                       min="0"
                       className="form-input font-mono" 
                       style={{ height: '36px', fontSize: '14px', fontWeight: 800, color: '#047857', border: '1.5px solid #10B981', background: '#ECFDF5' }}

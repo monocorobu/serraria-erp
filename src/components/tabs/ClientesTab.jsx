@@ -723,10 +723,10 @@ export const ClientesTab = () => {
                     <label className="form-label">Comissão Padrão (%):</label>
                     <input 
                       type="number" 
-                      step="0.5" 
+                      step="any" 
                       className="form-input font-mono" 
                       value={formCarpinteiro.comissao_padrao_pct}
-                      onChange={e => setFormCarpinteiro(prev => ({ ...prev, comissao_padrao_pct: parseFloat(e.target.value) || 0 }))}
+                      onChange={e => setFormCarpinteiro(prev => ({ ...prev, comissao_padrao_pct: parseFloat(String(e.target.value).replace(',', '.')) || 0 }))}
                     />
                   </div>
                 </div>

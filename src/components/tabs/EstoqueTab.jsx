@@ -212,14 +212,16 @@ export const EstoqueTab = () => {
   // Handlers do Formador de Preço (Custo Fornecedor + Margem % = Preço À Vista & Cartão)
   const handleCustoChange = (novoCustoRaw) => {
     setFormProduto(prev => {
-      const custo = novoCustoRaw === '' ? '' : Math.max(0, parseFloat(novoCustoRaw) || 0);
+      const cleanVal = String(novoCustoRaw ?? '').replace(',', '.');
+      const custo = cleanVal === '' ? '' : Math.max(0, parseFloat(cleanVal) || 0);
       let novoPreco = prev.preco_unitario;
 
       if (custo !== '' && prev.margem_lucro_pct !== '') {
-        const margem = parseFloat(prev.margem_lucro_pct) || 0;
+        const margem = parseFloat(String(prev.margem_lucro_pct).replace(',', '.')) || 0;
         novoPreco = parseFloat((custo * (1 + margem / 100)).toFixed(2));
-      } else if (custo !== '' && (parseFloat(novoPreco) || 0) > 0) {
-        const calcMargem = custo > 0 ? parseFloat((((novoPreco - custo) / custo) * 100).toFixed(2)) : 0;
+      } else if (custo !== '' && (parseFloat(String(novoPreco).replace(',', '.')) || 0) > 0) {
+        const precoNum = parseFloat(String(novoPreco).replace(',', '.'));
+        const calcMargem = custo > 0 ? parseFloat((((precoNum - custo) / custo) * 100).toFixed(2)) : 0;
         return { ...prev, preco_custo: novoCustoRaw, margem_lucro_pct: calcMargem };
       }
 
@@ -233,11 +235,12 @@ export const EstoqueTab = () => {
 
   const handleMargemChange = (novaMargemRaw) => {
     setFormProduto(prev => {
-      const margem = novaMargemRaw === '' ? '' : (parseFloat(novaMargemRaw) || 0);
+      const cleanMargem = String(novaMargemRaw ?? '').replace(',', '.');
+      const margem = cleanMargem === '' ? '' : (parseFloat(cleanMargem) || 0);
       let novoPreco = prev.preco_unitario;
 
       if (prev.preco_custo !== '' && margem !== '') {
-        const custo = parseFloat(prev.preco_custo) || 0;
+        const custo = parseFloat(String(prev.preco_custo).replace(',', '.')) || 0;
         novoPreco = parseFloat((custo * (1 + margem / 100)).toFixed(2));
       }
 
@@ -251,11 +254,12 @@ export const EstoqueTab = () => {
 
   const handlePrecoUnitarioChange = (novoPrecoRaw) => {
     setFormProduto(prev => {
-      const preco = novoPrecoRaw === '' ? '' : Math.max(0, parseFloat(novoPrecoRaw) || 0);
+      const cleanPreco = String(novoPrecoRaw ?? '').replace(',', '.');
+      const preco = cleanPreco === '' ? '' : Math.max(0, parseFloat(cleanPreco) || 0);
       let novaMargem = prev.margem_lucro_pct;
 
-      if (prev.preco_custo !== '' && parseFloat(prev.preco_custo) > 0 && preco !== '') {
-        const custo = parseFloat(prev.preco_custo);
+      if (prev.preco_custo !== '' && parseFloat(String(prev.preco_custo).replace(',', '.')) > 0 && preco !== '') {
+        const custo = parseFloat(String(prev.preco_custo).replace(',', '.'));
         novaMargem = parseFloat((((preco - custo) / custo) * 100).toFixed(2));
       }
 
@@ -315,15 +319,15 @@ export const EstoqueTab = () => {
       permite_plaina: Boolean(formProduto.permite_plaina),
       categorias: formProduto.categorias.length > 0 ? formProduto.categorias : ['Geral'],
       categoria: formProduto.categorias[0] || 'Geral',
-      preco_custo: formProduto.preco_custo === '' ? 0 : Math.max(0, parseFloat(formProduto.preco_custo) || 0),
-      margem_lucro_pct: formProduto.margem_lucro_pct === '' ? 0 : (parseFloat(formProduto.margem_lucro_pct) || 0),
-      preco_unitario: Math.max(0, parseFloat(formProduto.preco_unitario) || 0),
+      preco_custo: formProduto.preco_custo === '' ? 0 : Math.max(0, parseFloat(String(formProduto.preco_custo).replace(',', '.')) || 0),
+      margem_lucro_pct: formProduto.margem_lucro_pct === '' ? 0 : (parseFloat(String(formProduto.margem_lucro_pct).replace(',', '.')) || 0),
+      preco_unitario: Math.max(0, parseFloat(String(formProduto.preco_unitario).replace(',', '.')) || 0),
       atualizado_em: new Date().toISOString(),
-      estoque_atual: Math.max(0, parseFloat(formProduto.estoque_atual) || 0),
-      estoque_minimo: Math.max(0, parseFloat(formProduto.estoque_minimo) || 0),
-      largura_cm: parseFloat(formProduto.largura_cm) || 0,
-      espessura_cm: parseFloat(formProduto.espessura_cm) || 0,
-      comprimento_padrao_m: parseFloat(formProduto.comprimento_padrao_m) || 0
+      estoque_atual: Math.max(0, parseFloat(String(formProduto.estoque_atual).replace(',', '.')) || 0),
+      estoque_minimo: Math.max(0, parseFloat(String(formProduto.estoque_minimo).replace(',', '.')) || 0),
+      largura_cm: parseFloat(String(formProduto.largura_cm).replace(',', '.')) || 0,
+      espessura_cm: parseFloat(String(formProduto.espessura_cm).replace(',', '.')) || 0,
+      comprimento_padrao_m: parseFloat(String(formProduto.comprimento_padrao_m).replace(',', '.')) || 0
     };
 
     const res = updateProduct(savedProd);
@@ -789,7 +793,7 @@ export const EstoqueTab = () => {
               </div>
               <button className="modal-close" onClick={() => setModalProduto({ isOpen: false, isEdit: false })}>&times;</button>
             </div>
-            <form onSubmit={handleSalvarProduto} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <form noValidate onSubmit={handleSalvarProduto} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               <div className="modal-body" style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {/* CÓDIGO E NOME */}
                 <div className="form-grid" style={{ gridTemplateColumns: '1fr 2fr' }}>
@@ -957,7 +961,7 @@ export const EstoqueTab = () => {
                       </label>
                       <input 
                         type="number" 
-                        step="0.05" 
+                        step="any" 
                         min="0"
                         placeholder="Ex: 30,00"
                         className="form-input font-mono" 
@@ -981,7 +985,7 @@ export const EstoqueTab = () => {
                       <div style={{ position: 'relative' }}>
                         <input 
                           type="number" 
-                          step="1" 
+                          step="any" 
                           placeholder="Ex: 30"
                           className="form-input font-mono" 
                           style={{ height: '34px', fontSize: '13px', fontWeight: 700, paddingRight: '25px', background: '#FFFFFF' }}
@@ -1024,7 +1028,7 @@ export const EstoqueTab = () => {
                       </label>
                       <input 
                         type="number" 
-                        step="0.05" 
+                        step="any" 
                         min="0"
                         className="form-input font-mono" 
                         style={{ height: '34px', fontSize: '13.5px', fontWeight: 800, color: '#047857', border: '1.5px solid #10B981', background: '#ECFDF5' }}
@@ -1062,7 +1066,7 @@ export const EstoqueTab = () => {
                     <label className="form-label">Largura (cm):</label>
                     <input 
                       type="number" 
-                      step="0.5"
+                      step="any"
                       min="0"
                       className="form-input font-mono" 
                       placeholder="Opcional (madeiras)"
@@ -1074,7 +1078,7 @@ export const EstoqueTab = () => {
                     <label className="form-label">Espessura (cm):</label>
                     <input 
                       type="number" 
-                      step="0.5"
+                      step="any"
                       min="0"
                       className="form-input font-mono" 
                       placeholder="Opcional (madeiras)"
@@ -1129,6 +1133,7 @@ export const EstoqueTab = () => {
                     <label className="form-label">Estoque Atual / Inicial:</label>
                     <input 
                       type="number" 
+                      step="any"
                       min="0"
                       className="form-input font-mono" 
                       value={formProduto.estoque_atual}
@@ -1139,6 +1144,7 @@ export const EstoqueTab = () => {
                     <label className="form-label">Estoque Mínimo de Alerta:</label>
                     <input 
                       type="number" 
+                      step="any"
                       min="0"
                       className="form-input font-mono" 
                       value={formProduto.estoque_minimo}

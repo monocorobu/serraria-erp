@@ -1613,7 +1613,7 @@ export const BalcaoTab = () => {
               id="fast-preco-input"
               ref={fastPrecoInputRef}
               className="form-input font-mono"
-              step="0.50"
+              step="any"
               value={fastPreco}
               onChange={e => setFastPreco(e.target.value)}
               onKeyDown={e => {
@@ -1993,7 +1993,7 @@ export const BalcaoTab = () => {
                     type="number"
                     min="0"
                     max="100"
-                    step="0.5"
+                    step="any"
                     className="form-input font-mono"
                     style={{
                       height: '28px',
@@ -2328,7 +2328,7 @@ export const BalcaoTab = () => {
                         <span style={{ fontSize: '11px', fontWeight: 600 }}>R$</span>
                         <input
                           type="number"
-                          step="0.50"
+                          step="any"
                           min="0"
                           max={totais.valor_total}
                           className="form-input font-mono"
@@ -2439,7 +2439,7 @@ export const BalcaoTab = () => {
 
                         <input
                           type="number"
-                          step="0.50"
+                          step="any"
                           min="0"
                           className="form-input font-mono"
                           style={{ height: '26px', width: '85px', padding: '1px 4px', textAlign: 'right', fontWeight: 700, fontSize: '11px' }}
